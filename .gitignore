@@ -67,3 +67,18 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# --- System Files ---
+.DS_Store
+Thumbs.db
+
+# --- Qt & IDE specific ---
+*.user
+*.user.*
+.vscode/
+.idea/
+.qmlls.ini
+.qmlls/
+
+# --- Dependencies ---
+vcpkg_installed/
