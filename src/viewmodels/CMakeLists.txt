@@ -28,6 +28,7 @@ qt_add_library(ViewModelsLib STATIC
     AudioConfigController.cpp
     PracticeAssetController.h
     PracticeAssetController.cpp
+    AppInfo.h
 )
 
 target_link_libraries(ViewModelsLib PUBLIC DatabaseMangerLib ServicesLib AudioLib Qt6::Core Qt6::Qml)

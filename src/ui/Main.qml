@@ -139,6 +139,10 @@ ApplicationWindow {
         }
     }
 
+    AboutDialog {
+        id: aboutDialog
+    }
+
     Dialog {
         id: importSummaryDialog
         title: qsTr("Import complete")
@@ -209,20 +213,6 @@ ApplicationWindow {
         target: errorLog
         function onUserNoticeRequested(message) {
             transientNoticePopup.show(message);
-        }
-    }
-
-    Dialog {
-        id: aboutDialog
-        title: "SonarPractice"
-        anchors.centerIn: parent
-        standardButtons: Dialog.Ok
-        width: Math.min(root.width * 0.7, 420)
-
-        Label {
-            width: aboutDialog.availableWidth
-            wrapMode: Text.WordWrap
-            text: qsTr("Repertoire and practice manager\nImport → File imports media into the local database.")
         }
     }
 

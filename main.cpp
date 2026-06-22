@@ -16,6 +16,7 @@
 #include "ApplicationBootstrap.h"
 #include "StartupController.h"
 #include "TranslationManager.h"
+#include "AppInfo.h"
 
 /**
  * @file main.cpp
@@ -119,6 +120,11 @@ int main(int argc, char *argv[]) {
 
     engine.rootContext()->setContextProperty(QStringLiteral("libraryLinkModel"),
                                              bootstrap.libraryLinkModel());
+
+    // register for menu build and qt version.
+    // Heap-allocate to ensure the QObject lifetime is always valid for QML bindings.
+    auto *appInfo = new AppInfo(&engine);
+    engine.rootContext()->setContextProperty(QStringLiteral("appInfo"), appInfo);
 
     startupController.registerContextProperties();
 

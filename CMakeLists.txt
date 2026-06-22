@@ -24,7 +24,8 @@ set(LIBGP_PARSER_BUILD_TESTS OFF CACHE BOOL "Disable libgp_parser tests" FORCE)
 
 add_compile_definitions(APP_VERSION="${PROJECT_VERSION}")
 add_compile_definitions(COMPILER_INFO="${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
-add_compile_definitions(BUILD_DATE="${CMAKE_DATE}")
+string(TIMESTAMP BUILD_DATE "%Y-%m-%d %H:%M:%S")
+add_compile_definitions(BUILD_DATE="${BUILD_DATE}")
 
 enable_testing()
 
@@ -81,6 +82,7 @@ qt_add_qml_module(SonarPractice
     src/ui/Main.qml
     src/ui/Theme.qml
 
+    src/ui/components/AboutDialog.qml
     src/ui/components/AssetTile.qml
     src/ui/components/AudioWaveformView.qml
     src/ui/components/AudioProcessingOverlay.qml
