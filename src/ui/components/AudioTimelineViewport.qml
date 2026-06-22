@@ -237,6 +237,11 @@ Item {
             zoomSlider.value = Math.round(zoomLevel * 100)
     }
 
+    onShowTablatureChanged: {
+        if (showTablature)
+            Qt.callLater(resetView)
+    }
+
     onDurationMsChanged: resetView()
 
     onPlayheadRatioChanged: followPlayheadIfNeeded()

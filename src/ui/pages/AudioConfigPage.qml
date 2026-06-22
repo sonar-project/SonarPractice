@@ -574,6 +574,10 @@ Page {
             if (audioConfigController.selectedPitchNoteIndex >= 0)
                 root.syncPitchNoteEditor()
         }
+        function onHasPitchDataChanged() {
+            if (audioConfigController.hasPitchData)
+                audioTimeline.resetView()
+        }
         function onTransientNoticeRequested(message) {
             if (!root.visible || message.length === 0)
                 return
@@ -587,10 +591,11 @@ Page {
 
     Dialog {
         id: pitchScopeDialog
-        anchors.centerIn: parent
         modal: true
         title: qsTr("Analyze pitch")
         standardButtons: Dialog.NoButton
+        anchors.centerIn: parent
+        width: Math.min(Math.max(root.width - 48, 280), 420)
 
         background: Rectangle {
             radius: 8
@@ -600,7 +605,7 @@ Page {
 
         contentItem: ColumnLayout {
             spacing: 12
-            implicitWidth: Math.min(root.width * 0.8, 420)
+            width: parent.width
 
             Label {
                 Layout.fillWidth: true

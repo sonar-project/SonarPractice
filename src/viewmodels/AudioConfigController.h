@@ -235,8 +235,8 @@ class AudioConfigController : public QObject {
                                      const QString &jsonPath, int noteCount);
     [[nodiscard]] qint64 sourceTimeMsFromPlayback(qint64 playbackMs) const;
     void updateHasCustomRegion();
-    void reloadPitchDataFromDisk();
-    void syncPitchNotesForDisplay();
+    void reloadPitchDataFromDisk(const QString &jsonPathHint = QString());
+    void syncPitchNotesForDisplay(bool forceNotify = false);
     bool savePitchDataToDisk(QString &errorMessage);
     [[nodiscard]] qint64 playbackMsFromSourceSec(double sourceSec) const;
     [[nodiscard]] double sourceSecFromPlaybackMs(qint64 playbackMs) const;

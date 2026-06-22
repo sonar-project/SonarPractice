@@ -9,8 +9,8 @@
 /**
  * @brief Offline pitch detection using aubio.
  *
- * Decodes an audio file, detects notes, and can write results as JSON next to
- * the source file.
+ * Decodes an audio file, detects notes with an accuracy-oriented aubio pipeline,
+ * and can write results as JSON next to the source file.
  */
 class AudioAnalyzer {
     Q_DECLARE_TR_FUNCTIONS(AudioAnalyzer)

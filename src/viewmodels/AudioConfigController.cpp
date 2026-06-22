@@ -808,7 +808,7 @@ void AudioConfigController::handlePitchAnalysisFinished(bool success, const QStr
         tr("Pitch data saved (%1 notes) to %2").arg(noteCount).arg(jsonPath);
     setStatusMessage(notice);
     emit transientNoticeRequested(notice);
-    reloadPitchDataFromDisk();
+    reloadPitchDataFromDisk(jsonPath);
 }
 
 QString AudioConfigController::resolvedAudioPathForCurrentMedia() const {
@@ -835,27 +835,29 @@ double AudioConfigController::sourceSecFromPlaybackMs(qint64 playbackMs) const {
            (1000.0 * static_cast<double>(AudioConstants::kPercentScale));
 }
 
-void AudioConfigController::reloadPitchDataFromDisk() {
+void AudioConfigController::reloadPitchDataFromDisk(const QString &jsonPathHint) {
     const bool hadPitchData = m_hasPitchData;
+    const int previousNoteCount = m_pitchNotesSource.size();
     m_pitchNotesSource.clear();
-    m_pitchJsonPath.clear();
     setSelectedPitchNoteIndex(-1);
 
     const QString audioPath = resolvedAudioPathForCurrentMedia();
     if (audioPath.isEmpty()) {
+        m_pitchJsonPath.clear();
         m_hasPitchData = false;
-        syncPitchNotesForDisplay();
-        if (hadPitchData) {
+        syncPitchNotesForDisplay(true);
+        if (m_hasPitchData != hadPitchData || previousNoteCount != 0) {
             emit hasPitchDataChanged();
         }
         return;
     }
 
-    m_pitchJsonPath = AudioAnalyzer::jsonOutputPathFor(audioPath);
+    m_pitchJsonPath = jsonPathHint.isEmpty() ? AudioAnalyzer::jsonOutputPathFor(audioPath)
+                                             : jsonPathHint;
     if (!QFile::exists(m_pitchJsonPath)) {
         m_hasPitchData = false;
-        syncPitchNotesForDisplay();
-        if (hadPitchData) {
+        syncPitchNotesForDisplay(true);
+        if (m_hasPitchData != hadPitchData || previousNoteCount != 0) {
             emit hasPitchDataChanged();
         }
         return;
@@ -865,22 +867,20 @@ void AudioConfigController::reloadPitchDataFromDisk() {
     m_pitchNotesSource = AudioAnalyzer::loadNotesFromJson(m_pitchJsonPath, errorMessage);
     if (!errorMessage.isEmpty()) {
         m_hasPitchData = false;
-        syncPitchNotesForDisplay();
+        syncPitchNotesForDisplay(true);
         setStatusMessage(errorMessage);
-        if (hadPitchData) {
+        if (m_hasPitchData != hadPitchData || previousNoteCount != 0) {
             emit hasPitchDataChanged();
         }
         return;
     }
 
     m_hasPitchData = !m_pitchNotesSource.isEmpty();
-    syncPitchNotesForDisplay();
-    if (m_hasPitchData != hadPitchData) {
-        emit hasPitchDataChanged();
-    }
+    syncPitchNotesForDisplay(true);
+    emit hasPitchDataChanged();
 }
 
-void AudioConfigController::syncPitchNotesForDisplay() {
+void AudioConfigController::syncPitchNotesForDisplay(bool forceNotify) {
     QVariantList next;
     next.reserve(m_pitchNotesSource.size());
     for (int index = 0; index < m_pitchNotesSource.size(); ++index) {
@@ -909,7 +909,7 @@ void AudioConfigController::syncPitchNotesForDisplay() {
         next.append(entry);
     }
 
-    if (m_pitchNotesDisplay == next) {
+    if (!forceNotify && m_pitchNotesDisplay == next) {
         return;
     }
     m_pitchNotesDisplay = std::move(next);
