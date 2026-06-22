@@ -10,6 +10,8 @@ class TestAudioAnalyzer : public QObject {
     void jsonOutputPathReplacesExtension();
     void analyzeRejectsMissingFile();
     void analyzeAndSaveRejectsMissingFile();
+    void loadAndSaveRoundTripPreservesNotes();
+    void guitarTabMapsStandardTuning();
 };
 
 #endif // TST_AUDIOANALYZERTEST_H

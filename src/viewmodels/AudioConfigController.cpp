@@ -7,6 +7,7 @@
 
 #include <utility>
 
+#include "AudioAnalyzer.h"
 #include "AudioConfigPreset.h"
 #include "AudioConstants.h"
 #include "IPathResolver.h"
@@ -14,9 +15,32 @@
 #include "interfaces/IAudioConfigPresetRepository.h"
 #include "interfaces/IMediaFileRepository.h"
 
+#include <QFile>
+
 AudioConfigController::AudioConfigController(const Dependencies &dependencies, QObject *parent)
     : QObject(parent), m_dependencies(dependencies) {
+    applyTabLayout(GuitarTabLayout::standardGuitar());
     connectEngine();
+    connectPitchAnalyzer();
+}
+
+AudioConfigController::~AudioConfigController() {
+    if (m_pitchAnalysisThread != nullptr) {
+        m_pitchAnalysisThread->quit();
+        m_pitchAnalysisThread->wait();
+    }
+}
+
+void AudioConfigController::connectPitchAnalyzer() {
+    m_pitchAnalysisThread = new QThread(this);
+    m_pitchAnalyzerWorker = new AudioAnalyzerWorker();
+    m_pitchAnalyzerWorker->moveToThread(m_pitchAnalysisThread);
+
+    connect(m_pitchAnalysisThread, &QThread::finished, m_pitchAnalyzerWorker, &QObject::deleteLater);
+    connect(m_pitchAnalyzerWorker, &AudioAnalyzerWorker::finished, this,
+            &AudioConfigController::handlePitchAnalysisFinished, Qt::QueuedConnection);
+
+    m_pitchAnalysisThread->start();
 }
 
 void AudioConfigController::connectEngine() {
@@ -67,6 +91,7 @@ void AudioConfigController::connectEngine() {
         m_engineLoadedMediaFileId = m_mediaFileId;
         m_loadingTargetMediaFileId = 0;
         emit durationMsChanged();
+        updateHasCustomRegion();
 
         if (m_pendingPlayAfterLoad) {
             m_pendingPlayAfterLoad = false;
@@ -140,6 +165,7 @@ void AudioConfigController::setTempoPercent(int tempoPercent) {
     m_tempoPercent = bounded;
     m_engine.setTempoPercent(m_tempoPercent);
     emit tempoPercentChanged();
+    syncPitchNotesForDisplay();
     persistCurrentSettings();
 }
 
@@ -168,6 +194,72 @@ void AudioConfigController::setRegionEndMs(qint64 regionEndMs) {
 }
 
 bool AudioConfigController::canUndoRegion() const { return !m_regionUndoStack.empty(); }
+
+bool AudioConfigController::pitchAnalyzing() const { return m_pitchAnalyzing; }
+
+bool AudioConfigController::hasCustomRegion() const { return m_hasCustomRegion; }
+
+bool AudioConfigController::hasPitchData() const { return m_hasPitchData; }
+
+QVariantList AudioConfigController::pitchNotes() const { return m_pitchNotesDisplay; }
+
+int AudioConfigController::selectedPitchNoteIndex() const { return m_selectedPitchNoteIndex; }
+
+void AudioConfigController::setSelectedPitchNoteIndex(int index) {
+    if (m_selectedPitchNoteIndex == index) {
+        return;
+    }
+    m_selectedPitchNoteIndex = index;
+    emit selectedPitchNoteIndexChanged();
+}
+
+int AudioConfigController::tabStringCount() const { return m_tabLayout.stringCount(); }
+
+const QStringList &AudioConfigController::tabStringLabels() const { return m_tabLayout.stringLabels(); }
+
+int AudioConfigController::tabInstrument() const { return m_tabInstrument; }
+
+void AudioConfigController::setTabInstrument(int instrument) {
+    const int bounded = qBound(0, instrument, 1);
+    if (m_tabInstrument == bounded) {
+        return;
+    }
+    m_tabInstrument = bounded;
+    if (m_tabTuningName.isEmpty()) {
+        applyTabLayout(m_tabInstrument == 1 ? GuitarTabLayout::standardBass()
+                                            : GuitarTabLayout::standardGuitar());
+    } else {
+        applyTabLayout(GuitarTabLayout::fromTuningText(
+            m_tabTuningName,
+            m_tabInstrument == 1 ? GuitarTabLayout::Instrument::Bass
+                                 : GuitarTabLayout::Instrument::Guitar));
+    }
+}
+
+void AudioConfigController::setTabTuningName(const QString &tuningName) {
+    if (m_tabTuningName == tuningName) {
+        return;
+    }
+    m_tabTuningName = tuningName.trimmed();
+    if (m_tabTuningName.isEmpty()) {
+        setTabInstrument(m_tabInstrument);
+        return;
+    }
+    applyTabLayout(GuitarTabLayout::fromTuningText(
+        m_tabTuningName,
+        m_tabInstrument == 1 ? GuitarTabLayout::Instrument::Bass
+                             : GuitarTabLayout::Instrument::Guitar));
+}
+
+void AudioConfigController::applyTabLayout(const GuitarTabLayout &layout) {
+    m_tabLayout = layout;
+    syncPitchNotesForDisplay();
+    emit tabLayoutChanged();
+}
+
+double AudioConfigController::frequencyForTabPosition(int stringIndex, int fret) const {
+    return m_tabLayout.frequencyForPosition(stringIndex, fret);
+}
 
 bool AudioConfigController::presetApplied() const { return m_presetApplied; }
 
@@ -280,6 +372,8 @@ void AudioConfigController::reloadMedia() {
     m_engine.setLoopEnabled(m_loopEnabled);
 
     m_loadingTargetMediaFileId = m_mediaFileId;
+    updateHasCustomRegion();
+    reloadPitchDataFromDisk();
     m_engine.loadFile(resolvedPath);
     if (!m_engine.lastError().isEmpty()) {
         setStatusMessage(m_engine.lastError());
@@ -481,6 +575,7 @@ void AudioConfigController::applyRegionMs(qint64 regionStartMs, qint64 regionEnd
     m_regionEndMs = newEnd;
     m_engine.setRegionMs(m_regionStartMs, m_regionEndMs);
     emit regionChanged();
+    updateHasCustomRegion();
     persistCurrentSettings();
 }
 
@@ -642,4 +737,251 @@ void AudioConfigController::setStatusMessage(const QString &message) {
     }
     m_statusMessage = message;
     emit statusMessageChanged();
+}
+
+void AudioConfigController::setPitchAnalyzing(bool analyzing) {
+    if (m_pitchAnalyzing == analyzing) {
+        return;
+    }
+    m_pitchAnalyzing = analyzing;
+    emit pitchAnalyzingChanged();
+}
+
+void AudioConfigController::updateHasCustomRegion() {
+    const qint64 duration = m_engine.durationMs();
+    const bool customRegion =
+        m_regionEndMs > m_regionStartMs &&
+        (m_regionStartMs > 0 || (duration > 0 && m_regionEndMs < duration));
+    if (m_hasCustomRegion == customRegion) {
+        return;
+    }
+    m_hasCustomRegion = customRegion;
+    emit hasCustomRegionChanged();
+}
+
+qint64 AudioConfigController::sourceTimeMsFromPlayback(qint64 playbackMs) const {
+    return (playbackMs * static_cast<qint64>(m_tempoPercent)) / AudioConstants::kPercentScale;
+}
+
+void AudioConfigController::startPitchDetection(bool useRegion) {
+    if (m_pitchAnalyzing || m_engine.isLoading()) {
+        return;
+    }
+    if (m_mediaFileId <= 0) {
+        setStatusMessage(tr("No audio file selected."));
+        return;
+    }
+
+    const std::optional<MediaFile> mediaFile = m_dependencies.mediaRepo.getMediaFile(m_mediaFileId);
+    if (!mediaFile.has_value()) {
+        setStatusMessage(tr("Media file not found."));
+        return;
+    }
+
+    const QString resolvedPath = m_dependencies.pathResolver.resolve(*mediaFile);
+    PitchAnalysisRequest request;
+    request.filePath = resolvedPath;
+    request.useRegion = useRegion;
+    if (useRegion) {
+        request.regionStartMs = sourceTimeMsFromPlayback(m_regionStartMs);
+        const qint64 playbackEndMs =
+            m_regionEndMs > 0 ? m_regionEndMs : m_engine.durationMs();
+        request.regionEndMs = sourceTimeMsFromPlayback(playbackEndMs);
+    }
+
+    setPitchAnalyzing(true);
+    setStatusMessage(useRegion ? tr("Detecting pitch in region…") : tr("Detecting pitch…"));
+
+    QMetaObject::invokeMethod(m_pitchAnalyzerWorker, "analyze", Qt::QueuedConnection,
+                              Q_ARG(PitchAnalysisRequest, request));
+}
+
+void AudioConfigController::handlePitchAnalysisFinished(bool success, const QString &errorMessage,
+                                                      const QString &jsonPath, int noteCount) {
+    setPitchAnalyzing(false);
+    if (!success) {
+        setStatusMessage(errorMessage.isEmpty() ? tr("Pitch detection failed.") : errorMessage);
+        return;
+    }
+
+    const QString notice =
+        tr("Pitch data saved (%1 notes) to %2").arg(noteCount).arg(jsonPath);
+    setStatusMessage(notice);
+    emit transientNoticeRequested(notice);
+    reloadPitchDataFromDisk();
+}
+
+QString AudioConfigController::resolvedAudioPathForCurrentMedia() const {
+    if (m_mediaFileId <= 0) {
+        return {};
+    }
+    const std::optional<MediaFile> mediaFile = m_dependencies.mediaRepo.getMediaFile(m_mediaFileId);
+    if (!mediaFile.has_value()) {
+        return {};
+    }
+    return m_dependencies.pathResolver.resolve(*mediaFile);
+}
+
+qint64 AudioConfigController::playbackMsFromSourceSec(double sourceSec) const {
+    if (m_tempoPercent <= 0) {
+        return 0;
+    }
+    return static_cast<qint64>(sourceSec * 1000.0 * static_cast<double>(AudioConstants::kPercentScale) /
+                              static_cast<double>(m_tempoPercent));
+}
+
+double AudioConfigController::sourceSecFromPlaybackMs(qint64 playbackMs) const {
+    return static_cast<double>(playbackMs) * static_cast<double>(m_tempoPercent) /
+           (1000.0 * static_cast<double>(AudioConstants::kPercentScale));
+}
+
+void AudioConfigController::reloadPitchDataFromDisk() {
+    const bool hadPitchData = m_hasPitchData;
+    m_pitchNotesSource.clear();
+    m_pitchJsonPath.clear();
+    setSelectedPitchNoteIndex(-1);
+
+    const QString audioPath = resolvedAudioPathForCurrentMedia();
+    if (audioPath.isEmpty()) {
+        m_hasPitchData = false;
+        syncPitchNotesForDisplay();
+        if (hadPitchData) {
+            emit hasPitchDataChanged();
+        }
+        return;
+    }
+
+    m_pitchJsonPath = AudioAnalyzer::jsonOutputPathFor(audioPath);
+    if (!QFile::exists(m_pitchJsonPath)) {
+        m_hasPitchData = false;
+        syncPitchNotesForDisplay();
+        if (hadPitchData) {
+            emit hasPitchDataChanged();
+        }
+        return;
+    }
+
+    QString errorMessage;
+    m_pitchNotesSource = AudioAnalyzer::loadNotesFromJson(m_pitchJsonPath, errorMessage);
+    if (!errorMessage.isEmpty()) {
+        m_hasPitchData = false;
+        syncPitchNotesForDisplay();
+        setStatusMessage(errorMessage);
+        if (hadPitchData) {
+            emit hasPitchDataChanged();
+        }
+        return;
+    }
+
+    m_hasPitchData = !m_pitchNotesSource.isEmpty();
+    syncPitchNotesForDisplay();
+    if (m_hasPitchData != hadPitchData) {
+        emit hasPitchDataChanged();
+    }
+}
+
+void AudioConfigController::syncPitchNotesForDisplay() {
+    QVariantList next;
+    next.reserve(m_pitchNotesSource.size());
+    for (int index = 0; index < m_pitchNotesSource.size(); ++index) {
+        const AudioAnalyzer::Note &note = m_pitchNotesSource.at(index);
+        QVariantMap entry;
+        entry.insert(QStringLiteral("index"), index);
+        entry.insert(QStringLiteral("startMs"), playbackMsFromSourceSec(note.startSec));
+        entry.insert(QStringLiteral("endMs"), playbackMsFromSourceSec(note.endSec));
+        entry.insert(QStringLiteral("freq"), note.frequencyHz);
+        entry.insert(QStringLiteral("label"),
+                     AudioAnalyzer::noteLabelFromFrequency(note.frequencyHz));
+        entry.insert(QStringLiteral("midi"), AudioAnalyzer::midiNoteFromFrequency(note.frequencyHz));
+
+        const TabPosition tabPosition = m_tabLayout.positionForFrequency(note.frequencyHz);
+        entry.insert(QStringLiteral("tabString"), tabPosition.stringIndex);
+        entry.insert(QStringLiteral("tabFret"), tabPosition.fret);
+        entry.insert(QStringLiteral("tabFretText"), GuitarTabLayout::fretText(tabPosition));
+        if (tabPosition.isValid() && tabPosition.stringIndex < m_tabLayout.stringLabels().size()) {
+            entry.insert(QStringLiteral("tabDisplay"),
+                         m_tabLayout.stringLabels().at(tabPosition.stringIndex) + QLatin1Char(':') +
+                             GuitarTabLayout::fretText(tabPosition));
+        } else {
+            entry.insert(QStringLiteral("tabDisplay"), AudioAnalyzer::noteLabelFromFrequency(note.frequencyHz));
+        }
+
+        next.append(entry);
+    }
+
+    if (m_pitchNotesDisplay == next) {
+        return;
+    }
+    m_pitchNotesDisplay = std::move(next);
+    emit pitchNotesChanged();
+
+    if (m_selectedPitchNoteIndex >= m_pitchNotesSource.size()) {
+        setSelectedPitchNoteIndex(-1);
+    }
+}
+
+bool AudioConfigController::savePitchDataToDisk(QString &errorMessage) {
+    if (m_pitchJsonPath.isEmpty()) {
+        errorMessage = tr("No pitch file path.");
+        return false;
+    }
+    return AudioAnalyzer::saveNotesToJson(m_pitchJsonPath, m_pitchNotesSource, errorMessage);
+}
+
+void AudioConfigController::updatePitchNote(int index, double startMs, double endMs,
+                                             double frequencyHz) {
+    if (index < 0 || index >= m_pitchNotesSource.size()) {
+        return;
+    }
+    if (endMs <= startMs || frequencyHz <= 0.0) {
+        setStatusMessage(tr("Invalid note values."));
+        return;
+    }
+
+    AudioAnalyzer::Note &note = m_pitchNotesSource[index];
+    note.startSec = sourceSecFromPlaybackMs(static_cast<qint64>(startMs));
+    note.endSec = sourceSecFromPlaybackMs(static_cast<qint64>(endMs));
+    note.frequencyHz = frequencyHz;
+
+    QString errorMessage;
+    if (!savePitchDataToDisk(errorMessage)) {
+        setStatusMessage(errorMessage);
+        return;
+    }
+
+    syncPitchNotesForDisplay();
+    setStatusMessage(tr("Pitch correction saved."));
+}
+
+void AudioConfigController::updatePitchNoteFromTab(int index, double startMs, double endMs,
+                                                   int stringIndex, int fret) {
+    const double frequencyHz = frequencyForTabPosition(stringIndex, fret);
+    if (frequencyHz <= 0.0) {
+        setStatusMessage(tr("Invalid tab position."));
+        return;
+    }
+    updatePitchNote(index, startMs, endMs, frequencyHz);
+}
+
+void AudioConfigController::removeSelectedPitchNote() {
+    if (m_selectedPitchNoteIndex < 0 || m_selectedPitchNoteIndex >= m_pitchNotesSource.size()) {
+        return;
+    }
+
+    m_pitchNotesSource.removeAt(m_selectedPitchNoteIndex);
+    setSelectedPitchNoteIndex(-1);
+
+    QString errorMessage;
+    if (!savePitchDataToDisk(errorMessage)) {
+        setStatusMessage(errorMessage);
+        return;
+    }
+
+    const bool hadPitchData = m_hasPitchData;
+    m_hasPitchData = !m_pitchNotesSource.isEmpty();
+    syncPitchNotesForDisplay();
+    if (m_hasPitchData != hadPitchData) {
+        emit hasPitchDataChanged();
+    }
+    setStatusMessage(tr("Note removed."));
 }

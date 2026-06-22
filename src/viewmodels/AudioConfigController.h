@@ -3,11 +3,16 @@
 
 #include "AudioConstants.h"
 #include "AudioPlaybackEngine.h"
+#include "AudioAnalyzer.h"
+#include "AudioAnalyzerWorker.h"
+#include "GuitarTabLayout.h"
 
 #include <QHash>
 #include <QObject>
 #include <QStringList>
+#include <QThread>
 #include <QVariantList>
+#include <QVector>
 #include <QtQml/qqmlregistration.h>
 
 #include <vector>
@@ -50,8 +55,23 @@ class AudioConfigController : public QObject {
                    presetNameInputChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     Q_PROPERTY(bool canUndoRegion READ canUndoRegion NOTIFY canUndoRegionChanged)
+    /** True while offline pitch detection runs on a worker thread. */
+    Q_PROPERTY(bool pitchAnalyzing READ pitchAnalyzing NOTIFY pitchAnalyzingChanged)
+    /** True when A–B markers do not cover the full processed track. */
+    Q_PROPERTY(bool hasCustomRegion READ hasCustomRegion NOTIFY hasCustomRegionChanged)
     /** Set after a named preset was loaded and applied to the engine. */
     Q_PROPERTY(bool presetApplied READ presetApplied NOTIFY presetAppliedChanged)
+    /** True when a pitch JSON file exists and has at least one note. */
+    Q_PROPERTY(bool hasPitchData READ hasPitchData NOTIFY hasPitchDataChanged)
+    /** Pitch notes for display (times on the playback timeline, in ms). */
+    Q_PROPERTY(QVariantList pitchNotes READ pitchNotes NOTIFY pitchNotesChanged)
+    Q_PROPERTY(int selectedPitchNoteIndex READ selectedPitchNoteIndex WRITE setSelectedPitchNoteIndex
+                   NOTIFY selectedPitchNoteIndexChanged)
+    /** Number of tab lines (4 bass / 6 guitar). */
+    Q_PROPERTY(int tabStringCount READ tabStringCount NOTIFY tabLayoutChanged)
+    Q_PROPERTY(QStringList tabStringLabels READ tabStringLabels NOTIFY tabLayoutChanged)
+    /** 0 = guitar, 1 = bass. */
+    Q_PROPERTY(int tabInstrument READ tabInstrument WRITE setTabInstrument NOTIFY tabLayoutChanged)
 
   public:
     struct Dependencies {
@@ -61,6 +81,7 @@ class AudioConfigController : public QObject {
     };
 
     explicit AudioConfigController(const Dependencies &dependencies, QObject *parent = nullptr);
+    ~AudioConfigController() override;
 
     qlonglong mediaFileId() const;
     void setMediaFileId(qlonglong mediaFileId);
@@ -100,6 +121,16 @@ class AudioConfigController : public QObject {
     [[nodiscard]] QVariantList peaks() const;
     [[nodiscard]] const QString &statusMessage() const;
     [[nodiscard]] bool canUndoRegion() const;
+    [[nodiscard]] bool pitchAnalyzing() const;
+    [[nodiscard]] bool hasCustomRegion() const;
+    [[nodiscard]] bool hasPitchData() const;
+    [[nodiscard]] QVariantList pitchNotes() const;
+    [[nodiscard]] int selectedPitchNoteIndex() const;
+    void setSelectedPitchNoteIndex(int index);
+    [[nodiscard]] int tabStringCount() const;
+    [[nodiscard]] const QStringList &tabStringLabels() const;
+    [[nodiscard]] int tabInstrument() const;
+    void setTabInstrument(int instrument);
 
   public slots:
     void reloadMedia();
@@ -121,6 +152,19 @@ class AudioConfigController : public QObject {
     void savePreset();
     void loadSelectedPreset();
     void deleteSelectedPreset();
+    /**
+     * @brief Starts offline pitch detection on the current media file.
+     * @param useRegion When true, only the A–B region is analyzed (mapped to source time).
+     */
+    Q_INVOKABLE void startPitchDetection(bool useRegion);
+    /** Updates one note from playback-timeline values and saves the JSON file. */
+    Q_INVOKABLE void updatePitchNote(int index, double startMs, double endMs, double frequencyHz);
+    Q_INVOKABLE void updatePitchNoteFromTab(int index, double startMs, double endMs,
+                                             int stringIndex, int fret);
+    Q_INVOKABLE double frequencyForTabPosition(int stringIndex, int fret) const;
+    Q_INVOKABLE void setTabTuningName(const QString &tuningName);
+    /** Removes one note and saves the JSON file. */
+    Q_INVOKABLE void removeSelectedPitchNote();
 
   signals:
     void mediaFileIdChanged();
@@ -142,6 +186,12 @@ class AudioConfigController : public QObject {
     void presetNameInputChanged();
     void statusMessageChanged();
     void canUndoRegionChanged();
+    void pitchAnalyzingChanged();
+    void hasCustomRegionChanged();
+    void hasPitchDataChanged();
+    void pitchNotesChanged();
+    void selectedPitchNoteIndexChanged();
+    void tabLayoutChanged();
     void presetAppliedChanged();
     /** Short UI notice (e.g. preset loaded); QML may auto-dismiss separately from statusMessage. */
     void transientNoticeRequested(const QString &message);
@@ -164,6 +214,7 @@ class AudioConfigController : public QObject {
 
     /** Wires engine signals; runs deferred play/preset actions when decoding finishes. */
     void connectEngine();
+    void connectPitchAnalyzer();
     void refreshPresetList();
     void syncPresetSelectionAfterRefresh();
     void syncPeaksFromEngine();
@@ -179,9 +230,33 @@ class AudioConfigController : public QObject {
     void saveSettingsForMedia(qlonglong mediaFileId);
     bool restoreSettingsForMedia(qlonglong mediaFileId);
     void persistCurrentSettings();
+    void setPitchAnalyzing(bool analyzing);
+    void handlePitchAnalysisFinished(bool success, const QString &errorMessage,
+                                     const QString &jsonPath, int noteCount);
+    [[nodiscard]] qint64 sourceTimeMsFromPlayback(qint64 playbackMs) const;
+    void updateHasCustomRegion();
+    void reloadPitchDataFromDisk();
+    void syncPitchNotesForDisplay();
+    bool savePitchDataToDisk(QString &errorMessage);
+    [[nodiscard]] qint64 playbackMsFromSourceSec(double sourceSec) const;
+    [[nodiscard]] double sourceSecFromPlaybackMs(qint64 playbackMs) const;
+    [[nodiscard]] QString resolvedAudioPathForCurrentMedia() const;
+    void applyTabLayout(const GuitarTabLayout &layout);
 
     Dependencies m_dependencies;
     AudioPlaybackEngine m_engine{};
+    QThread *m_pitchAnalysisThread{nullptr};
+    AudioAnalyzerWorker *m_pitchAnalyzerWorker{nullptr};
+    bool m_pitchAnalyzing{false};
+    bool m_hasCustomRegion{false};
+    bool m_hasPitchData{false};
+    int m_selectedPitchNoteIndex{-1};
+    QString m_pitchJsonPath{};
+    QVector<AudioAnalyzer::Note> m_pitchNotesSource{};
+    QVariantList m_pitchNotesDisplay{};
+    GuitarTabLayout m_tabLayout{GuitarTabLayout::standardGuitar()};
+    int m_tabInstrument{};
+    QString m_tabTuningName{};
     qlonglong m_mediaFileId{};
     QString m_displayName{};
     QString m_songTitle{};

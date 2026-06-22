@@ -13,7 +13,8 @@ Popup {
     anchors.centerIn: parent
     width: Math.min(Overlay.overlay.width - 48, 520)
 
-    property bool processing: audioConfigController?.loading ?? false
+    property bool processing: (audioConfigController?.loading ?? false)
+                              || (audioConfigController?.pitchAnalyzing ?? false)
     readonly property real innerWidth: Math.max(0, width - leftPadding - rightPadding)
 
     readonly property string headline: {
@@ -73,7 +74,9 @@ Popup {
 
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("Processing audio…")
+                    text: (audioConfigController?.pitchAnalyzing ?? false)
+                          ? qsTr("Detecting pitch…")
+                          : qsTr("Processing audio…")
                     font.pixelSize: 18
                     font.weight: Font.DemiBold
                     color: Theme.textHeading
@@ -148,7 +151,8 @@ Popup {
 
             Button {
                 text: qsTr("Cancel")
-                enabled: root.processing
+                visible: audioConfigController?.loading ?? false
+                enabled: root.processing && (audioConfigController?.loading ?? false)
                 onClicked: audioConfigController?.cancelProcessing()
             }
         }

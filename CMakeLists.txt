@@ -85,6 +85,8 @@ qt_add_qml_module(SonarPractice
     src/ui/components/AboutDialog.qml
     src/ui/components/AssetTile.qml
     src/ui/components/AudioWaveformView.qml
+    src/ui/components/PitchNotesView.qml
+    src/ui/components/AudioTimelineViewport.qml
     src/ui/components/AudioProcessingOverlay.qml
     src/ui/components/AudioPresetIcon.qml
     src/ui/components/DarkSpinBox.qml

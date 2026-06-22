@@ -20,6 +20,10 @@ qt_add_library(AudioLib STATIC
     AudioProcessorWorker.cpp
     AudioAnalyzer.h
     AudioAnalyzer.cpp
+    AudioAnalyzerWorker.h
+    AudioAnalyzerWorker.cpp
+    GuitarTabLayout.h
+    GuitarTabLayout.cpp
 )
 
 target_link_libraries(AudioLib

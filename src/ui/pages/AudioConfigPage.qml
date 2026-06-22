@@ -37,33 +37,190 @@ Page {
         return Math.max(0, Math.min(1, ms / audioConfigController.durationMs))
     }
 
+    function syncPitchNoteEditor() {
+        const idx = audioConfigController.selectedPitchNoteIndex
+        if (idx < 0 || idx >= audioConfigController.pitchNotes.length)
+            return
+        const note = audioConfigController.pitchNotes[idx]
+        pitchNoteStartSpin.value = note.startMs
+        pitchNoteEndSpin.value = note.endMs
+        pitchNoteStringSpin.value = (note.tabString !== undefined ? note.tabString : 0) + 1
+        pitchNoteFretSpin.value = note.tabFret !== undefined ? note.tabFret : 0
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 12
         spacing: 12
 
-        AudioWaveformView {
-            id: waveform
+        ColumnLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 140
-            peaks: audioConfigController.peaks
-            opacity: audioConfigController.loading ? 0.45 : 1.0
+            spacing: 4
+            visible: audioConfigController.hasPitchData
 
-            Behavior on opacity {
-                NumberAnimation { duration: 180 }
+            Label {
+                text: qsTr("Tablature")
+                color: Theme.textSecondary
+                font.pixelSize: 11
             }
 
-            Connections {
-                target: audioConfigController
-                function onPeaksChanged() {
-                    waveform.peaks = audioConfigController.peaks
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Label {
+                    text: qsTr("Instrument")
+                    color: Theme.textMuted
+                    font.pixelSize: 11
+                }
+
+                ComboBox {
+                    id: tabInstrumentCombo
+                    Layout.preferredWidth: 120
+                    model: [
+                        { label: qsTr("Guitar"), value: 0 },
+                        { label: qsTr("Bass"), value: 1 }
+                    ]
+                    textRole: "label"
+                    currentIndex: audioConfigController.tabInstrument
+
+                    onActivated: {
+                        if (currentIndex >= 0 && currentIndex < model.length)
+                            audioConfigController.tabInstrument = model[currentIndex].value
+                    }
+
+                    Connections {
+                        target: audioConfigController
+                        function onTabLayoutChanged() {
+                            tabInstrumentCombo.currentIndex = audioConfigController.tabInstrument
+                        }
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                visible: audioConfigController.selectedPitchNoteIndex >= 0
+
+                Label {
+                    id: pitchNoteNameLabel
+                    text: {
+                        const idx = audioConfigController.selectedPitchNoteIndex
+                        if (idx < 0 || idx >= audioConfigController.pitchNotes.length)
+                            return ""
+                        const note = audioConfigController.pitchNotes[idx]
+                        return note.tabDisplay !== undefined ? note.tabDisplay : note.label
+                    }
+                    font.pixelSize: 20
+                    font.bold: true
+                    color: Theme.accent
+                    Layout.minimumWidth: 48
+                }
+
+                Label {
+                    text: qsTr("Edit:")
+                    color: Theme.textSecondary
+                }
+
+                Label {
+                    text: qsTr("Start ms")
+                    color: Theme.textMuted
+                    font.pixelSize: 11
+                }
+
+                DarkSpinBox {
+                    id: pitchNoteStartSpin
+                    from: 0
+                    to: Math.max(0, audioConfigController.durationMs)
+                }
+
+                Label {
+                    text: qsTr("End ms")
+                    color: Theme.textMuted
+                    font.pixelSize: 11
+                }
+
+                DarkSpinBox {
+                    id: pitchNoteEndSpin
+                    from: 0
+                    to: Math.max(0, audioConfigController.durationMs)
+                }
+
+                Label {
+                    text: qsTr("String")
+                    color: Theme.textMuted
+                    font.pixelSize: 11
+                }
+
+                DarkSpinBox {
+                    id: pitchNoteStringSpin
+                    from: 1
+                    to: Math.max(1, audioConfigController.tabStringCount)
+                }
+
+                Label {
+                    text: qsTr("Fret")
+                    color: Theme.textMuted
+                    font.pixelSize: 11
+                }
+
+                DarkSpinBox {
+                    id: pitchNoteFretSpin
+                    from: 0
+                    to: 24
+                }
+
+                Button {
+                    text: qsTr("Apply")
+                    onClicked: {
+                        const idx = audioConfigController.selectedPitchNoteIndex
+                        if (idx < 0)
+                            return
+                        audioConfigController.updatePitchNoteFromTab(
+                                    idx,
+                                    pitchNoteStartSpin.value,
+                                    pitchNoteEndSpin.value,
+                                    pitchNoteStringSpin.value - 1,
+                                    pitchNoteFretSpin.value)
+                    }
+                }
+
+                Button {
+                    text: qsTr("Delete")
+                    onClicked: audioConfigController.removeSelectedPitchNote()
                 }
             }
+        }
+
+        AudioTimelineViewport {
+            id: audioTimeline
+            Layout.fillWidth: true
+            Layout.preferredHeight: implicitHeight
+
+            showTablature: audioConfigController.hasPitchData
+            tabStringCount: audioConfigController.tabStringCount
+
+            pitchNotes: audioConfigController.pitchNotes
+            tabStringLabels: audioConfigController.tabStringLabels
+            pitchSelectedIndex: audioConfigController.selectedPitchNoteIndex
+            durationMs: audioConfigController.durationMs
             regionStartRatio: root.ratioForMs(audioConfigController.regionStartMs)
             regionEndRatio: root.ratioForMs(audioConfigController.regionEndMs)
             playheadRatio: root.ratioForMs(audioConfigController.positionMs)
+            playing: audioConfigController.playing
 
-            onClickedRatio: (ratio) => {
+            waveformPeaks: audioConfigController.peaks
+            waveformOpacity: audioConfigController.loading ? 0.45 : 1.0
+
+            onNoteClicked: (index) => {
+                audioConfigController.selectedPitchNoteIndex = index
+                root.syncPitchNoteEditor()
+            }
+
+            onWaveformClicked: (ratio) => {
                 const targetMs = Math.round(ratio * audioConfigController.durationMs)
                 if (targetMs < audioConfigController.regionEndMs)
                     audioConfigController.regionStartMs = targetMs
@@ -255,6 +412,52 @@ Page {
 
         GroupBox {
             Layout.fillWidth: true
+            title: qsTr("Pitch detection")
+
+            background: Rectangle {
+                radius: 8
+                color: Theme.panelBackground
+                border.color: Theme.border
+            }
+
+            RowLayout {
+                width: parent.width
+                spacing: 8
+
+                Button {
+                    id: detectPitchButton
+                    text: qsTr("Detect pitch")
+                    enabled: !audioConfigController.loading
+                             && !audioConfigController.pitchAnalyzing
+                             && audioConfigController.mediaFileId > 0
+                    onClicked: {
+                        if (audioConfigController.hasCustomRegion)
+                            pitchScopeDialog.open()
+                        else
+                            audioConfigController.startPitchDetection(false)
+                    }
+                }
+
+                BusyIndicator {
+                    visible: audioConfigController.pitchAnalyzing
+                    running: audioConfigController.pitchAnalyzing
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 24
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    visible: audioConfigController.pitchAnalyzing
+                    text: qsTr("Analyzing pitch in the background…")
+                    color: Theme.textSecondary
+                    font.pixelSize: 12
+                }
+            }
+        }
+
+        GroupBox {
+            Layout.fillWidth: true
             title: qsTr("Saved configurations")
 
             background: Rectangle {
@@ -364,6 +567,13 @@ Page {
 
     Connections {
         target: audioConfigController
+        function onSelectedPitchNoteIndexChanged() {
+            root.syncPitchNoteEditor()
+        }
+        function onPitchNotesChanged() {
+            if (audioConfigController.selectedPitchNoteIndex >= 0)
+                root.syncPitchNoteEditor()
+        }
         function onTransientNoticeRequested(message) {
             if (!root.visible || message.length === 0)
                 return
@@ -373,6 +583,60 @@ Page {
 
     TransientNoticePopup {
         id: presetNoticePopup
+    }
+
+    Dialog {
+        id: pitchScopeDialog
+        anchors.centerIn: parent
+        modal: true
+        title: qsTr("Analyze pitch")
+        standardButtons: Dialog.NoButton
+
+        background: Rectangle {
+            radius: 8
+            color: Theme.panelBackground
+            border.color: Theme.border
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 12
+            implicitWidth: Math.min(root.width * 0.8, 420)
+
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: qsTr("A loop region is set. Analyze the region only or the entire file?")
+                color: Theme.textPrimary
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Button {
+                    Layout.fillWidth: true
+                    text: qsTr("A–B region")
+                    onClicked: {
+                        pitchScopeDialog.close()
+                        audioConfigController.startPitchDetection(true)
+                    }
+                }
+
+                Button {
+                    Layout.fillWidth: true
+                    text: qsTr("Full file")
+                    onClicked: {
+                        pitchScopeDialog.close()
+                        audioConfigController.startPitchDetection(false)
+                    }
+                }
+
+                Button {
+                    text: qsTr("Cancel")
+                    onClicked: pitchScopeDialog.close()
+                }
+            }
+        }
     }
 
     Shortcut {

@@ -11,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <algorithm>
 #include <cmath>
 #include <unordered_map>
 #include <vector>
@@ -38,8 +39,37 @@ namespace {
         return mono;
     }
 
+    [[nodiscard]] std::vector<float> extractRegionMono(const std::vector<float> &monoSamples,
+                                                       uint_t sampleRateHz,
+                                                       const AudioAnalyzer::AnalysisOptions &options,
+                                                       double &timeOffsetSec) {
+        if (!options.useRegion) {
+            timeOffsetSec = 0.0;
+            return monoSamples;
+        }
+
+        const auto totalFrames = monoSamples.size();
+        const auto startFrame = static_cast<std::size_t>(
+            (std::max<qint64>(0, options.regionStartMs) * static_cast<qint64>(sampleRateHz)) /
+            1000LL);
+        std::size_t endFrame = totalFrames;
+        if (options.regionEndMs > 0) {
+            endFrame = static_cast<std::size_t>(
+                (options.regionEndMs * static_cast<qint64>(sampleRateHz)) / 1000LL);
+        }
+        endFrame = std::min(endFrame, totalFrames);
+        if (endFrame <= startFrame) {
+            return {};
+        }
+
+        timeOffsetSec = static_cast<double>(startFrame) / static_cast<double>(sampleRateHz);
+        return std::vector<float>(monoSamples.begin() + static_cast<std::ptrdiff_t>(startFrame),
+                                  monoSamples.begin() + static_cast<std::ptrdiff_t>(endFrame));
+    }
+
     [[nodiscard]] QVector<AudioAnalyzer::Note>
-    detectNotes(const std::vector<float> &monoSamples, uint_t sampleRateHz, QString &errorMessage) {
+    detectNotes(const std::vector<float> &monoSamples, uint_t sampleRateHz, double timeOffsetSec,
+                QString &errorMessage) {
         QVector<AudioAnalyzer::Note> detectedNotes;
 
         if (monoSamples.empty() || sampleRateHz == 0) {
@@ -90,8 +120,8 @@ namespace {
                 const auto activeIt = activeNoteStartSec.find(noteOff);
                 if (activeIt != activeNoteStartSec.end()) {
                     AudioAnalyzer::Note note;
-                    note.startSec = activeIt->second;
-                    note.endSec = frameTimeSec + secondsPerHop;
+                    note.startSec = activeIt->second + timeOffsetSec;
+                    note.endSec = frameTimeSec + secondsPerHop + timeOffsetSec;
                     note.frequencyHz = aubio_miditofreq(static_cast<smpl_t>(noteOff));
                     detectedNotes.push_back(note);
                     activeNoteStartSec.erase(activeIt);
@@ -106,8 +136,8 @@ namespace {
         const double tailTimeSec = static_cast<double>(totalFrames) / static_cast<double>(sampleRateHz);
         for (const auto &[midiNote, startSec] : activeNoteStartSec) {
             AudioAnalyzer::Note note;
-            note.startSec = startSec;
-            note.endSec = tailTimeSec;
+            note.startSec = startSec + timeOffsetSec;
+            note.endSec = tailTimeSec + timeOffsetSec;
             note.frequencyHz = aubio_miditofreq(static_cast<smpl_t>(midiNote));
             detectedNotes.push_back(note);
         }
@@ -126,7 +156,96 @@ QString AudioAnalyzer::jsonOutputPathFor(const QString &audioFilePath) {
         .filePath(fileInfo.completeBaseName() + QStringLiteral(".json"));
 }
 
+QVector<AudioAnalyzer::Note> AudioAnalyzer::loadNotesFromJson(const QString &jsonPath,
+                                                              QString &errorMessage) {
+    QVector<Note> notes;
+
+    QFile jsonFile(jsonPath);
+    if (!jsonFile.open(QIODevice::ReadOnly)) {
+        errorMessage = tr("Could not read JSON file: %1").arg(jsonPath);
+        return notes;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(jsonFile.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        errorMessage = tr("Invalid pitch JSON: %1").arg(parseError.errorString());
+        return notes;
+    }
+
+    const QJsonArray notesArray = document.object().value(QStringLiteral("notes")).toArray();
+    notes.reserve(notesArray.size());
+    for (const QJsonValue &value : notesArray) {
+        if (!value.isObject()) {
+            continue;
+        }
+        const QJsonObject object = value.toObject();
+        Note note;
+        note.startSec = object.value(QStringLiteral("start")).toDouble();
+        note.endSec = object.value(QStringLiteral("end")).toDouble();
+        note.frequencyHz = object.value(QStringLiteral("freq")).toDouble();
+        if (note.endSec > note.startSec && note.frequencyHz > 0.0) {
+            notes.push_back(note);
+        }
+    }
+    return notes;
+}
+
+bool AudioAnalyzer::saveNotesToJson(const QString &jsonPath, const QVector<Note> &notes,
+                                    QString &errorMessage) {
+    QJsonArray notesArray;
+    for (const Note &note : notes) {
+        QJsonObject noteObject;
+        noteObject.insert(QStringLiteral("start"), note.startSec);
+        noteObject.insert(QStringLiteral("end"), note.endSec);
+        noteObject.insert(QStringLiteral("freq"), note.frequencyHz);
+        notesArray.append(noteObject);
+    }
+
+    QJsonObject rootObject;
+    rootObject.insert(QStringLiteral("notes"), notesArray);
+
+    QFile jsonFile(jsonPath);
+    if (!jsonFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        errorMessage = tr("Could not write JSON file: %1").arg(jsonPath);
+        return false;
+    }
+
+    jsonFile.write(QJsonDocument(rootObject).toJson(QJsonDocument::Indented));
+    return true;
+}
+
+int AudioAnalyzer::midiNoteFromFrequency(double frequencyHz) {
+    if (frequencyHz <= 0.0) {
+        return 0;
+    }
+    return static_cast<int>(std::lround(aubio_freqtomidi(static_cast<smpl_t>(frequencyHz))));
+}
+
+QString AudioAnalyzer::noteLabelFromFrequency(double frequencyHz) {
+    if (frequencyHz <= 0.0) {
+        return QStringLiteral("—");
+    }
+
+    const int midi = midiNoteFromFrequency(frequencyHz);
+    static const QStringList pitchNames = {QStringLiteral("C"),  QStringLiteral("C#"),
+                                           QStringLiteral("D"),  QStringLiteral("D#"),
+                                           QStringLiteral("E"),  QStringLiteral("F"),
+                                           QStringLiteral("F#"), QStringLiteral("G"),
+                                           QStringLiteral("G#"), QStringLiteral("A"),
+                                           QStringLiteral("A#"), QStringLiteral("B")};
+    const int pitchClass = ((midi % 12) + 12) % 12;
+    const int octave = midi / 12 - 1;
+    return pitchNames.at(pitchClass) + QString::number(octave);
+}
+
 AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const QString &filePath) const {
+    const AnalysisOptions defaultOptions;
+    return analyze(filePath, defaultOptions);
+}
+
+AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const QString &filePath,
+                                                     const AnalysisOptions &options) const {
     AnalysisResult result;
 
     SampleRequest decodeRequest;
@@ -152,7 +271,14 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const QString &filePath) co
     }
 
     const std::vector<float> mono = downmixToMono(decoded, channelCount);
-    result.notes = detectNotes(mono, sampleRateHz, result.errorMessage);
+    double timeOffsetSec = 0.0;
+    const std::vector<float> analysisMono = extractRegionMono(mono, sampleRateHz, options, timeOffsetSec);
+    if (analysisMono.empty()) {
+        result.errorMessage = tr("Selected region is empty.");
+        return result;
+    }
+
+    result.notes = detectNotes(analysisMono, sampleRateHz, timeOffsetSec, result.errorMessage);
     if (!result.errorMessage.isEmpty()) {
         return result;
     }
@@ -161,32 +287,31 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const QString &filePath) co
     return result;
 }
 
-bool AudioAnalyzer::analyzeAndSave(const QString &filePath, QString &errorMessage) const {
-    const AnalysisResult result = analyze(filePath);
+bool AudioAnalyzer::writeJson(const QString &jsonPath, const QVector<Note> &notes,
+                              QString &errorMessage) const {
+    return saveNotesToJson(jsonPath, notes, errorMessage);
+}
+
+AudioAnalyzer::SaveResult AudioAnalyzer::analyzeAndSave(const QString &filePath) const {
+    const AnalysisOptions defaultOptions;
+    return analyzeAndSave(filePath, defaultOptions);
+}
+
+AudioAnalyzer::SaveResult AudioAnalyzer::analyzeAndSave(const QString &filePath,
+                                                        const AnalysisOptions &options) const {
+    SaveResult saveResult;
+    const AnalysisResult result = analyze(filePath, options);
     if (!result.success) {
-        errorMessage = result.errorMessage;
-        return false;
+        saveResult.errorMessage = result.errorMessage;
+        return saveResult;
     }
 
-    const QString jsonPath = jsonOutputPathFor(filePath);
-    QJsonArray notesArray;
-    for (const Note &note : result.notes) {
-        QJsonObject noteObject;
-        noteObject.insert(QStringLiteral("start"), note.startSec);
-        noteObject.insert(QStringLiteral("end"), note.endSec);
-        noteObject.insert(QStringLiteral("freq"), note.frequencyHz);
-        notesArray.append(noteObject);
+    saveResult.jsonPath = jsonOutputPathFor(filePath);
+    if (!writeJson(saveResult.jsonPath, result.notes, saveResult.errorMessage)) {
+        return saveResult;
     }
 
-    QJsonObject rootObject;
-    rootObject.insert(QStringLiteral("notes"), notesArray);
-
-    QFile jsonFile(jsonPath);
-    if (!jsonFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        errorMessage = tr("Could not write JSON file: %1").arg(jsonPath);
-        return false;
-    }
-
-    jsonFile.write(QJsonDocument(rootObject).toJson(QJsonDocument::Indented));
-    return true;
+    saveResult.noteCount = result.notes.size();
+    saveResult.success = true;
+    return saveResult;
 }
