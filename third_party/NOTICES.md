@@ -24,6 +24,13 @@ This file summarizes licenses and linking for dependencies bundled with or requi
 - **License:** **GNU Affero General Public License (AGPL) v3** (see upstream `LICENSE`).
 - **Linking:** Static via FetchContent (compiled into the application).
 
+## aubio
+
+- **Upstream:** [aubio/aubio](https://github.com/aubio/aubio) (v0.4.9 via FetchContent).
+- **Use:** Offline pitch / note extraction (`AudioLib` / `AudioAnalyzer`).
+- **License:** **GNU General Public License (GPL) v3** (see upstream `COPYING`).
+- **Linking:** Static via FetchContent (compiled into the application).
+
 ## FFmpeg
 
 - **Upstream:** [FFmpeg Project](https://ffmpeg.org/).

@@ -18,6 +18,7 @@ find_package(Qt6 6.11 REQUIRED COMPONENTS
 )
 
 include(FindRubberband)
+include(FindAubio)
 include(FindFFmpeg)
 
 include(FetchContent)

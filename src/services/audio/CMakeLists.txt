@@ -18,6 +18,8 @@ qt_add_library(AudioLib STATIC
     AudioPlaybackEngine.cpp
     AudioProcessorWorker.h
     AudioProcessorWorker.cpp
+    AudioAnalyzer.h
+    AudioAnalyzer.cpp
 )
 
 target_link_libraries(AudioLib
@@ -26,6 +28,7 @@ target_link_libraries(AudioLib
         Qt6::Concurrent
         Qt6::Multimedia
         SonarPractice::Rubberband
+        SonarPractice::Aubio
 )
 
 target_include_directories(AudioLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

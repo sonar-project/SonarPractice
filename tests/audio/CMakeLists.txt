@@ -54,6 +54,11 @@ add_audio_test(audioPlaybackHelpersTest
     tst_audioPlaybackHelpersTest.h
 )
 
+add_audio_test(audioAnalyzerTest
+    tst_audioAnalyzerTest.cpp
+    tst_audioAnalyzerTest.h
+)
+
 enable_testing()
 
 set_tests_properties(
@@ -63,6 +68,7 @@ set_tests_properties(
     audioPeakExtractorTest
     rubberBandPipelineTest
     audioPlaybackHelpersTest
+    audioAnalyzerTest
     PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
