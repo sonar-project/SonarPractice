@@ -3,6 +3,8 @@
 
 #include <optional>
 
+#include <QList>
+
 #include "Tuning.h"
 
 class ITuningRepository {
@@ -17,6 +19,7 @@ class ITuningRepository {
     virtual std::optional<qlonglong> createTuning(const Tuning &tuning) = 0;
     virtual std::optional<Tuning> getTuning(qlonglong id) = 0;
     virtual std::optional<Tuning> findTuningByName(const QString &name) = 0;
+    [[nodiscard]] virtual QList<Tuning> listAllTunings() = 0;
     virtual bool updateTuning(const Tuning &tuning) = 0;
     virtual bool deleteTuning(qlonglong id) = 0;
 

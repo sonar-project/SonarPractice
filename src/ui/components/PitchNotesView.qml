@@ -16,9 +16,10 @@ Item {
     property real playheadRatio: 0
     property int selectedIndex: -1
 
-    signal noteClicked(int index)
+    /** Horizontal inset for string labels; timeline plot starts here. */
+    property int staffLeftMargin: 24
 
-    readonly property int staffLeftMargin: 24
+    signal noteClicked(int index)
 
     function canvasColor(c) {
         return Qt.rgba(c.r, c.g, c.b, c.a)
@@ -186,6 +187,7 @@ Item {
     onPlayheadRatioChanged: repaintStaff()
     onStringCountChanged: repaintStaff()
     onStringLabelsChanged: repaintStaff()
+    onStaffLeftMarginChanged: repaintStaff()
 
     onWidthChanged: repaintStaff()
     onHeightChanged: repaintStaff()

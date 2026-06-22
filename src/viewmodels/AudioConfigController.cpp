@@ -12,14 +12,19 @@
 #include "AudioConstants.h"
 #include "IPathResolver.h"
 #include "MediaFile.h"
+#include "Song.h"
+#include "Tuning.h"
 #include "interfaces/IAudioConfigPresetRepository.h"
 #include "interfaces/IMediaFileRepository.h"
+#include "interfaces/ISongRepository.h"
+#include "interfaces/ITuningRepository.h"
 
 #include <QFile>
 
 AudioConfigController::AudioConfigController(const Dependencies &dependencies, QObject *parent)
     : QObject(parent), m_dependencies(dependencies) {
     applyTabLayout(GuitarTabLayout::standardGuitar());
+    refreshTabTuningList();
     connectEngine();
     connectPitchAnalyzer();
 }
@@ -31,6 +36,9 @@ AudioConfigController::~AudioConfigController() {
     }
 }
 
+/**
+ * @brief Starts the background pitch-analysis thread and worker.
+ */
 void AudioConfigController::connectPitchAnalyzer() {
     m_pitchAnalysisThread = new QThread(this);
     m_pitchAnalyzerWorker = new AudioAnalyzerWorker();
@@ -219,42 +227,126 @@ const QStringList &AudioConfigController::tabStringLabels() const { return m_tab
 
 int AudioConfigController::tabInstrument() const { return m_tabInstrument; }
 
+const QStringList &AudioConfigController::tabTuningNames() const { return m_tabTuningNames; }
+
+int AudioConfigController::selectedTabTuningIndex() const { return m_selectedTabTuningIndex; }
+
+const QString &AudioConfigController::tabTuningName() const { return m_tabTuningName; }
+
+/** @brief Returns the detection mode: 0 rhythmic, 1 melodic, 2 hybrid. */
+int AudioConfigController::pitchDetectionMode() const { return m_pitchDetectionMode; }
+
+/** @brief Sets the detection mode and saves it for the current media file. */
+void AudioConfigController::setPitchDetectionMode(int mode) {
+    const int bounded = qBound(0, mode, 2);
+    if (m_pitchDetectionMode == bounded) {
+        return;
+    }
+    m_pitchDetectionMode = bounded;
+    emit pitchDetectionModeChanged();
+    persistCurrentSettings();
+}
+
+void AudioConfigController::setSelectedTabTuningIndex(int index) {
+    if (index < 0 || index >= m_tabTuningNames.size()) {
+        if (m_selectedTabTuningIndex == index) {
+            return;
+        }
+        m_selectedTabTuningIndex = index;
+        emit selectedTabTuningIndexChanged();
+        return;
+    }
+
+    setTabTuningName(m_tabTuningNames.at(index));
+}
+
 void AudioConfigController::setTabInstrument(int instrument) {
     const int bounded = qBound(0, instrument, 1);
     if (m_tabInstrument == bounded) {
         return;
     }
     m_tabInstrument = bounded;
-    if (m_tabTuningName.isEmpty()) {
-        applyTabLayout(m_tabInstrument == 1 ? GuitarTabLayout::standardBass()
-                                            : GuitarTabLayout::standardGuitar());
-    } else {
-        applyTabLayout(GuitarTabLayout::fromTuningText(
-            m_tabTuningName,
-            m_tabInstrument == 1 ? GuitarTabLayout::Instrument::Bass
-                                 : GuitarTabLayout::Instrument::Guitar));
-    }
+    applyTabLayoutForCurrentTuning();
+    emit tabLayoutChanged();
 }
 
 void AudioConfigController::setTabTuningName(const QString &tuningName) {
-    if (m_tabTuningName == tuningName) {
+    const QString trimmed = tuningName.trimmed();
+    if (m_tabTuningName == trimmed) {
         return;
     }
-    m_tabTuningName = tuningName.trimmed();
+    m_tabTuningName = trimmed;
+    emit tabTuningNameChanged();
+    applyTabLayoutForCurrentTuning();
+    syncSelectedTabTuningIndex();
+    persistCurrentSettings();
+}
+
+/** @brief Updates tab layout from the current tuning name and instrument. */
+void AudioConfigController::applyTabLayoutForCurrentTuning() {
     if (m_tabTuningName.isEmpty()) {
-        setTabInstrument(m_tabInstrument);
+        applyTabLayout(m_tabInstrument == 1 ? GuitarTabLayout::standardBass()
+                                            : GuitarTabLayout::standardGuitar());
         return;
     }
-    applyTabLayout(GuitarTabLayout::fromTuningText(
+
+    applyTabLayout(GuitarTabLayout::fromTuningName(
         m_tabTuningName,
         m_tabInstrument == 1 ? GuitarTabLayout::Instrument::Bass
                              : GuitarTabLayout::Instrument::Guitar));
 }
 
+/** @brief Stores the tab layout and refreshes displayed pitch notes. */
 void AudioConfigController::applyTabLayout(const GuitarTabLayout &layout) {
     m_tabLayout = layout;
     syncPitchNotesForDisplay();
     emit tabLayoutChanged();
+}
+
+/** @brief Reloads tuning names from the database for the tuning ComboBox. */
+void AudioConfigController::refreshTabTuningList() {
+    QStringList names;
+    const QList<Tuning> tunings = m_dependencies.tuningRepo.listAllTunings();
+    names.reserve(tunings.size());
+    for (const Tuning &tuning : tunings) {
+        names.append(tuning.name);
+    }
+
+    if (m_tabTuningNames == names) {
+        syncSelectedTabTuningIndex();
+        return;
+    }
+
+    m_tabTuningNames = std::move(names);
+    emit tabTuningNamesChanged();
+    syncSelectedTabTuningIndex();
+}
+
+/** @brief Keeps selectedTabTuningIndex in sync with tabTuningName. */
+void AudioConfigController::syncSelectedTabTuningIndex() {
+    int index = -1;
+    if (!m_tabTuningName.isEmpty()) {
+        index = m_tabTuningNames.indexOf(m_tabTuningName);
+    }
+    if (m_selectedTabTuningIndex == index) {
+        return;
+    }
+    m_selectedTabTuningIndex = index;
+    emit selectedTabTuningIndexChanged();
+}
+
+/** @brief Picks the song's tuning when opening a media file. */
+void AudioConfigController::applyDefaultTuningForMedia(qlonglong songId) {
+    if (songId <= 0) {
+        return;
+    }
+
+    const std::optional<Song> song = m_dependencies.songRepo.getSong(songId);
+    if (!song.has_value() || song->tuningName.trimmed().isEmpty()) {
+        return;
+    }
+
+    setTabTuningName(song->tuningName);
 }
 
 double AudioConfigController::frequencyForTabPosition(int stringIndex, int fret) const {
@@ -355,12 +447,18 @@ void AudioConfigController::reloadMedia() {
     emit displayNameChanged();
 
     const QString resolvedPath = m_dependencies.pathResolver.resolve(*mediaFile);
-    if (!restoreSettingsForMedia(m_mediaFileId)) {
+    const bool restoredSettings = restoreSettingsForMedia(m_mediaFileId);
+    if (!restoredSettings) {
         m_tempoPercent = AudioConstants::kDefaultTempoPercent;
         m_eqPresetId = QStringLiteral("flat");
         m_loopEnabled = false;
         m_regionStartMs = AudioConstants::kDefaultRegionStartMs;
         m_regionEndMs = 0;
+        m_tabTuningName.clear();
+        emit tabTuningNameChanged();
+        syncSelectedTabTuningIndex();
+        applyTabLayoutForCurrentTuning();
+        applyDefaultTuningForMedia(mediaFile->songId);
         emit tempoPercentChanged();
         emit eqPresetIdChanged();
         emit loopEnabledChanged();
@@ -382,6 +480,7 @@ void AudioConfigController::reloadMedia() {
     }
 
     refreshPresetList();
+    refreshTabTuningList();
 }
 
 void AudioConfigController::preparePresetsForMedia(qlonglong mediaFileId) {
@@ -592,6 +691,8 @@ void AudioConfigController::saveSettingsForMedia(qlonglong mediaFileId) {
     settings.regionStartMs = m_regionStartMs;
     settings.regionEndMs = m_regionEndMs;
     settings.loopEnabled = m_loopEnabled;
+    settings.tabTuningName = m_tabTuningName;
+    settings.pitchDetectionMode = m_pitchDetectionMode;
     settings.valid = true;
     m_settingsByMediaId.insert(mediaFileId, settings);
 }
@@ -606,8 +707,18 @@ bool AudioConfigController::restoreSettingsForMedia(qlonglong mediaFileId) {
     m_tempoPercent = settings.tempoPercent;
     m_eqPresetId = settings.eqPresetId;
     m_loopEnabled = settings.loopEnabled;
+    if (m_pitchDetectionMode != settings.pitchDetectionMode) {
+        m_pitchDetectionMode = settings.pitchDetectionMode;
+        emit pitchDetectionModeChanged();
+    }
     m_regionStartMs = settings.regionStartMs;
     m_regionEndMs = settings.regionEndMs;
+    if (m_tabTuningName != settings.tabTuningName) {
+        m_tabTuningName = settings.tabTuningName;
+        emit tabTuningNameChanged();
+        applyTabLayoutForCurrentTuning();
+        syncSelectedTabTuningIndex();
+    }
     emit tempoPercentChanged();
     emit eqPresetIdChanged();
     emit loopEnabledChanged();
@@ -763,6 +874,11 @@ qint64 AudioConfigController::sourceTimeMsFromPlayback(qint64 playbackMs) const 
     return (playbackMs * static_cast<qint64>(m_tempoPercent)) / AudioConstants::kPercentScale;
 }
 
+/**
+ * @brief Starts offline pitch detection on the worker thread.
+ *
+ * @param useRegion When true, only the marked A–B region is analyzed.
+ */
 void AudioConfigController::startPitchDetection(bool useRegion) {
     if (m_pitchAnalyzing || m_engine.isLoading()) {
         return;
@@ -782,6 +898,7 @@ void AudioConfigController::startPitchDetection(bool useRegion) {
     PitchAnalysisRequest request;
     request.filePath = resolvedPath;
     request.useRegion = useRegion;
+    request.detectionMode = m_pitchDetectionMode;
     if (useRegion) {
         request.regionStartMs = sourceTimeMsFromPlayback(m_regionStartMs);
         const qint64 playbackEndMs =
@@ -796,6 +913,7 @@ void AudioConfigController::startPitchDetection(bool useRegion) {
                               Q_ARG(PitchAnalysisRequest, request));
 }
 
+/** @brief Called when background pitch detection finishes; reloads JSON into the UI. */
 void AudioConfigController::handlePitchAnalysisFinished(bool success, const QString &errorMessage,
                                                       const QString &jsonPath, int noteCount) {
     setPitchAnalyzing(false);
@@ -835,6 +953,7 @@ double AudioConfigController::sourceSecFromPlaybackMs(qint64 playbackMs) const {
            (1000.0 * static_cast<double>(AudioConstants::kPercentScale));
 }
 
+/** @brief Loads pitch notes from the sidecar JSON and maps them to tab positions. */
 void AudioConfigController::reloadPitchDataFromDisk(const QString &jsonPathHint) {
     const bool hadPitchData = m_hasPitchData;
     const int previousNoteCount = m_pitchNotesSource.size();
@@ -880,6 +999,7 @@ void AudioConfigController::reloadPitchDataFromDisk(const QString &jsonPathHint)
     emit hasPitchDataChanged();
 }
 
+/** @brief Builds the QML-facing pitch note list with tab string and fret. */
 void AudioConfigController::syncPitchNotesForDisplay(bool forceNotify) {
     QVariantList next;
     next.reserve(m_pitchNotesSource.size());

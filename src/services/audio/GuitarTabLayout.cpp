@@ -9,9 +9,13 @@
 #include <cmath>
 #include <algorithm>
 
+#include <QHash>
+
 namespace {
 
     constexpr int kMaxFret = 24;
+    /** Prefer thick strings up to this fret for rhythm-guitar mapping. */
+    constexpr int kRhythmGuitarPreferMaxFret = 8;
 
     QVector<int> standardGuitarOpenMidi() {
         return {64, 59, 55, 50, 45, 40};
@@ -52,6 +56,12 @@ namespace {
                                                QStringLiteral("F#"), QStringLiteral("G"),
                                                QStringLiteral("G#"), QStringLiteral("A"),
                                                QStringLiteral("A#"), QStringLiteral("B")};
+        static const QStringList flatNames = {QStringLiteral("C"),  QStringLiteral("Db"),
+                                              QStringLiteral("D"),  QStringLiteral("Eb"),
+                                              QStringLiteral("E"),  QStringLiteral("F"),
+                                              QStringLiteral("Gb"), QStringLiteral("G"),
+                                              QStringLiteral("Ab"), QStringLiteral("A"),
+                                              QStringLiteral("Bb"), QStringLiteral("B")};
 
         const QString trimmed = noteName.trimmed();
         if (trimmed.isEmpty()) {
@@ -82,6 +92,14 @@ namespace {
                 break;
             }
         }
+        if (pitchClass < 0) {
+            for (int index = 0; index < flatNames.size(); ++index) {
+                if (normalized.compare(flatNames.at(index), Qt::CaseInsensitive) == 0) {
+                    pitchClass = index;
+                    break;
+                }
+            }
+        }
 
         if (pitchClass < 0) {
             return fallbackMidi;
@@ -89,7 +107,8 @@ namespace {
 
         if (!octaveMatch.hasMatch()) {
             if (fallbackMidi > 0) {
-                return fallbackMidi;
+                const int fallbackOctave = fallbackMidi / 12 - 1;
+                return (fallbackOctave + 1) * 12 + pitchClass;
             }
             octave = 4;
         }
@@ -97,14 +116,60 @@ namespace {
         return (octave + 1) * 12 + pitchClass;
     }
 
+    [[nodiscard]] bool isNoteToken(const QString &token) {
+        static const QRegularExpression noteTokenRegex(
+            QStringLiteral("^[A-Ga-g](?:[#b♯♭]|b)?\\d*$"));
+        return noteTokenRegex.match(token.trimmed()).hasMatch();
+    }
+
+    [[nodiscard]] QString normalizeTuningKey(const QString &tuningName) {
+        QString key = tuningName.trimmed().toLower();
+        key.replace(QRegularExpression(QStringLiteral("\\s+")), QStringLiteral(" "));
+        return key;
+    }
+
+    [[nodiscard]] QString aliasNoteTextForTuningName(const QString &tuningName) {
+        static const QHash<QString, QString> aliases = {
+            {QStringLiteral("standard"), QStringLiteral("E A D G B E")},
+            {QStringLiteral("e standard"), QStringLiteral("E A D G B E")},
+            {QStringLiteral("standard e"), QStringLiteral("E A D G B E")},
+            {QStringLiteral("eadgbe"), QStringLiteral("E A D G B E")},
+            {QStringLiteral("drop d"), QStringLiteral("D A D G B E")},
+            {QStringLiteral("dropped d"), QStringLiteral("D A D G B E")},
+            {QStringLiteral("dadgbe"), QStringLiteral("D A D G B E")},
+            {QStringLiteral("d standard"), QStringLiteral("D G C F A D")},
+            {QStringLiteral("dgcfad"), QStringLiteral("D G C F A D")},
+            {QStringLiteral("whole step down"), QStringLiteral("D G C F A D")},
+            {QStringLiteral("c standard"), QStringLiteral("C F Bb Eb G C")},
+            {QStringLiteral("dadgad"), QStringLiteral("D A D G A D")},
+            {QStringLiteral("open g"), QStringLiteral("D G D G B D")},
+            {QStringLiteral("open d"), QStringLiteral("D A D F# A D")},
+            {QStringLiteral("drop c"), QStringLiteral("C G C F A D")},
+            {QStringLiteral("drop b"), QStringLiteral("B F# B E G# C#")},
+            {QStringLiteral("standard bass"), QStringLiteral("G D A E")},
+            {QStringLiteral("e a d g"), QStringLiteral("G D A E")},
+        };
+
+        const QString key = normalizeTuningKey(tuningName);
+        const auto aliasIt = aliases.constFind(key);
+        if (aliasIt != aliases.constEnd()) {
+            return aliasIt.value();
+        }
+        return {};
+    }
+
 } // namespace
 
+/** @brief Returns the number of tab strings (4 bass or 6 guitar). */
 int GuitarTabLayout::stringCount() const { return m_openStringMidi.size(); }
 
+/** @brief Returns open-string MIDI numbers, thin string first. */
 const QVector<int> &GuitarTabLayout::openStringMidi() const { return m_openStringMidi; }
 
+/** @brief Returns display labels for each string line. */
 const QStringList &GuitarTabLayout::stringLabels() const { return m_stringLabels; }
 
+/** @brief Builds standard EADGBE guitar layout. */
 GuitarTabLayout GuitarTabLayout::standardGuitar() {
     GuitarTabLayout layout;
     layout.m_instrument = Instrument::Guitar;
@@ -113,6 +178,7 @@ GuitarTabLayout GuitarTabLayout::standardGuitar() {
     return layout;
 }
 
+/** @brief Builds standard GDAD bass layout. */
 GuitarTabLayout GuitarTabLayout::standardBass() {
     GuitarTabLayout layout;
     layout.m_instrument = Instrument::Bass;
@@ -121,10 +187,12 @@ GuitarTabLayout GuitarTabLayout::standardBass() {
     return layout;
 }
 
+/** @brief Parses a note name such as "E" or "F#3" to a MIDI number. */
 int GuitarTabLayout::noteNameToMidi(const QString &noteName) {
     return parseNoteNameToMidi(noteName, 0);
 }
 
+/** @brief Builds a layout from a space-separated list of note names. */
 GuitarTabLayout GuitarTabLayout::fromTuningText(const QString &tuningText,
                                                 Instrument instrument) {
     const QStringList tokens =
@@ -166,6 +234,50 @@ GuitarTabLayout GuitarTabLayout::fromTuningText(const QString &tuningText,
     return layout;
 }
 
+/** @brief Converts a tuning name or note list to text for fromTuningText(). */
+QString GuitarTabLayout::resolveTuningNoteText(const QString &tuningName) {
+    const QString trimmed = tuningName.trimmed();
+    if (trimmed.isEmpty()) {
+        return trimmed;
+    }
+
+    const QString aliasText = aliasNoteTextForTuningName(trimmed);
+    if (!aliasText.isEmpty()) {
+        return aliasText;
+    }
+
+    const QStringList tokens =
+        trimmed.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+    if (tokens.size() >= 3) {
+        bool allNotes = true;
+        for (const QString &token : tokens) {
+            if (!isNoteToken(token)) {
+                allNotes = false;
+                break;
+            }
+        }
+        if (allNotes) {
+            return tokens.join(QLatin1Char(' '));
+        }
+    }
+
+    return trimmed;
+}
+
+/** @brief Resolves a DB tuning name (e.g. "Drop D") to a GuitarTabLayout. */
+GuitarTabLayout GuitarTabLayout::fromTuningName(const QString &tuningName, Instrument instrument) {
+    const QString noteText = resolveTuningNoteText(tuningName);
+    if (noteText.isEmpty()) {
+        return instrument == Instrument::Bass ? standardBass() : standardGuitar();
+    }
+    return fromTuningText(noteText, instrument);
+}
+
+/**
+ * @brief Maps a frequency to the best string and fret on the tab staff.
+ *
+ * For guitar, prefers thick strings with frets up to 8 for rhythm parts.
+ */
 TabPosition GuitarTabLayout::positionForFrequency(double frequencyHz) const {
     TabPosition best;
     if (frequencyHz <= 0.0 || m_openStringMidi.isEmpty()) {
@@ -174,12 +286,23 @@ TabPosition GuitarTabLayout::positionForFrequency(double frequencyHz) const {
 
     const int midi = AudioAnalyzer::midiNoteFromFrequency(frequencyHz);
     int bestFret = kMaxFret + 1;
+    int rhythmicStringIndex = -1;
+    int rhythmicFret = kMaxFret + 1;
 
     for (int stringIndex = 0; stringIndex < m_openStringMidi.size(); ++stringIndex) {
         const int fret = midi - m_openStringMidi.at(stringIndex);
         if (fret < 0 || fret > kMaxFret) {
             continue;
         }
+
+        if (m_instrument == Instrument::Guitar && fret <= kRhythmGuitarPreferMaxFret) {
+            if (stringIndex > rhythmicStringIndex ||
+                (stringIndex == rhythmicStringIndex && fret < rhythmicFret)) {
+                rhythmicStringIndex = stringIndex;
+                rhythmicFret = fret;
+            }
+        }
+
         if (fret < bestFret || (fret == bestFret && stringIndex > best.stringIndex)) {
             bestFret = fret;
             best.stringIndex = stringIndex;
@@ -187,9 +310,15 @@ TabPosition GuitarTabLayout::positionForFrequency(double frequencyHz) const {
         }
     }
 
+    if (rhythmicStringIndex >= 0) {
+        best.stringIndex = rhythmicStringIndex;
+        best.fret = rhythmicFret;
+    }
+
     return best;
 }
 
+/** @brief Returns the frequency in Hz for a string and fret position. */
 double GuitarTabLayout::frequencyForPosition(int stringIndex, int fret) const {
     if (stringIndex < 0 || stringIndex >= m_openStringMidi.size() || fret < 0) {
         return 0.0;
@@ -198,6 +327,7 @@ double GuitarTabLayout::frequencyForPosition(int stringIndex, int fret) const {
     return static_cast<double>(aubio_miditofreq(static_cast<smpl_t>(midi)));
 }
 
+/** @brief Returns the fret number as text for display on the tab. */
 QString GuitarTabLayout::fretText(const TabPosition &position) {
     if (!position.isValid()) {
         return QStringLiteral("?");

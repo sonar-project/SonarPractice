@@ -15,7 +15,10 @@ Page {
 
     signal backRequested()
 
-    StackView.onActivated: root.forceActiveFocus()
+    StackView.onActivated: {
+        root.forceActiveFocus()
+        audioConfigController.refreshTabTuningList()
+    }
 
     background: Rectangle { color: Theme.windowBackground }
 
@@ -67,43 +70,8 @@ Page {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
-
-                Label {
-                    text: qsTr("Instrument")
-                    color: Theme.textMuted
-                    font.pixelSize: 11
-                }
-
-                ComboBox {
-                    id: tabInstrumentCombo
-                    Layout.preferredWidth: 120
-                    model: [
-                        { label: qsTr("Guitar"), value: 0 },
-                        { label: qsTr("Bass"), value: 1 }
-                    ]
-                    textRole: "label"
-                    currentIndex: audioConfigController.tabInstrument
-
-                    onActivated: {
-                        if (currentIndex >= 0 && currentIndex < model.length)
-                            audioConfigController.tabInstrument = model[currentIndex].value
-                    }
-
-                    Connections {
-                        target: audioConfigController
-                        function onTabLayoutChanged() {
-                            tabInstrumentCombo.currentIndex = audioConfigController.tabInstrument
-                        }
-                    }
-                }
-
-                Item { Layout.fillWidth: true }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                visible: audioConfigController.selectedPitchNoteIndex >= 0
+                visible: audioConfigController.hasPitchData
+                         && audioConfigController.selectedPitchNoteIndex >= 0
 
                 Label {
                     id: pitchNoteNameLabel
@@ -420,38 +388,171 @@ Page {
                 border.color: Theme.border
             }
 
-            RowLayout {
+            ColumnLayout {
                 width: parent.width
                 spacing: 8
 
-                Button {
-                    id: detectPitchButton
-                    text: qsTr("Detect pitch")
-                    enabled: !audioConfigController.loading
-                             && !audioConfigController.pitchAnalyzing
-                             && audioConfigController.mediaFileId > 0
-                    onClicked: {
-                        if (audioConfigController.hasCustomRegion)
-                            pitchScopeDialog.open()
-                        else
-                            audioConfigController.startPitchDetection(false)
+                Component.onCompleted: audioConfigController.refreshTabTuningList()
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Button {
+                        id: detectPitchButton
+                        text: qsTr("Detect pitch")
+                        enabled: !audioConfigController.loading
+                                 && !audioConfigController.pitchAnalyzing
+                                 && audioConfigController.mediaFileId > 0
+                        onClicked: {
+                            if (audioConfigController.hasCustomRegion)
+                                pitchScopeDialog.open()
+                            else
+                                audioConfigController.startPitchDetection(false)
+                        }
+                    }
+
+                    Label {
+                        text: qsTr("Instrument")
+                        color: Theme.textMuted
+                        font.pixelSize: 11
+                    }
+
+                    ComboBox {
+                        id: tabInstrumentCombo
+                        Layout.preferredWidth: 108
+                        model: [
+                            { label: qsTr("Guitar"), value: 0 },
+                            { label: qsTr("Bass"), value: 1 }
+                        ]
+                        textRole: "label"
+                        currentIndex: audioConfigController.tabInstrument
+
+                        onActivated: {
+                            if (currentIndex >= 0 && currentIndex < model.length)
+                                audioConfigController.tabInstrument = model[currentIndex].value
+                        }
+
+                        Connections {
+                            target: audioConfigController
+                            function onTabLayoutChanged() {
+                                tabInstrumentCombo.currentIndex = audioConfigController.tabInstrument
+                            }
+                        }
+                    }
+
+                    Label {
+                        text: qsTr("Tuning")
+                        color: Theme.textMuted
+                        font.pixelSize: 11
+                    }
+
+                    ComboBox {
+                        id: tabTuningCombo
+                        Layout.preferredWidth: 220
+                        Layout.minimumWidth: 160
+                        Layout.fillWidth: true
+                        model: audioConfigController.tabTuningNames
+                        currentIndex: audioConfigController.selectedTabTuningIndex
+                        displayText: currentIndex >= 0
+                                     ? tabTuningCombo.textAt(currentIndex)
+                                     : qsTr("Select tuning…")
+
+                        onActivated: audioConfigController.selectedTabTuningIndex = currentIndex
+
+                        Connections {
+                            target: audioConfigController
+                            function onSelectedTabTuningIndexChanged() {
+                                const index = audioConfigController.selectedTabTuningIndex
+                                if (tabTuningCombo.currentIndex !== index)
+                                    tabTuningCombo.currentIndex = index
+                            }
+                            function onTabTuningNamesChanged() {
+                                if (tabTuningCombo.count === 0) {
+                                    tabTuningCombo.currentIndex = -1
+                                    return
+                                }
+                                const index = audioConfigController.selectedTabTuningIndex
+                                tabTuningCombo.currentIndex =
+                                        index >= 0 && index < tabTuningCombo.count ? index : -1
+                            }
+                        }
                     }
                 }
 
-                BusyIndicator {
-                    visible: audioConfigController.pitchAnalyzing
-                    running: audioConfigController.pitchAnalyzing
-                    Layout.preferredWidth: 24
-                    Layout.preferredHeight: 24
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Label {
+                        text: qsTr("Detection mode")
+                        color: Theme.textMuted
+                        font.pixelSize: 11
+                    }
+
+                    ComboBox {
+                        id: pitchDetectionModeCombo
+                        Layout.preferredWidth: 140
+                        model: [
+                            { label: qsTr("Rhythmic"), value: 0 },
+                            { label: qsTr("Melodic"), value: 1 },
+                            { label: qsTr("Hybrid"), value: 2 }
+                        ]
+                        textRole: "label"
+                        currentIndex: audioConfigController.pitchDetectionMode
+
+                        onActivated: {
+                            if (currentIndex >= 0 && currentIndex < model.length)
+                                audioConfigController.pitchDetectionMode = model[currentIndex].value
+                        }
+
+                        Connections {
+                            target: audioConfigController
+                            function onPitchDetectionModeChanged() {
+                                if (pitchDetectionModeCombo.currentIndex
+                                        !== audioConfigController.pitchDetectionMode)
+                                    pitchDetectionModeCombo.currentIndex =
+                                            audioConfigController.pitchDetectionMode
+                            }
+                        }
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: qsTr("Rhythmic: pick strokes · Melodic: note changes · Hybrid: timing + melody")
+                        color: Theme.textHint
+                        font.pixelSize: 10
+                    }
                 }
 
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
+                    visible: tabTuningCombo.count === 0
+                    text: qsTr("No tunings in the library yet. Import songs to populate tuning names.")
+                    color: Theme.textHint
+                    font.pixelSize: 11
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
                     visible: audioConfigController.pitchAnalyzing
-                    text: qsTr("Analyzing pitch in the background…")
-                    color: Theme.textSecondary
-                    font.pixelSize: 12
+
+                    BusyIndicator {
+                        running: audioConfigController.pitchAnalyzing
+                        Layout.preferredWidth: 24
+                        Layout.preferredHeight: 24
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: qsTr("Analyzing pitch in the background…")
+                        color: Theme.textSecondary
+                        font.pixelSize: 12
+                    }
                 }
             }
         }

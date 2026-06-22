@@ -189,6 +189,8 @@ bool ApplicationBootstrap::openCoreDatabase() {
             .mediaRepo = *m_mediaFileRepo,
             .presetRepo = *m_audioPresetRepo,
             .pathResolver = *m_pathResolver,
+            .songRepo = *m_songRepo,
+            .tuningRepo = *m_tuningRepo,
         });
 
     wireServices();
@@ -217,6 +219,9 @@ bool ApplicationBootstrap::initializeShell() {
 void ApplicationBootstrap::loadShellData() {
     m_reminderController->setFilterDate(QDate::currentDate());
     m_reminderController->reloadDayReminders();
+    if (m_audioConfigController != nullptr) {
+        m_audioConfigController->refreshTabTuningList();
+    }
 }
 
 void ApplicationBootstrap::scheduleLoadShellData() {

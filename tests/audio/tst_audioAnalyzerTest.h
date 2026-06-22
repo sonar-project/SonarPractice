@@ -12,6 +12,8 @@ class TestAudioAnalyzer : public QObject {
     void analyzeAndSaveRejectsMissingFile();
     void loadAndSaveRoundTripPreservesNotes();
     void guitarTabMapsStandardTuning();
+    void guitarTabMapsDropDAndDStandard();
+    void guitarTabPrefersThickStringsForPowerChordRoot();
 };
 
 #endif // TST_AUDIOANALYZERTEST_H

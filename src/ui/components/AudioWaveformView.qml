@@ -8,7 +8,9 @@ Item {
     property real regionEndRatio: 1
     property real playheadRatio: 0
 
-    readonly property int horizontalPadding: 4
+    /** Matches tab staff inset so playhead and region markers line up. */
+    property int plotLeftMargin: 24
+
     readonly property int verticalPadding: 8
 
     function canvasColor(c) {
@@ -37,19 +39,22 @@ Item {
             if (!root.peaks || root.peaks.length === 0)
                 return
 
+            const plotWidth = Math.max(1, width - root.plotLeftMargin)
             const centerY = height / 2
-            const bucketWidth = width / root.peaks.length
+            const bucketWidth = plotWidth / root.peaks.length
 
             context.fillStyle = root.canvasColor(Theme.accent)
             for (let bucket = 0; bucket < root.peaks.length; ++bucket) {
                 const peak = Number(root.peaks[bucket])
                 const barHeight = Math.max(2, peak * (height - root.verticalPadding * 2))
-                const x = bucket * bucketWidth
+                const x = root.plotLeftMargin + bucket * bucketWidth
                 context.fillRect(x, centerY - barHeight / 2, Math.max(1, bucketWidth - 1), barHeight)
             }
 
-            const regionStartX = Math.min(root.regionStartRatio, root.regionEndRatio) * width
-            const regionEndX = Math.max(root.regionStartRatio, root.regionEndRatio) * width
+            const regionStartX = root.plotLeftMargin
+                    + Math.min(root.regionStartRatio, root.regionEndRatio) * plotWidth
+            const regionEndX = root.plotLeftMargin
+                    + Math.max(root.regionStartRatio, root.regionEndRatio) * plotWidth
             context.fillStyle = root.canvasColor(Theme.regionMarkerFill)
             context.globalAlpha = 0.45
             context.fillRect(regionStartX, 0, regionEndX - regionStartX, height)
@@ -69,7 +74,7 @@ Item {
             context.lineTo(regionEndX, height)
             context.stroke()
 
-            const playheadX = root.playheadRatio * width
+            const playheadX = root.plotLeftMargin + root.playheadRatio * plotWidth
             context.strokeStyle = root.canvasColor(Theme.warning)
             context.lineWidth = 2
             context.beginPath()
@@ -82,10 +87,11 @@ Item {
     MouseArea {
         anchors.fill: parent
         onClicked: (mouse) => {
-            if (width <= 0)
+            const plotWidth = width - root.plotLeftMargin
+            if (plotWidth <= 0)
                 return
-            const ratio = mouse.x / width
-            root.clickedRatio(ratio)
+            const ratio = (mouse.x - root.plotLeftMargin) / plotWidth
+            root.clickedRatio(Math.max(0, Math.min(1, ratio)))
         }
     }
 
@@ -95,6 +101,7 @@ Item {
     onRegionStartRatioChanged: waveformCanvas.requestPaint()
     onRegionEndRatioChanged: waveformCanvas.requestPaint()
     onPlayheadRatioChanged: waveformCanvas.requestPaint()
+    onPlotLeftMarginChanged: waveformCanvas.requestPaint()
     onWidthChanged: waveformCanvas.requestPaint()
     onHeightChanged: waveformCanvas.requestPaint()
 }

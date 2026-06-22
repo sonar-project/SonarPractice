@@ -87,4 +87,19 @@ void TestTuningRepository::testCreateTuningDuplicateName() {
     QVERIFY(!secondId.has_value());
 }
 
+void TestTuningRepository::testListAllTunings() {
+    Tuning dropD;
+    dropD.name = QStringLiteral("Drop D");
+    Tuning standard;
+    standard.name = QStringLiteral("E Standard");
+
+    QVERIFY(m_tuningRepo.createTuning(dropD).has_value());
+    QVERIFY(m_tuningRepo.createTuning(standard).has_value());
+
+    const QList<Tuning> tunings = m_tuningRepo.listAllTunings();
+    QCOMPARE(tunings.size(), 2);
+    QCOMPARE(tunings.first().name, QStringLiteral("Drop D"));
+    QCOMPARE(tunings.last().name, QStringLiteral("E Standard"));
+}
+
 QTEST_MAIN(TestTuningRepository)

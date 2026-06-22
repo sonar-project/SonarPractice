@@ -20,6 +20,8 @@
 class IAudioConfigPresetRepository;
 class IMediaFileRepository;
 class IPathResolver;
+class ISongRepository;
+class ITuningRepository;
 
 /**
  * @brief QML view model for audio playback, region markers, and per-file presets.
@@ -72,12 +74,22 @@ class AudioConfigController : public QObject {
     Q_PROPERTY(QStringList tabStringLabels READ tabStringLabels NOTIFY tabLayoutChanged)
     /** 0 = guitar, 1 = bass. */
     Q_PROPERTY(int tabInstrument READ tabInstrument WRITE setTabInstrument NOTIFY tabLayoutChanged)
+    /** Known tuning names from the database (sorted). */
+    Q_PROPERTY(QStringList tabTuningNames READ tabTuningNames NOTIFY tabTuningNamesChanged)
+    Q_PROPERTY(int selectedTabTuningIndex READ selectedTabTuningIndex WRITE setSelectedTabTuningIndex
+                   NOTIFY selectedTabTuningIndexChanged)
+    Q_PROPERTY(QString tabTuningName READ tabTuningName NOTIFY tabTuningNameChanged)
+    /** 0 = rhythmic, 1 = melodic, 2 = hybrid. */
+    Q_PROPERTY(int pitchDetectionMode READ pitchDetectionMode WRITE setPitchDetectionMode NOTIFY
+                   pitchDetectionModeChanged)
 
   public:
     struct Dependencies {
         IMediaFileRepository &mediaRepo;
         IAudioConfigPresetRepository &presetRepo;
         IPathResolver &pathResolver;
+        ISongRepository &songRepo;
+        ITuningRepository &tuningRepo;
     };
 
     explicit AudioConfigController(const Dependencies &dependencies, QObject *parent = nullptr);
@@ -131,6 +143,12 @@ class AudioConfigController : public QObject {
     [[nodiscard]] const QStringList &tabStringLabels() const;
     [[nodiscard]] int tabInstrument() const;
     void setTabInstrument(int instrument);
+    [[nodiscard]] const QStringList &tabTuningNames() const;
+    [[nodiscard]] int selectedTabTuningIndex() const;
+    void setSelectedTabTuningIndex(int index);
+    [[nodiscard]] const QString &tabTuningName() const;
+    [[nodiscard]] int pitchDetectionMode() const;
+    void setPitchDetectionMode(int mode);
 
   public slots:
     void reloadMedia();
@@ -163,6 +181,8 @@ class AudioConfigController : public QObject {
                                              int stringIndex, int fret);
     Q_INVOKABLE double frequencyForTabPosition(int stringIndex, int fret) const;
     Q_INVOKABLE void setTabTuningName(const QString &tuningName);
+    /** Reloads tuning names from the database for the tuning ComboBox. */
+    Q_INVOKABLE void refreshTabTuningList();
     /** Removes one note and saves the JSON file. */
     Q_INVOKABLE void removeSelectedPitchNote();
 
@@ -192,6 +212,10 @@ class AudioConfigController : public QObject {
     void pitchNotesChanged();
     void selectedPitchNoteIndexChanged();
     void tabLayoutChanged();
+    void tabTuningNamesChanged();
+    void selectedTabTuningIndexChanged();
+    void tabTuningNameChanged();
+    void pitchDetectionModeChanged();
     void presetAppliedChanged();
     /** Short UI notice (e.g. preset loaded); QML may auto-dismiss separately from statusMessage. */
     void transientNoticeRequested(const QString &message);
@@ -209,11 +233,14 @@ class AudioConfigController : public QObject {
         qint64 regionStartMs{};
         qint64 regionEndMs{};
         bool loopEnabled{false};
+        QString tabTuningName{};
+        int pitchDetectionMode{}; /**< 0 rhythmic, 1 melodic, 2 hybrid. */
         bool valid{false};
     };
 
     /** Wires engine signals; runs deferred play/preset actions when decoding finishes. */
     void connectEngine();
+    /** Starts the background pitch-analysis thread and worker. */
     void connectPitchAnalyzer();
     void refreshPresetList();
     void syncPresetSelectionAfterRefresh();
@@ -242,6 +269,9 @@ class AudioConfigController : public QObject {
     [[nodiscard]] double sourceSecFromPlaybackMs(qint64 playbackMs) const;
     [[nodiscard]] QString resolvedAudioPathForCurrentMedia() const;
     void applyTabLayout(const GuitarTabLayout &layout);
+    void syncSelectedTabTuningIndex();
+    void applyDefaultTuningForMedia(qlonglong songId);
+    void applyTabLayoutForCurrentTuning();
 
     Dependencies m_dependencies;
     AudioPlaybackEngine m_engine{};
@@ -257,6 +287,9 @@ class AudioConfigController : public QObject {
     GuitarTabLayout m_tabLayout{GuitarTabLayout::standardGuitar()};
     int m_tabInstrument{};
     QString m_tabTuningName{};
+    QStringList m_tabTuningNames{};
+    int m_selectedTabTuningIndex{-1};
+    int m_pitchDetectionMode{};
     qlonglong m_mediaFileId{};
     QString m_displayName{};
     QString m_songTitle{};

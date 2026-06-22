@@ -100,6 +100,27 @@ std::optional<Tuning> SqliteTuningRepository::findTuningByName(const QString &na
     return loadedTuning;
 }
 
+QList<Tuning> SqliteTuningRepository::listAllTunings() {
+    QList<Tuning> tunings;
+    if (!RepositoryUtils::ensureOpen(m_connection)) {
+        return tunings;
+    }
+
+    QSqlQuery query(RepositoryUtils::database(m_connection));
+    if (!query.exec(QStringLiteral("SELECT id, name FROM tunings ORDER BY name COLLATE NOCASE"))) {
+        qCritical() << "[SqliteTuningRepository] listAllTunings failed:" << query.lastError().text();
+        return tunings;
+    }
+
+    while (query.next()) {
+        Tuning tuning;
+        tuning.id = query.value(SqlQueryColumns::Tuning::Id).toLongLong();
+        tuning.name = query.value(SqlQueryColumns::Tuning::Name).toString();
+        tunings.append(tuning);
+    }
+    return tunings;
+}
+
 /**
  * @brief Updates the name of an existing tuning in the database.
  * @param tuning The Tuning object containing the updated information.

@@ -16,7 +16,7 @@ fetchcontent_declare(
 if(NOT TARGET SonarPractice_Aubio)
     fetchcontent_getproperties(aubio)
     if(NOT aubio_POPULATED)
-        fetchcontent_populate(aubio)
+        FetchContent_MakeAvailable(aubio)
     endif()
 
     set(_aubio_sources

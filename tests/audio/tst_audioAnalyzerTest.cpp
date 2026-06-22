@@ -61,4 +61,37 @@ void TestAudioAnalyzer::guitarTabMapsStandardTuning() {
     QCOMPARE(GuitarTabLayout::fretText(position), QStringLiteral("5"));
 }
 
+void TestAudioAnalyzer::guitarTabMapsDropDAndDStandard() {
+    const GuitarTabLayout dropD =
+        GuitarTabLayout::fromTuningName(QStringLiteral("Drop D"), GuitarTabLayout::Instrument::Guitar);
+    const double lowDHz = dropD.frequencyForPosition(5, 0);
+    const TabPosition openLowD = dropD.positionForFrequency(lowDHz);
+    QVERIFY(openLowD.isValid());
+    QCOMPARE(openLowD.stringIndex, 5);
+    QCOMPARE(openLowD.fret, 0);
+
+    const double lowEHz = dropD.frequencyForPosition(5, 2);
+    const TabPosition secondFretLow = dropD.positionForFrequency(lowEHz);
+    QVERIFY(secondFretLow.isValid());
+    QCOMPARE(secondFretLow.stringIndex, 5);
+    QCOMPARE(secondFretLow.fret, 2);
+
+    const GuitarTabLayout dStandard = GuitarTabLayout::fromTuningName(
+        QStringLiteral("D G C F A D"), GuitarTabLayout::Instrument::Guitar);
+    QCOMPARE(dStandard.stringLabels().constLast(), QStringLiteral("D"));
+    const TabPosition dStandardOpenLow =
+        dStandard.positionForFrequency(dStandard.frequencyForPosition(5, 0));
+    QCOMPARE(dStandardOpenLow.fret, 0);
+    QCOMPARE(dStandardOpenLow.stringIndex, 5);
+}
+
+void TestAudioAnalyzer::guitarTabPrefersThickStringsForPowerChordRoot() {
+    const GuitarTabLayout layout = GuitarTabLayout::standardGuitar();
+    const double rootHz = layout.frequencyForPosition(4, 7);
+    const TabPosition position = layout.positionForFrequency(rootHz);
+    QVERIFY(position.isValid());
+    QCOMPARE(position.stringIndex, 4);
+    QCOMPARE(position.fret, 7);
+}
+
 QTEST_MAIN(TestAudioAnalyzer)

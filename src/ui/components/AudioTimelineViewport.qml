@@ -31,6 +31,9 @@ Item {
     readonly property int tabHeight: showTablature
             ? Math.max(88, 12 + Math.max(1, tabStringCount) * 16) : 0
     readonly property int waveformHeight: 140
+    readonly property int timelineStackSpacing: showTablature ? 5 : 0
+    readonly property int timelinePlotLeftMargin: 24
+    readonly property int timelineContentHeight: tabHeight + timelineStackSpacing + waveformHeight
     readonly property real contentWidth: Math.max(timelineFlickable.width,
                                                   timelineFlickable.width * zoomLevel)
 
@@ -156,7 +159,7 @@ Item {
         anchors.topMargin: 8
         anchors.left: parent.left
         anchors.right: parent.right
-        height: root.tabHeight + root.waveformHeight
+        height: root.timelineContentHeight
         contentWidth: root.contentWidth
         contentHeight: height
         clip: true
@@ -200,12 +203,13 @@ Item {
 
         Column {
             width: root.contentWidth
-            spacing: 0
+            spacing: root.timelineStackSpacing
 
             PitchNotesView {
                 visible: root.showTablature
                 width: parent.width
                 height: root.tabHeight
+                staffLeftMargin: root.timelinePlotLeftMargin
                 notes: root.pitchNotes
                 stringLabels: root.tabStringLabels
                 stringCount: root.tabStringCount
@@ -221,6 +225,7 @@ Item {
                 id: waveform
                 width: parent.width
                 height: root.waveformHeight
+                plotLeftMargin: root.timelinePlotLeftMargin
                 peaks: root.waveformPeaks
                 opacity: root.waveformOpacity
                 regionStartRatio: root.regionStartRatio

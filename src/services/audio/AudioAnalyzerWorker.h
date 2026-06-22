@@ -6,10 +6,11 @@
 
 /** Input for a background pitch-analysis job. */
 struct PitchAnalysisRequest {
-    QString filePath;
-    qint64 regionStartMs{};
-    qint64 regionEndMs{};
-    bool useRegion{};
+    QString filePath;       /**< Resolved path to the audio file on disk. */
+    qint64 regionStartMs{}; /**< Region start in source time (when useRegion is true). */
+    qint64 regionEndMs{};   /**< Region end in source time (when useRegion is true). */
+    bool useRegion{};       /**< When true, only analyze regionStartMs–regionEndMs. */
+    int detectionMode{};    /**< 0 = rhythmic, 1 = melodic, 2 = hybrid. */
 };
 
 Q_DECLARE_METATYPE(PitchAnalysisRequest)
@@ -27,9 +28,11 @@ class AudioAnalyzerWorker : public QObject {
     explicit AudioAnalyzerWorker(QObject *parent = nullptr);
 
   public slots:
+    /** Decodes audio, detects notes, writes JSON, and emits finished(). */
     void analyze(const PitchAnalysisRequest &request);
 
   signals:
+    /** Emitted when analysis completes or fails. */
     void finished(bool success, const QString &errorMessage, const QString &jsonPath,
                   int noteCount);
 };

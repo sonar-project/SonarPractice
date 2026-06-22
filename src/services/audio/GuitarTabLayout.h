@@ -31,6 +31,11 @@ class GuitarTabLayout {
     /** Parses tuning text such as "E A D G B E" or note names with octaves. */
     [[nodiscard]] static GuitarTabLayout fromTuningText(const QString &tuningText,
                                                       Instrument instrument);
+    /** Resolves a DB tuning name or note list (e.g. "Drop D", "D G C F A D"). */
+    [[nodiscard]] static GuitarTabLayout fromTuningName(const QString &tuningName,
+                                                        Instrument instrument);
+    /** Expands common tuning names to a low-to-high note string for fromTuningText(). */
+    [[nodiscard]] static QString resolveTuningNoteText(const QString &tuningName);
 
     [[nodiscard]] TabPosition positionForFrequency(double frequencyHz) const;
     [[nodiscard]] double frequencyForPosition(int stringIndex, int fret) const;
