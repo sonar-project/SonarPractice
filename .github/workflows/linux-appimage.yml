@@ -40,7 +40,7 @@ jobs:
             libxkbcommon-dev \
             libpulse-dev \
             patchelf \
-            cppecheck
+            cppcheck
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
