@@ -41,6 +41,7 @@ export EXTRA_PLATFORM_PLUGINS="wayland-egl"
   --desktop-file "${APPDIR}/sonarpractice.desktop" \
   --icon-file "${APPDIR}/sonarpractice.svg" \
   --plugin qt \
+  --no-strip \
   --output appimage
 
 mv "${ROOT}/SonarPractice"*.AppImage "${ROOT}/${ARTIFACT_NAME}.AppImage"
