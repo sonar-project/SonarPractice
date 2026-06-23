@@ -417,6 +417,7 @@ Rectangle {
 
     Dialog {
         id: partialConfirmDialog
+        implicitWidth: parent
 
         property int reminderId: 0
         property string songTitle: ""
