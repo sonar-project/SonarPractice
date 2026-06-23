@@ -15,9 +15,13 @@ env:
 
 jobs:
   build-linux:
-    name: Linux AppImage
     runs-on: ubuntu-22.04
     steps:
+      - name: Check Python
+        run: |
+          python --version
+          python -c "import sys; print(sys.executable)"
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -74,6 +78,11 @@ jobs:
     name: Windows Installer
     runs-on: windows-latest
     steps:
+      - name: Check Python
+        run: |
+          python --version
+          python -c "import sys; print(sys.executable)"
+      
       - name: Checkout
         uses: actions/checkout@v4
 
