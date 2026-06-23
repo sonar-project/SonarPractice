@@ -1,5 +1,5 @@
 # Partial Qt installs (e.g. aqt on CI) ship Sql driver CMake package files without every
-# plugin binary. Remove configs only when the referenced plugin library is missing.
+# plugin binary. When only SQLite is present, drop the other driver CMake configs.
 
 function(sonarp_remove_missing_qt_sql_driver_cmake)
     set(_prefix_candidates)
@@ -19,33 +19,25 @@ function(sonarp_remove_missing_qt_sql_driver_cmake)
     endif()
 
     foreach(_prefix IN LISTS _prefix_candidates)
-        if(NOT IS_DIRECTORY "${_prefix}/lib/cmake/Qt6Sql")
+        set(_sql_cmake_dir "${_prefix}/lib/cmake/Qt6Sql")
+        set(_drivers_dir "${_prefix}/plugins/sqldrivers")
+        if(NOT IS_DIRECTORY "${_sql_cmake_dir}" OR NOT IS_DIRECTORY "${_drivers_dir}")
             continue()
         endif()
 
-        set(
-            _optional_drivers
-            "QMYSQL|libqsqlmysql"
-            "QPSQL|libqsqlpsql"
-            "QOCI|libqsqloci"
-            "QMIMER|libqsqlmimer"
-            "IBASE|libqsqlibase"
-        )
+        set(_sqlite_plugin "${_drivers_dir}/libqsqlite${_plugin_ext}")
+        set(_mysql_plugin "${_drivers_dir}/libqsqlmysql${_plugin_ext}")
+        if(NOT EXISTS "${_sqlite_plugin}" OR EXISTS "${_mysql_plugin}")
+            return()
+        endif()
 
-        foreach(_pair IN LISTS _optional_drivers)
-            string(REPLACE "|" ";" _pair_list "${_pair}")
-            list(GET _pair_list 0 _cmake_name)
-            list(GET _pair_list 1 _library_base)
-
-            set(_plugin_path "${_prefix}/plugins/sqldrivers/${_library_base}${_plugin_ext}")
-            if(EXISTS "${_plugin_path}")
+        # SQLite-only layout (typical aqt qtbase): remove stale CMake for other drivers.
+        file(GLOB _plugin_cmake_files "${_sql_cmake_dir}/Qt6Q*DriverPlugin*.cmake")
+        foreach(_cfg IN LISTS _plugin_cmake_files)
+            if(_cfg MATCHES "QSQLite")
                 continue()
             endif()
-
-            file(GLOB _configs "${_prefix}/lib/cmake/Qt6Sql/Qt6${_cmake_name}DriverPlugin*.cmake")
-            foreach(_cfg IN LISTS _configs)
-                file(REMOVE "${_cfg}")
-            endforeach()
+            file(REMOVE "${_cfg}")
         endforeach()
 
         return()
