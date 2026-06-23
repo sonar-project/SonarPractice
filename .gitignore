@@ -82,3 +82,8 @@ Thumbs.db
 
 # --- Dependencies ---
 vcpkg_installed/
+
+# Inno Installer
+Output
+deploy
+deployqt.conf

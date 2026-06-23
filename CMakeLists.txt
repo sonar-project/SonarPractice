@@ -132,6 +132,8 @@ qt_add_qml_module(SonarPractice
     src/ui/js/MarkdownFormat.js
     sonarpractice.desktop
     RESOURCES assets/app.rc.in
+    RESOURCES build_installer.bat
+    RESOURCES setup_script.iss
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
