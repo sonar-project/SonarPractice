@@ -31,7 +31,11 @@ class DayReminderModel : public QAbstractListModel {
         IsMonthlyRole,
         IntervalDaysRole,
         BaseBpmRole,
-        PracticeAssetIdRole
+        PracticeAssetIdRole,
+        CompletionStatusRole,
+        CompletionDetailRole,
+        IsCompletedRole,
+        HasJournalEntryRole
     };
     Q_ENUM(Roles)
 
@@ -45,12 +49,16 @@ class DayReminderModel : public QAbstractListModel {
     [[nodiscard]] int dailyCount() const;
     [[nodiscard]] int periodicCount() const;
 
+    struct DayReminderCompletion {
+        QString status;
+        QString detail;
+        bool isCompleted{false};
+        bool hasJournalEntry{false};
+    };
+
     void setFilterDate(const QDate &date);
-    /**
-     * @brief Fills the model from pre-loaded reminder rows (cache or repository JOIN).
-     * @param entries Reminder rows with song title and BPM.
-     */
-    void applyEntries(const QList<ReminderDayEntry> &entries);
+    void applyEntries(const QList<ReminderDayEntry> &entries,
+                      const QList<DayReminderCompletion> &completion = {});
     void clearRows();
 
   signals:
@@ -69,6 +77,10 @@ class DayReminderModel : public QAbstractListModel {
         int intervalDays{};
         int baseBpm{};
         qlonglong practiceAssetId{};
+        QString completionStatus;
+        QString completionDetail;
+        bool isCompleted{false};
+        bool hasJournalEntry{false};
     };
 
     [[nodiscard]] static DayReminderRow rowFromEntry(const ReminderDayEntry &entry);

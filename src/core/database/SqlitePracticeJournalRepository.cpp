@@ -177,6 +177,105 @@ QList<JournalEntry> SqlitePracticeJournalRepository::listForAssetAndDate(qlonglo
     return entries;
 }
 
+QList<JournalEntry> SqlitePracticeJournalRepository::listForSongAndDate(qlonglong songId,
+                                                                        const QDate &date) {
+    QList<JournalEntry> entries;
+
+    if (songId <= 0 || !date.isValid() || !RepositoryUtils::ensureOpen(m_connection)) {
+        return entries;
+    }
+
+    QSqlQuery query(RepositoryUtils::database(m_connection));
+    query.prepare(QStringLiteral(
+        "SELECT pj.id, pj.user_id, pj.asset_id, pj.practice_date, pj.start_bar, pj.end_bar, "
+        "pj.practiced_bpm, pj.total_reps, pj.successful_streaks, pj.duration_seconds, "
+        "pj.notice_id "
+        "FROM practice_journal pj "
+        "JOIN practice_assets pa ON pj.asset_id = pa.id "
+        "WHERE pa.song_id = :song_id AND date(pj.practice_date) = date(:practice_date) "
+        "ORDER BY pj.practice_date"));
+    query.bindValue(QStringLiteral(":song_id"), songId);
+    query.bindValue(QStringLiteral(":practice_date"), date.startOfDay());
+
+    if (!query.exec()) {
+        qCritical() << "[SqlitePracticeJournalRepository] listForSongAndDate failed:"
+                    << query.lastError().text();
+        return entries;
+    }
+
+    while (query.next()) {
+        entries.append(entryFromQuery(query));
+    }
+
+    return entries;
+}
+
+QList<JournalDayEntry> SqlitePracticeJournalRepository::listDayEntriesWithSong(const QDate &date) {
+    QList<JournalDayEntry> entries;
+
+    if (!date.isValid() || !RepositoryUtils::ensureOpen(m_connection)) {
+        return entries;
+    }
+
+    QSqlQuery query(RepositoryUtils::database(m_connection));
+    query.prepare(QStringLiteral(
+        "SELECT pj.id, pj.asset_id, pa.song_id, COALESCE(s.title, ''), COALESCE(s.base_bpm, 0), "
+        "pj.duration_seconds, pj.start_bar, pj.end_bar, pj.practiced_bpm "
+        "FROM practice_journal pj "
+        "JOIN practice_assets pa ON pj.asset_id = pa.id "
+        "LEFT JOIN songs s ON pa.song_id = s.id "
+        "WHERE date(pj.practice_date) = date(:practice_date) "
+        "ORDER BY s.title, pj.practice_date"));
+    query.bindValue(QStringLiteral(":practice_date"), date.startOfDay());
+
+    if (!query.exec()) {
+        qCritical() << "[SqlitePracticeJournalRepository] listDayEntriesWithSong failed:"
+                    << query.lastError().text();
+        return entries;
+    }
+
+    while (query.next()) {
+        entries.append(dayEntryFromQuery(query));
+    }
+
+    return entries;
+}
+
+QList<QDate> SqlitePracticeJournalRepository::distinctPracticeDatesInMonth(int year, int month) {
+    QList<QDate> dates;
+
+    if (year < 1 || month < 1 || month > 12 || !RepositoryUtils::ensureOpen(m_connection)) {
+        return dates;
+    }
+
+    const QDate monthStart(year, month, 1);
+    const QDate monthEnd = monthStart.addMonths(1).addDays(-1);
+
+    QSqlQuery query(RepositoryUtils::database(m_connection));
+    query.prepare(QStringLiteral(
+        "SELECT DISTINCT date(practice_date) AS practice_day "
+        "FROM practice_journal "
+        "WHERE date(practice_date) BETWEEN date(:start_date) AND date(:end_date) "
+        "ORDER BY practice_day"));
+    query.bindValue(QStringLiteral(":start_date"), monthStart.toString(Qt::ISODate));
+    query.bindValue(QStringLiteral(":end_date"), monthEnd.toString(Qt::ISODate));
+
+    if (!query.exec()) {
+        qCritical() << "[SqlitePracticeJournalRepository] distinctPracticeDatesInMonth failed:"
+                    << query.lastError().text();
+        return dates;
+    }
+
+    while (query.next()) {
+        const QDate day = QDate::fromString(query.value(0).toString(), Qt::ISODate);
+        if (day.isValid()) {
+            dates.append(day);
+        }
+    }
+
+    return dates;
+}
+
 /**
  * @brief Retrieves the most recent practice entry for a specific asset.
  * @param assetId The ID of the practice asset.
@@ -228,5 +327,19 @@ JournalEntry SqlitePracticeJournalRepository::entryFromQuery(QSqlQuery &query) {
         query.value(SqlQueryColumns::PracticeJournal::SuccessfulStreaks).toInt();
     entry.durationSeconds = query.value(SqlQueryColumns::PracticeJournal::DurationSeconds).toInt();
     entry.noticeId = query.value(SqlQueryColumns::PracticeJournal::NoticeId).toLongLong();
+    return entry;
+}
+
+JournalDayEntry SqlitePracticeJournalRepository::dayEntryFromQuery(QSqlQuery &query) {
+    JournalDayEntry entry;
+    entry.entryId = query.value(0).toLongLong();
+    entry.assetId = query.value(1).toLongLong();
+    entry.songId = query.value(2).toLongLong();
+    entry.songTitle = query.value(3).toString();
+    entry.baseBpm = query.value(4).toInt();
+    entry.durationSeconds = query.value(5).toInt();
+    entry.startBar = query.value(6).toInt();
+    entry.endBar = query.value(7).toInt();
+    entry.practicedBpm = query.value(8).toInt();
     return entry;
 }

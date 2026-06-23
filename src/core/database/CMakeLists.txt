@@ -16,6 +16,7 @@ add_library(DatabaseMangerLib STATIC
     interfaces/IPracticeAssetRepository.h
     interfaces/IReminderRepository.h
     interfaces/IReminderConditionRepository.h
+    interfaces/IReminderCompletionRepository.h
     interfaces/IAudioConfigPresetRepository.h
     User.h
     Artist.h
@@ -25,11 +26,13 @@ add_library(DatabaseMangerLib STATIC
     LinkGroup.h
     MediaFileMapping.h
     JournalEntry.h
+    JournalDayEntry.h
     PracticeAsset.h
     PracticeNotice.h
     Reminder.h Reminder.cpp
     ReminderConstants.h
     ReminderCondition.h
+    ReminderCompletionOverride.h
     AudioConfigPreset.h
     SqlQueryColumns.h
     RepositoryUtils.h
@@ -47,6 +50,7 @@ add_library(DatabaseMangerLib STATIC
     SqlitePracticeNoticeRepository.h SqlitePracticeNoticeRepository.cpp
     SqliteReminderRepository.h SqliteReminderRepository.cpp
     SqliteReminderConditionRepository.h SqliteReminderConditionRepository.cpp
+    SqliteReminderCompletionRepository.h SqliteReminderCompletionRepository.cpp
     SqliteAudioConfigPresetRepository.h SqliteAudioConfigPresetRepository.cpp
 )
 

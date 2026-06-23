@@ -21,6 +21,9 @@ class SqlitePracticeJournalRepository final : public IPracticeJournalRepository 
     explicit SqlitePracticeJournalRepository(IDatabaseConnection &connection);
 
     QList<JournalEntry> listForAssetAndDate(qlonglong assetId, const QDate &date) override;
+    QList<JournalEntry> listForSongAndDate(qlonglong songId, const QDate &date) override;
+    QList<JournalDayEntry> listDayEntriesWithSong(const QDate &date) override;
+    QList<QDate> distinctPracticeDatesInMonth(int year, int month) override;
     std::optional<JournalEntry> lastEntryForAsset(qlonglong assetId) override;
 
     // CRUD operations
@@ -32,6 +35,7 @@ class SqlitePracticeJournalRepository final : public IPracticeJournalRepository 
 
   private:
     static JournalEntry entryFromQuery(QSqlQuery &query);
+    static JournalDayEntry dayEntryFromQuery(QSqlQuery &query);
     IDatabaseConnection &m_connection;
 };
 

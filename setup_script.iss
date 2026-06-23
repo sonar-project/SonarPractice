@@ -7,3 +7,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 
 [Files]
 Source: "deploy\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
+
+[Tasks]
+Name: "desktopicon"; Description: "Create a desktop icon"; GroupDescription: "Additional icons:"; Flags: checkedonce
+
+[Icons]
+Name: "{userdesktop}\SonarPractice"; Filename: "{app}\SonarPractice.exe"; Tasks: desktopicon
+
+Name: "{autoprograms}\SonarPractice"; Filename: "{app}\SonarPractice.exe"; WorkingDir: "{app}"

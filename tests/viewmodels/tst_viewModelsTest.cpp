@@ -688,8 +688,8 @@ void TestViewModels::testReminderControllerIntervalAndWeekdayRoundTrip() {
     const std::optional<qlonglong> assetId = m_practiceAssetRepo.upsert(practiceAsset);
     QVERIFY(assetId.has_value());
 
-    ReminderController controller(m_reminderRepo, m_conditionRepo, m_songRepo,
-                                  *m_practiceAssetController);
+    ReminderController controller(m_reminderRepo, m_conditionRepo, m_journalRepo, m_completionRepo,
+                                  m_songRepo, *m_practiceAssetController);
     controller.setSongId(*songId);
     controller.setPracticeAssetId(*assetId);
 
@@ -816,8 +816,8 @@ void TestViewModels::testReminderControllerRequiresPracticeAssetId() {
     const std::optional<qlonglong> assetId = m_practiceAssetRepo.upsert(practiceAsset);
     QVERIFY(assetId.has_value());
 
-    ReminderController controller(m_reminderRepo, m_conditionRepo, m_songRepo,
-                                  *m_practiceAssetController);
+    ReminderController controller(m_reminderRepo, m_conditionRepo, m_journalRepo, m_completionRepo,
+                                  m_songRepo, *m_practiceAssetController);
 
     controller.setSongId(*songId);
 
@@ -847,8 +847,8 @@ void TestViewModels::testReminderControllerDeleteReminderUpdatesCounts() {
     const std::optional<qlonglong> assetId = m_practiceAssetRepo.upsert(practiceAsset);
     QVERIFY(assetId.has_value());
 
-    ReminderController controller(m_reminderRepo, m_conditionRepo, m_songRepo,
-                                  *m_practiceAssetController);
+    ReminderController controller(m_reminderRepo, m_conditionRepo, m_journalRepo, m_completionRepo,
+                                  m_songRepo, *m_practiceAssetController);
     controller.setSongId(*songId);
     controller.setPracticeAssetId(*assetId);
     controller.setShowAllReminders(true);
@@ -901,7 +901,8 @@ void TestViewModels::testPracticeAssetControllerCompositeUpsert() {
 
     QCOMPARE(m_practiceAssetController->mediaFileIdForAsset(assetId), *gpId);
 
-    ReminderController reminderController(m_reminderRepo, m_conditionRepo, m_songRepo,
+    ReminderController reminderController(m_reminderRepo, m_conditionRepo, m_journalRepo,
+                                          m_completionRepo, m_songRepo,
                                           *m_practiceAssetController);
     const QVariantMap payload = reminderController.practiceAssetPayload(assetId);
     QCOMPARE(payload.value(QStringLiteral("assetId")).toLongLong(), assetId);

@@ -166,6 +166,15 @@ bool DatabaseSchema::createAllTables() {
                             "min_minutes INTEGER, "
                             "FOREIGN KEY(reminder_id) REFERENCES reminders(id) ON DELETE CASCADE)",
                             "reminder_conditions")) &&
+           createTable(SqlStatement(
+               "CREATE TABLE IF NOT EXISTS reminder_completion_overrides ("
+               "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "reminder_id INTEGER NOT NULL, "
+               "completion_date DATE NOT NULL, "
+               "accepted INTEGER NOT NULL DEFAULT 1, "
+               "FOREIGN KEY(reminder_id) REFERENCES reminders(id) ON DELETE CASCADE, "
+               "UNIQUE(reminder_id, completion_date))",
+               "reminder_completion_overrides")) &&
            // audio_config_presets (saved playback settings per media file)
            createTable(SqlStatement(
                "CREATE TABLE IF NOT EXISTS audio_config_presets ("
@@ -217,8 +226,13 @@ bool DatabaseSchema::migratePerformanceIndexes() {
                                     "ON practice_notices(song_id, note_date)",
                                     QStringLiteral("idx_practice_notices_song_date"))) &&
            createIndex(SqlStatement(
+               "CREATE INDEX IF NOT EXISTS idx_reminder_completion_overrides_date "
+               "ON reminder_completion_overrides(completion_date)",
+               QStringLiteral("idx_reminder_completion_overrides_date"))) &&
+           createIndex(SqlStatement(
                "CREATE UNIQUE INDEX IF NOT EXISTS idx_practice_assets_composition "
-               "ON practice_assets(song_id, guitar_pro_id, audio_id, video_id, image_id)"));
+               "ON practice_assets(song_id, guitar_pro_id, audio_id, video_id, image_id)",
+               QStringLiteral("idx_practice_assets_composition")));
 }
 
 /**

@@ -45,6 +45,14 @@ QVariant DayReminderModel::data(const QModelIndex &index, int role) const {
         return row.baseBpm;
     case Roles::PracticeAssetIdRole:
         return row.practiceAssetId;
+    case Roles::CompletionStatusRole:
+        return row.completionStatus;
+    case Roles::CompletionDetailRole:
+        return row.completionDetail;
+    case Roles::IsCompletedRole:
+        return row.isCompleted;
+    case Roles::HasJournalEntryRole:
+        return row.hasJournalEntry;
     default:
         return {};
     }
@@ -63,6 +71,10 @@ QHash<int, QByteArray> DayReminderModel::roleNames() const {
         {static_cast<int>(Roles::IntervalDaysRole), "intervalDays"},
         {static_cast<int>(Roles::BaseBpmRole), "baseBpm"},
         {static_cast<int>(Roles::PracticeAssetIdRole), "practiceAssetId"},
+        {static_cast<int>(Roles::CompletionStatusRole), "completionStatus"},
+        {static_cast<int>(Roles::CompletionDetailRole), "completionDetail"},
+        {static_cast<int>(Roles::IsCompletedRole), "isCompleted"},
+        {static_cast<int>(Roles::HasJournalEntryRole), "hasJournalEntry"},
     };
 }
 
@@ -72,13 +84,22 @@ int DayReminderModel::periodicCount() const { return m_periodicCount; }
 
 void DayReminderModel::setFilterDate(const QDate &date) { m_filterDate = date; }
 
-void DayReminderModel::applyEntries(const QList<ReminderDayEntry> &entries) {
+void DayReminderModel::applyEntries(const QList<ReminderDayEntry> &entries,
+                                    const QList<DayReminderCompletion> &completion) {
     beginResetModel();
     m_rows.clear();
     m_rows.reserve(entries.size());
 
-    for (const ReminderDayEntry &entry : entries) {
-        m_rows.append(rowFromEntry(entry));
+    for (int i = 0; i < entries.size(); ++i) {
+        DayReminderRow row = rowFromEntry(entries.at(i));
+        if (i < completion.size()) {
+            const DayReminderCompletion &info = completion.at(i);
+            row.completionStatus = info.status;
+            row.completionDetail = info.detail;
+            row.isCompleted = info.isCompleted;
+            row.hasJournalEntry = info.hasJournalEntry;
+        }
+        m_rows.append(row);
     }
 
     rebuildCounts();
