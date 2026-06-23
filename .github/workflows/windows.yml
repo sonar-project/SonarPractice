@@ -59,7 +59,9 @@ jobs:
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}" \
-            -DBUILD_TESTING=OFF
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_CXX_CPPCHECK="" \
+            -DCMAKE_C_CPPCHECK=""
 
       - name: Build
         shell: bash
