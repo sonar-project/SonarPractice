@@ -35,13 +35,13 @@ chmod +x "${LINUXDEPLOY}"
 export QML_SOURCES_PATHS="${ROOT}/src/ui"
 export EXTRA_PLATFORM_PLUGINS="wayland-egl"
 
+export STRIP=true
 "${LINUXDEPLOY}" \
   --appdir "${APPDIR}" \
   --executable "${APPDIR}/usr/bin/SonarPractice" \
   --desktop-file "${APPDIR}/sonarpractice.desktop" \
   --icon-file "${APPDIR}/sonarpractice.svg" \
   --plugin qt \
-  --no-strip \
   --output appimage
 
 mv "${ROOT}/SonarPractice"*.AppImage "${ROOT}/${ARTIFACT_NAME}.AppImage"
