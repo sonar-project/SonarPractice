@@ -19,14 +19,32 @@ if [[ -z "${QT_DIR}" || ! -d "${QT_DIR}" ]]; then
   exit 1
 fi
 
+if ! compgen -G "${QT_DIR}/lib/libicui18n.so*" >/dev/null; then
+  echo "Qt ICU libraries missing under ${QT_DIR}/lib (incomplete aqt install)." >&2
+  exit 1
+fi
+
 if [[ ! -x "${LINUXDEPLOY}" ]]; then
   echo "linuxdeploy not found: ${LINUXDEPLOY}" >&2
   exit 1
 fi
 
 export QMAKE="${QT_DIR}/bin/qmake"
-export PATH="${QT_DIR}/bin:${PATH}"
+export PATH="${QT_DIR}/bin:${QT_DIR}/libexec:${PATH}"
 export LD_LIBRARY_PATH="${QT_DIR}/lib:${LD_LIBRARY_PATH:-}"
+
+# Qt build tools in libexec (qmlimportscanner, etc.) need Qt's bundled ICU at runtime.
+if command -v patchelf >/dev/null 2>&1; then
+  for _qt_tool_dir in "${QT_DIR}/libexec" "${QT_DIR}/bin"; do
+    [[ -d "${_qt_tool_dir}" ]] || continue
+    for _qt_tool in "${_qt_tool_dir}/"*; do
+      [[ -f "${_qt_tool}" && -x "${_qt_tool}" ]] || continue
+      file "${_qt_tool}" | grep -q ELF || continue
+      patchelf --set-rpath '$ORIGIN/../lib' "${_qt_tool}" 2>/dev/null || true
+    done
+  done
+fi
+
 export QML_SOURCES_PATHS="${ROOT}/src/ui"
 export APPIMAGE_EXTRACT_AND_RUN="${APPIMAGE_EXTRACT_AND_RUN:-1}"
 export STRIP="${STRIP:-true}"

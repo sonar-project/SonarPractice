@@ -9,8 +9,6 @@ on:
 env:
   QT_VERSION: "6.8.3"
   QT_ARCH: win64_msvc2022_64
-  # Core components are archives; only Qt add-ons go in modules (see aqt docs).
-  QT_ARCHIVES: qtbase qtdeclarative qtsvg qttools qttranslations
   QT_MODULES: qtmultimedia qtshadertools
   AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
 
@@ -45,7 +43,6 @@ jobs:
           host: windows
           target: desktop
           arch: ${{ env.QT_ARCH }}
-          archives: ${{ env.QT_ARCHIVES }}
           modules: ${{ env.QT_MODULES }}
           tools: tools_ninja tools_cmake
           aqtsource: ${{ env.AQT_SOURCE }}
