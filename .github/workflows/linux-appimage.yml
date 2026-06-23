@@ -7,7 +7,13 @@ on:
   workflow_dispatch:
 
 env:
+  # Pinned: last Qt LTS reliably installable via aqt (not "latest" — aqt 3.3.0 breaks on 6.11+).
+  # Local dev may use a newer Qt from the online installer (e.g. 6.11.1).
+  QT_VERSION: "6.8.3"
+  QT_ARCH: linux_gcc_64
   QT_MODULES: qtbase qtdeclarative qtmultimedia qtsvg qttools qtshadertools
+  # Stock aqt 3.3.0 cannot read Qt 6.8+ metadata paths; use current aqtinstall from git.
+  AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
 
 jobs:
   appimage:
@@ -20,18 +26,6 @@ jobs:
       - name: Set version from tag
         if: startsWith(github.ref, 'refs/tags/')
         run: bash scripts/ci/set_version.sh "${GITHUB_REF_NAME}"
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Resolve latest Qt 6 (aqt)
-        id: qt
-        run: |
-          version="$(bash scripts/ci/resolve_qt_version.sh linux)"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Using Qt ${version} (latest 6.x on aqt for linux)"
 
       - name: Install system dependencies
         run: |
@@ -49,11 +43,12 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: ${{ steps.qt.outputs.version }}
+          version: ${{ env.QT_VERSION }}
           host: linux
           target: desktop
-          arch: gcc_64
+          arch: ${{ env.QT_ARCH }}
           modules: ${{ env.QT_MODULES }}
+          aqtsource: ${{ env.AQT_SOURCE }}
           cache: true
 
       - name: Download linuxdeploy

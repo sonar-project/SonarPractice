@@ -25,7 +25,7 @@ SonarPractice is a personal passion project, created by a musician for musicians
 
 SonarPractice is designed to be platform-independent and is built on a modern C++ stack. To compile the project, the following libraries are required:
 
-- **Qt 6.8 or newer** (Core, Gui, Widgets). Local development may use a newer Qt (e.g. 6.11) from the online installer; CI uses the latest Qt 6.x available via [aqt](https://github.com/miurahr/aqtinstall).
+- **Qt 6.8 or newer** (Core, Gui, Widgets). Recommended for local development: latest Qt from the [online installer](https://www.qt.io/download-qt-installer) (e.g. 6.11.x). **CI builds use Qt 6.8.3 LTS** via aqt — newer Qt versions are not reliably available there yet. The distro Qt on Linux Mint/Ubuntu (often 6.4.x) is too old to build this project.
 - **RubberBand 4.0.0** (for precise time-stretching)
 - **FFmpeg** (libavformat, libavutil for stream probing)
 

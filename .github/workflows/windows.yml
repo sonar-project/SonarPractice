@@ -7,7 +7,10 @@ on:
   workflow_dispatch:
 
 env:
+  QT_VERSION: "6.8.3"
+  QT_ARCH: win64_msvc2022_64
   QT_MODULES: qtbase qtdeclarative qtmultimedia qtsvg qttools qtshadertools
+  AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
 
 jobs:
   installer:
@@ -33,28 +36,16 @@ jobs:
             echo "value=${version}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Resolve latest Qt 6 (aqt)
-        id: qt
-        shell: bash
-        run: |
-          version="$(bash scripts/ci/resolve_qt_version.sh windows)"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Using Qt ${version} (latest 6.x on aqt for windows)"
-
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: ${{ steps.qt.outputs.version }}
+          version: ${{ env.QT_VERSION }}
           host: windows
           target: desktop
-          arch: win64_msvc2022_64
+          arch: ${{ env.QT_ARCH }}
           modules: ${{ env.QT_MODULES }}
           tools: tools_ninja tools_cmake
+          aqtsource: ${{ env.AQT_SOURCE }}
           cache: true
 
       - name: Setup MSVC
