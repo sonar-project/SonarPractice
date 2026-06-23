@@ -3,6 +3,8 @@
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 
+include(AqtSqlPluginWorkaround)
+
 find_package(Qt6 6.8 REQUIRED COMPONENTS
     Core
     Concurrent
