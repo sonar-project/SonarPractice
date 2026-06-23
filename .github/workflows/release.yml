@@ -10,6 +10,8 @@ permissions:
 
 env:
   QT_VERSION: '6.11.1'
+  # aqtinstall 3.3.0 (PyPI) fails on Qt 6.11+ repo layout; use master until next release.
+  AQT_SOURCE: 'git+https://github.com/miurahr/aqtinstall.git@master'
 
 jobs:
   build-linux:
@@ -43,8 +45,10 @@ jobs:
           host: linux
           target: desktop
           arch: gcc_64
-          modules: qtmultimedia qtshadertools
+          modules: qtmultimedia qtshadertools qtsvg
+          aqtsource: ${{ env.AQT_SOURCE }}
           cache: true
+          cache-key-prefix: sonarpractice-qt611
 
       - name: Download linuxdeploy tools
         run: |
@@ -92,9 +96,11 @@ jobs:
           host: windows
           target: desktop
           arch: win64_mingw
-          modules: qtmultimedia qtshadertools
+          modules: qtmultimedia qtshadertools qtsvg
           tools: mingw1310_64
+          aqtsource: ${{ env.AQT_SOURCE }}
           cache: true
+          cache-key-prefix: sonarpractice-qt611
 
       - name: Configure and build
         shell: bash
