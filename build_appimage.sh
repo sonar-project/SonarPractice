@@ -1,21 +1,26 @@
 #!/usr/bin/env bash
+# Local AppImage build for SonarPractice (Qt 6.11.x from the online installer).
+#
+# Prerequisites:
+#   - Release build of SonarPractice (Qt Creator or cmake)
+#   - linuxdeploy + linuxdeploy-plugin-qt in ~/.local/bin/
+#   - Optional: APPIMAGE_EXTRACT_AND_RUN=1 if FUSE is unavailable
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+QT_DIR="${QT_DIR:-$HOME/Qt/6.11.1/gcc_64}"
+BUILD_DIR="${BUILD_DIR:-$ROOT/build/Desktop_Qt_6_11_1_Release}"
 APPDIR="${ROOT}/AppDir"
-QT_DIR="${QT_DIR:-${QT_ROOT_DIR:-}}"
-LINUXDEPLOY="${LINUXDEPLOY:-${ROOT}/.ci/linuxdeploy-x86_64.AppImage}"
+LINUXDEPLOY="${LINUXDEPLOY:-$HOME/.local/bin/linuxdeploy-x86_64.AppImage}"
+VERSION="${VERSION:-$(grep -m1 'project(SonarPractice VERSION' "$ROOT/CMakeLists.txt" | sed -E 's/.*VERSION ([0-9.]+).*/\1/')}"
+ARTIFACT="${ROOT}/SonarPractice-${VERSION}-x86_64.AppImage"
 
-VERSION="${1:-${GITHUB_REF_NAME:-}}"
-VERSION="${VERSION#v}"
-if [[ -z "${VERSION}" ]]; then
-  VERSION="$(grep -m1 'project(SonarPractice VERSION' "${ROOT}/CMakeLists.txt" | sed -E 's/.*VERSION ([0-9.]+).*/\1/')"
-fi
-ARTIFACT_NAME="SonarPractice-${VERSION}-x86_64"
+BINARY="${BUILD_DIR}/SonarPractice"
+RUBBERBAND_LIB="${BUILD_DIR}/libSonarPractice_Rubberband.so"
 
-if [[ -z "${QT_DIR}" || ! -d "${QT_DIR}" ]]; then
-  echo "Qt installation not found. Set QT_DIR or QT_ROOT_DIR." >&2
+if [[ ! -x "${BINARY}" ]]; then
+  echo "Binary not found: ${BINARY}" >&2
+  echo "Build the Release target first or set BUILD_DIR." >&2
   exit 1
 fi
 
@@ -29,10 +34,11 @@ export PATH="${QT_DIR}/bin:${PATH}"
 export LD_LIBRARY_PATH="${QT_DIR}/lib:${LD_LIBRARY_PATH:-}"
 export QML_SOURCES_PATHS="${ROOT}/src/ui"
 export APPIMAGE_EXTRACT_AND_RUN="${APPIMAGE_EXTRACT_AND_RUN:-1}"
-export STRIP="${STRIP:-true}"
 
-# linuxdeploy-plugin-qt bundles every SQL driver from the Qt install. Unused drivers
-# such as libqsqlmimer.so require proprietary libs (libmimerapi.so). We only use QSQLITE.
+# linuxdeploy-plugin-qt copies every SQL driver shipped with Qt. Drivers such as
+# libqsqlmimer.so pull in proprietary libs (libmimerapi.so) that are not
+# installed locally and are not needed (we only use QSQLITE). Mask them for the
+# duration of the build.
 QT_SQLDRIVERS="${QT_DIR}/plugins/sqldrivers"
 SQL_DRIVER_MASK_DIR=""
 restore_sql_drivers() {
@@ -52,32 +58,15 @@ if [[ -d "${QT_SQLDRIVERS}" ]]; then
   done
 fi
 
-rm -rf "${BUILD_DIR}" "${APPDIR}" "${ROOT}/${ARTIFACT_NAME}"*.AppImage
-
-cmake -S "${ROOT}" -B "${BUILD_DIR}" \
-  -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_PREFIX_PATH="${QT_DIR}" \
-  -DBUILD_TESTING=OFF
-
-cmake --build "${BUILD_DIR}" --target SonarPractice
-
+rm -rf "${APPDIR}" "${ROOT}"/SonarPractice*.AppImage
 mkdir -p "${APPDIR}/usr/bin"
-cp "${BUILD_DIR}/SonarPractice" "${APPDIR}/usr/bin/"
-
-RUBBERBAND_LIB="$(find "${BUILD_DIR}" -maxdepth 1 -name 'libSonarPractice_Rubberband.so*' -print -quit)"
-if [[ -n "${RUBBERBAND_LIB}" ]]; then
+cp "${BINARY}" "${APPDIR}/usr/bin/"
+if [[ -f "${RUBBERBAND_LIB}" ]]; then
   cp "${RUBBERBAND_LIB}" "${APPDIR}/usr/bin/"
 fi
 
 cp "${ROOT}/scripts/ci/sonarpractice.appimage.desktop" "${APPDIR}/sonarpractice.desktop"
 cp "${ROOT}/assets/svg/icon.svg" "${APPDIR}/sonarpractice.svg"
-
-chmod +x "${LINUXDEPLOY}"
-PLUGIN="${ROOT}/.ci/linuxdeploy-plugin-qt-x86_64.AppImage"
-if [[ -f "${PLUGIN}" ]]; then
-  chmod +x "${PLUGIN}"
-fi
 
 "${LINUXDEPLOY}" \
   --appdir "${APPDIR}" \
@@ -87,6 +76,5 @@ fi
   --plugin qt \
   --output appimage
 
-mv "${ROOT}/SonarPractice"*.AppImage "${ROOT}/${ARTIFACT_NAME}.AppImage"
-
-echo "Created ${ROOT}/${ARTIFACT_NAME}.AppImage"
+mv "${ROOT}/SonarPractice"*.AppImage "${ARTIFACT}"
+echo "Created ${ARTIFACT}"

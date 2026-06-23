@@ -1,0 +1,76 @@
+name: Windows Installer
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+
+env:
+  QT_VERSION: "6.11.1"
+  QT_MODULES: qtbase qtdeclarative qtmultimedia qtsvg qttools qtshadertools
+
+jobs:
+  installer:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: bash scripts/ci/set_version.sh "${GITHUB_REF_NAME}"
+
+      - name: Resolve app version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            version="$(grep -m1 'project(SonarPractice VERSION' CMakeLists.txt | sed -E 's/.*VERSION ([0-9.]+).*/\1/')"
+            echo "value=${version}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          modules: ${{ env.QT_MODULES }}
+          tools: tools_mingw1310 tools_ninja tools_cmake
+          cache: true
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}" \
+            -DBUILD_TESTING=OFF
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --target SonarPractice
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Create installer
+        shell: cmd
+        env:
+          BUILD_DIR: ${{ github.workspace }}\build
+          QTDIR: ${{ env.QT_ROOT_DIR }}
+          APP_VERSION: ${{ steps.version.outputs.value }}
+        run: build_installer.bat
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: SonarPractice-Windows-Installer
+          path: Output/SonarPractice_*_Setup.exe
+          if-no-files-found: error

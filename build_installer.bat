@@ -57,6 +57,10 @@ if errorlevel 1 (
     )
 )
 
-"%ISCC%" "%PROJECT_DIR%\setup_script.iss"
+if defined APP_VERSION (
+    "%ISCC%" /DAppVersion=%APP_VERSION% /DOutputBaseFilename=SonarPractice_%APP_VERSION%_Setup "%PROJECT_DIR%\setup_script.iss"
+) else (
+    "%ISCC%" "%PROJECT_DIR%\setup_script.iss"
+)
 
 endlocal

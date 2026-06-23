@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
 Name=SonarPractice
-Exec=/opt/SonarPractice/bin/SonarPractice
-Icon=/opt/SonarPractice/icon.svg
+Exec=/usr/bin/SonarPractice
+Icon=/usr/share/icons/hicolor/scalable/apps/sonarpractice.svg
 Terminal=false

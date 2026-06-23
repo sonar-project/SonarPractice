@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "0.0.1"
+  #define AppVersion "0.0.0"
 #endif
 #ifndef OutputBaseFilename
-  #define OutputBaseFilename "SonarPractice_0.0.1_Alpha_Setup"
+  #define OutputBaseFilename "SonarPractice_0.0.0_Setup"
 #endif
 
 [Setup]

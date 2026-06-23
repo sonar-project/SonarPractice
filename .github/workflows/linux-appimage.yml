@@ -1,0 +1,73 @@
+name: Linux AppImage
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+
+env:
+  QT_VERSION: "6.11.1"
+  QT_MODULES: qtbase qtdeclarative qtmultimedia qtsvg qttools qtshadertools
+
+jobs:
+  appimage:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: bash scripts/ci/set_version.sh "${GITHUB_REF_NAME}"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            pkg-config \
+            libavformat-dev \
+            libavutil-dev \
+            libvulkan-dev \
+            libgl1-mesa-dev \
+            libxkbcommon-dev \
+            libpulse-dev
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: gcc_64
+          modules: ${{ env.QT_MODULES }}
+          cache: true
+
+      - name: Download linuxdeploy
+        run: |
+          mkdir -p .ci
+          wget -q -O .ci/linuxdeploy-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q -O .ci/linuxdeploy-plugin-qt-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x .ci/linuxdeploy-x86_64.AppImage .ci/linuxdeploy-plugin-qt-x86_64.AppImage
+
+      - name: Build AppImage
+        env:
+          QT_DIR: ${{ env.QT_ROOT_DIR }}
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            bash scripts/ci/build_appimage.sh "${GITHUB_REF_NAME}"
+          else
+            bash scripts/ci/build_appimage.sh
+          fi
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: SonarPractice-Linux-AppImage
+          path: SonarPractice-*-x86_64.AppImage
+          if-no-files-found: error

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Patches CMakeLists.txt project() version from a git tag (e.g. v1.2.3 -> 1.2.3).
+# The repo keeps 0.0.0 in CMakeLists.txt for local builds; CI runs this before cmake.
 VERSION="${1:-${GITHUB_REF_NAME:-}}"
 VERSION="${VERSION#v}"
 

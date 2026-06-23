@@ -83,7 +83,12 @@ Thumbs.db
 # --- Dependencies ---
 vcpkg_installed/
 
+# CI tooling (downloaded in workflows)
+.ci/
+
 # Inno Installer
 Output
 deploy
 deployqt.conf
+AppDir
+*.AppImage

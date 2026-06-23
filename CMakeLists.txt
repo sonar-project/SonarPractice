@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(SonarPractice VERSION 0.0.1 LANGUAGES CXX)
+# 0.0.0 = local/dev build. CI patches this from the git tag (without "v") before release builds.
+project(SonarPractice VERSION 0.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
