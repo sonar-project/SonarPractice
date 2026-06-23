@@ -11,7 +11,8 @@ env:
   # Local dev may use a newer Qt from the online installer (e.g. 6.11.1).
   QT_VERSION: "6.8.3"
   QT_ARCH: linux_gcc_64
-  QT_MODULES: qtbase qtdeclarative qtmultimedia qtsvg qttools qtshadertools
+  QT_ARCHIVES: qtbase qtdeclarative qtsvg qttools qttranslations
+  QT_MODULES: qtmultimedia qtshadertools
   # Stock aqt 3.3.0 cannot read Qt 6.8+ metadata paths; use current aqtinstall from git.
   AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
 
@@ -47,6 +48,7 @@ jobs:
           host: linux
           target: desktop
           arch: ${{ env.QT_ARCH }}
+          archives: ${{ env.QT_ARCHIVES }}
           modules: ${{ env.QT_MODULES }}
           aqtsource: ${{ env.AQT_SOURCE }}
           cache: true
