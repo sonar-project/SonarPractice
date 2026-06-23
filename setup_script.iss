@@ -1,7 +1,14 @@
+#ifndef AppVersion
+  #define AppVersion "0.0.1"
+#endif
+#ifndef OutputBaseFilename
+  #define OutputBaseFilename "SonarPractice_0.0.1_Alpha_Setup"
+#endif
+
 [Setup]
 AppName=SonarPractice
-AppVersion=0.0.1
-OutputBaseFilename=SonarPractice_0.0.1_Alpha_Setup
+AppVersion={#AppVersion}
+OutputBaseFilename={#OutputBaseFilename}
 DefaultDirName={autopf}\SonarPractice
 ArchitecturesInstallIn64BitMode=x64compatible
 
