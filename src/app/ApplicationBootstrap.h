@@ -26,6 +26,7 @@
 #include "SqlitePracticeJournalRepository.h"
 #include "SqlitePracticeNoticeRepository.h"
 #include "SqliteReminderConditionRepository.h"
+#include "SqliteReminderCompletionRepository.h"
 #include "SqliteReminderRepository.h"
 #include "SqliteSongRepository.h"
 #include "SqliteTuningRepository.h"
@@ -197,6 +198,7 @@ class ApplicationBootstrap : public QObject {
     std::unique_ptr<SqlitePracticeNoticeRepository> m_noticeRepo;
     std::unique_ptr<SqliteReminderRepository> m_reminderRepo;
     std::unique_ptr<SqliteReminderConditionRepository> m_reminderConditionRepo;
+    std::unique_ptr<SqliteReminderCompletionRepository> m_reminderCompletionRepo;
     std::unique_ptr<SqliteAudioConfigPresetRepository> m_audioPresetRepo;
     std::unique_ptr<SqliteUserRepository> m_userRepo;
 

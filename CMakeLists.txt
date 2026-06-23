@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(SonarPractice VERSION 0.0.1 LANGUAGES CXX)
+# 0.0.0 = local/dev build. CI patches this from the git tag (without "v") before release builds.
+project(SonarPractice VERSION 0.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,7 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(cmake/Dependencies.cmake)
 
-qt_standard_project_setup(REQUIRES 6.11)
+qt_standard_project_setup(REQUIRES 6.8)
 
 # QML-Typen generieren
 set(CMAKE_AUTOMOC ON)
@@ -134,6 +135,8 @@ qt_add_qml_module(SonarPractice
     src/ui/js/MarkdownFormat.js
     sonarpractice.desktop
     RESOURCES assets/app.rc.in
+    RESOURCES build_installer.bat
+    RESOURCES setup_script.iss
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

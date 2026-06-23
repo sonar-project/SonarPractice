@@ -19,6 +19,7 @@
 #include "SqlitePracticeJournalRepository.h"
 #include "SqlitePracticeNoticeRepository.h"
 #include "SqliteReminderConditionRepository.h"
+#include "SqliteReminderCompletionRepository.h"
 #include "SqliteReminderRepository.h"
 #include "SqliteSongRepository.h"
 #include "SqliteTuningRepository.h"
@@ -104,6 +105,7 @@ class TestViewModels : public QObject {
     SqlitePracticeNoticeRepository m_noticeRepo{m_connector};
     SqliteReminderRepository m_reminderRepo{m_connector};
     SqliteReminderConditionRepository m_conditionRepo{m_connector};
+    SqliteReminderCompletionRepository m_completionRepo{m_connector};
     std::unique_ptr<PracticeAssetController> m_practiceAssetController;
     QTemporaryDir m_errorLogStorage;
     std::unique_ptr<ApplicationErrorLog> m_errorLog;

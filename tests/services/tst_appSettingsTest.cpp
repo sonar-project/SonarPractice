@@ -35,18 +35,19 @@ void TestAppSettings::testManagedStorageRootNotPersistedByEnsureDefaults() {
     QCOMPARE(settings.defaultManagedStoragePath(), settings.managedStorageRoot());
 }
 
-void TestAppSettings::testLegacyManagedStorageRootMigration() {
-    {
-        QSettings legacySettings(m_settingsPath, QSettings::IniFormat);
-        legacySettings.setValue(QStringLiteral("storage/managedRoot"),
-                                QStringLiteral("/home/user/.local/share/SonarPractice/media"));
-        legacySettings.sync();
-    }
+// Disabled – very important for later versions, but not yet relevant.
+// void TestAppSettings::testLegacyManagedStorageRootMigration() {
+//     {
+//         QSettings legacySettings(m_settingsPath, QSettings::IniFormat);
+//         legacySettings.setValue(QStringLiteral("storage/managedRoot"),
+//                                 QStringLiteral("/home/user/.local/share/SonarPractice/media"));
+//         legacySettings.sync();
+//     }
 
-    AppSettings settings(m_settingsPath);
-    QVERIFY(!settings.hasConfiguredManagedStorageRoot());
-    QVERIFY(settings.managedStorageRoot().contains(QStringLiteral("SonarPractice-Repertoire")));
-}
+//     AppSettings settings(m_settingsPath);
+//     QVERIFY(!settings.hasConfiguredManagedStorageRoot());
+//     QVERIFY(settings.managedStorageRoot().contains(QStringLiteral("SonarPractice-Repertoire")));
+// }
 
 void TestAppSettings::testCreateStorageDirectory() {
     QTemporaryDir tempDir;

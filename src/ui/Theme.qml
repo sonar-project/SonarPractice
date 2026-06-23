@@ -72,4 +72,7 @@ Settings {
     readonly property color toolbarButtonPressed: isDark ? "#3d3d5c" : "#d8dbe3"
     readonly property color calendarSelected: isDark ? "#7c4dff" : "#651fff"
     readonly property color calendarSelectedBorder: isDark ? "#b39ddb" : "#9575cd"
+    readonly property color calendarPracticedDot: isDark ? "#4fc3f7" : "#0288d1"
+    readonly property color calendarCompleteDot: isDark ? "#81c784" : "#2e7d32"
+    readonly property color calendarPartialDot: isDark ? "#ffd54f" : "#f9a825"
 }

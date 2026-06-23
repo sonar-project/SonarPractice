@@ -1,8 +1,11 @@
 #ifndef REMINDERLISTMODEL_H
 #define REMINDERLISTMODEL_H
 
+#include "Reminder.h"
+
 #include <QAbstractListModel>
 #include <QDate>
+#include <QLocale>
 #include <QString>
 #include <QtGlobal>
 #include <QtQml/qqmlregistration.h>
@@ -57,7 +60,31 @@ class ReminderListModel : public QAbstractListModel {
     void reload();
 
     /** Human-readable recurrence label; once-off dates use the system locale short format. */
-    [[nodiscard]] static QString buildScheduleLabel(const class Reminder &reminder);
+    [[nodiscard]] static QString buildScheduleLabel(const Reminder &reminder) {
+        if (reminder.isDaily) {
+            return ReminderListModel::tr("Daily");
+        }
+        if (reminder.isWeekly) {
+            static const QStringList days = {
+                ReminderListModel::tr("Sun"), ReminderListModel::tr("Mon"), ReminderListModel::tr("Tue"),
+                ReminderListModel::tr("Wed"), ReminderListModel::tr("Thu"), ReminderListModel::tr("Fri"),
+                ReminderListModel::tr("Sat")};
+            if (reminder.weekday >= 0 && reminder.weekday < days.size()) {
+                return ReminderListModel::tr("Weekly (%1)").arg(days.at(reminder.weekday));
+            }
+            return ReminderListModel::tr("Weekly");
+        }
+        if (reminder.isMonthly) {
+            return ReminderListModel::tr("Monthly");
+        }
+        if (reminder.intervalDays > 0) {
+            return ReminderListModel::tr("Every %1 days").arg(reminder.intervalDays);
+        }
+        if (reminder.reminderDate.isValid()) {
+            return QLocale().toString(reminder.reminderDate, QLocale::ShortFormat);
+        }
+        return ReminderListModel::tr("Once");
+    }
 
   private:
     struct ReminderRow {

@@ -27,6 +27,8 @@ qt_add_library(ServicesLib STATIC
     logging/ApplicationErrorLog.cpp
     practice/PracticeTrackerService.h
     practice/PracticeTrackerService.cpp
+    practice/ReminderCompletionEvaluator.h
+    practice/ReminderCompletionEvaluator.cpp
     link/LinkGroupService.h
     link/LinkGroupService.cpp
 )

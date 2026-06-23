@@ -12,7 +12,6 @@
 #include "interfaces/ISongRepository.h"
 
 #include <QDate>
-#include <QLocale>
 
 ReminderListModel::ReminderListModel(IReminderRepository &reminderRepo,
                                      IReminderConditionRepository &conditionRepo,
@@ -102,32 +101,6 @@ void ReminderListModel::setPracticeAssetId(qlonglong practiceAssetId) {
 void ReminderListModel::setFilterDate(const QDate &date) { m_filterDate = date; }
 
 void ReminderListModel::setFilterByDate(bool enabled) { m_filterByDate = enabled; }
-
-QString ReminderListModel::buildScheduleLabel(const Reminder &reminder) {
-    if (reminder.isDaily) {
-        return ReminderListModel::tr("Daily");
-    }
-    if (reminder.isWeekly) {
-        static const QStringList days = {
-            ReminderListModel::tr("Sun"), ReminderListModel::tr("Mon"), ReminderListModel::tr("Tue"),
-            ReminderListModel::tr("Wed"), ReminderListModel::tr("Thu"), ReminderListModel::tr("Fri"),
-            ReminderListModel::tr("Sat")};
-        if (reminder.weekday >= 0 && reminder.weekday < days.size()) {
-            return ReminderListModel::tr("Weekly (%1)").arg(days.at(reminder.weekday));
-        }
-        return ReminderListModel::tr("Weekly");
-    }
-    if (reminder.isMonthly) {
-        return ReminderListModel::tr("Monthly");
-    }
-    if (reminder.intervalDays > 0) {
-        return ReminderListModel::tr("Every %1 days").arg(reminder.intervalDays);
-    }
-    if (reminder.reminderDate.isValid()) {
-        return QLocale().toString(reminder.reminderDate, QLocale::ShortFormat);
-    }
-    return ReminderListModel::tr("Once");
-}
 
 void ReminderListModel::reload() {
     beginResetModel();

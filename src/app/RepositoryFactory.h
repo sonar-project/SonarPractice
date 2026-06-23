@@ -10,6 +10,7 @@
 #include "SqlitePracticeJournalRepository.h"
 #include "SqlitePracticeNoticeRepository.h"
 #include "SqliteReminderConditionRepository.h"
+#include "SqliteReminderCompletionRepository.h"
 #include "SqliteReminderRepository.h"
 #include "SqliteSongRepository.h"
 #include "SqliteTuningRepository.h"
@@ -32,6 +33,7 @@ struct RepositoryFactory {
         std::unique_ptr<SqlitePracticeNoticeRepository> notice;
         std::unique_ptr<SqliteReminderRepository> reminder;
         std::unique_ptr<SqliteReminderConditionRepository> reminderCondition;
+        std::unique_ptr<SqliteReminderCompletionRepository> reminderCompletion;
         std::unique_ptr<SqliteAudioConfigPresetRepository> audioPreset;
         std::unique_ptr<SqliteUserRepository> user;
     };
@@ -50,6 +52,7 @@ struct RepositoryFactory {
         repos.notice = std::make_unique<SqlitePracticeNoticeRepository>(conn);
         repos.reminder = std::make_unique<SqliteReminderRepository>(conn);
         repos.reminderCondition = std::make_unique<SqliteReminderConditionRepository>(conn);
+        repos.reminderCompletion = std::make_unique<SqliteReminderCompletionRepository>(conn);
         repos.audioPreset = std::make_unique<SqliteAudioConfigPresetRepository>(conn);
         repos.user = std::make_unique<SqliteUserRepository>(conn);
         return repos;

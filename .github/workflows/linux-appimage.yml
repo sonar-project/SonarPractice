@@ -1,0 +1,96 @@
+name: Linux AppImage
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+
+env:
+  # Pinned: last Qt LTS reliably installable via aqt (not "latest" — aqt 3.3.0 breaks on 6.11+).
+  # Local dev may use a newer Qt from the online installer (e.g. 6.11.1).
+  QT_VERSION: "6.8.3"
+  QT_ARCH: linux_gcc_64
+  # icu is a separate Linux-only archive in aqt; required for qmlimportscanner / Qt Core.
+  QT_ARCHIVES: icu qtbase qtdeclarative qtsvg qttools qttranslations
+  QT_MODULES: qtmultimedia qtshadertools
+  # Stock aqt 3.3.0 cannot read Qt 6.8+ metadata paths; use current aqtinstall from git.
+  AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
+
+jobs:
+  appimage:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: bash scripts/ci/set_version.sh "${GITHUB_REF_NAME}"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            pkg-config \
+            libavformat-dev \
+            libavutil-dev \
+            libvulkan-dev \
+            libgl1-mesa-dev \
+            libxkbcommon-dev \
+            libpulse-dev \
+            patchelf \
+            cppcheck
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: ${{ env.QT_ARCH }}
+          archives: ${{ env.QT_ARCHIVES }}
+          modules: ${{ env.QT_MODULES }}
+          aqtsource: ${{ env.AQT_SOURCE }}
+          cache: true
+
+      - name: Download linuxdeploy
+        run: |
+          mkdir -p .ci
+          wget -q -O .ci/linuxdeploy-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q -O .ci/linuxdeploy-plugin-qt-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x .ci/linuxdeploy-x86_64.AppImage .ci/linuxdeploy-plugin-qt-x86_64.AppImage
+
+      - name: Build AppImage
+        env:
+          QT_DIR: ${{ env.QT_ROOT_DIR }}
+          LD_LIBRARY_PATH: ${{ env.QT_ROOT_DIR }}/lib
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            bash scripts/ci/build_appimage.sh "${GITHUB_REF_NAME}"
+          else
+            bash scripts/ci/build_appimage.sh
+          fi
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: SonarPractice-Linux-AppImage
+          path: SonarPractice-*-x86_64.AppImage
+          if-no-files-found: error
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SonarPractice-*-x86_64.AppImage
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -137,7 +137,10 @@ Page {
                     root.reminderEditRequested(songId, title, baseBpm, reminderId, practiceAssetId)
             }
 
-            PracticeCalendarPanel {}
+            PracticeCalendarPanel {
+                onOpenPracticeRequested: (songId, title, baseBpm, practiceAssetId) =>
+                    root.songSelected(songId, title, baseBpm, practiceAssetId)
+            }
         }
     }
 
@@ -170,6 +173,9 @@ Page {
             PracticeCalendarPanel {
                 Layout.fillWidth: true
                 sidePanelWidth: parent.width
+
+                onOpenPracticeRequested: (songId, title, baseBpm, practiceAssetId) =>
+                    root.songSelected(songId, title, baseBpm, practiceAssetId)
             }
         }
     }

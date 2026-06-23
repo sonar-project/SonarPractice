@@ -127,6 +127,7 @@ bool ApplicationBootstrap::openCoreDatabase() {
     m_noticeRepo = std::move(repos.notice);
     m_reminderRepo = std::move(repos.reminder);
     m_reminderConditionRepo = std::move(repos.reminderCondition);
+    m_reminderCompletionRepo = std::move(repos.reminderCompletion);
     m_audioPresetRepo = std::move(repos.audioPreset);
     m_userRepo = std::move(repos.user);
 
@@ -182,7 +183,8 @@ bool ApplicationBootstrap::openCoreDatabase() {
         *m_journalRepo, *m_noticeRepo, *m_reminderRepo, *m_reminderConditionRepo, *m_errorLog);
 
     m_reminderController = std::make_unique<ReminderController>(
-        *m_reminderRepo, *m_reminderConditionRepo, *m_songRepo, *m_practiceAssetController);
+        *m_reminderRepo, *m_reminderConditionRepo, *m_journalRepo, *m_reminderCompletionRepo,
+        *m_songRepo, *m_practiceAssetController);
 
     m_audioConfigController =
         std::make_unique<AudioConfigController>(AudioConfigController::Dependencies{
@@ -350,6 +352,11 @@ void ApplicationBootstrap::wireServices() {
     QObject::connect(m_importService.get(), &ImportService::importFinished,
                      m_reminderController.get(), &ReminderController::invalidateDayCache);
     QObject::connect(m_importService.get(), &ImportService::importFinished,
+                     m_reminderController.get(), &ReminderController::reloadDayReminders);
+
+    QObject::connect(m_practiceTracker.get(), &PracticeTrackerController::journalSaved,
+                     m_reminderController.get(), &ReminderController::invalidateDayCache);
+    QObject::connect(m_practiceTracker.get(), &PracticeTrackerController::journalSaved,
                      m_reminderController.get(), &ReminderController::reloadDayReminders);
 
     QObject::connect(m_linkGroupService.get(), &LinkGroupService::groupsChanged, m_songModel.get(),

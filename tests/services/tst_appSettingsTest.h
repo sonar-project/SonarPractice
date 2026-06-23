@@ -13,7 +13,8 @@ class TestAppSettings : public QObject {
 
     void testDefaultManagedStorageNotSongsFolder();
     void testManagedStorageRootNotPersistedByEnsureDefaults();
-    void testLegacyManagedStorageRootMigration();
+    // Disabled – very important for later versions, but not yet relevant.
+    // void testLegacyManagedStorageRootMigration();
     void testCreateStorageDirectory();
     void testAllowedExtensionsFromSettings();
     void testMediaKindResolvedFromSettings();

@@ -4,6 +4,7 @@
 #include <QDate>
 #include <QHash>
 #include <QObject>
+#include <QVariantList>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 
@@ -11,7 +12,10 @@
 #include "PracticeAssetController.h"
 #include "ReminderDayEntry.h"
 #include "ReminderListModel.h"
+#include "interfaces/IPracticeJournalRepository.h"
+#include "interfaces/IReminderCompletionRepository.h"
 #include "interfaces/IReminderConditionRepository.h"
+#include "ReminderCompletionEvaluator.h"
 #include "interfaces/IReminderRepository.h"
 #include "interfaces/ISongRepository.h"
 
@@ -49,7 +53,10 @@ class ReminderController : public QObject {
   public:
     explicit ReminderController(IReminderRepository &reminderRepo,
                                 IReminderConditionRepository &conditionRepo,
-                                ISongRepository &songRepo, PracticeAssetController &assetController,
+                                IPracticeJournalRepository &journalRepo,
+                                IReminderCompletionRepository &completionRepo,
+                                ISongRepository &songRepo,
+                                PracticeAssetController &assetController,
                                 QObject *parent = nullptr);
 
     qlonglong songId() const;
@@ -95,6 +102,15 @@ class ReminderController : public QObject {
     /** Keys: assetId, songId, guitarProId, audioId, videoId, imageId (0 = unset). */
     Q_INVOKABLE QVariantMap practiceAssetPayload(qlonglong assetId) const;
 
+    /** Per-day calendar markers for the given month (day, status, practiced, dueCount). */
+    Q_INVOKABLE QVariantList monthCalendarSummary(int year, int month) const;
+
+    /** Journal entries and reminder status for a day (right-click menu). */
+    Q_INVOKABLE QVariantList dayPracticeDetails(const QDate &date) const;
+
+    /** Accepts a partially met reminder as completed for the given day. */
+    Q_INVOKABLE bool acceptPartialCompletion(qlonglong reminderId, const QDate &date);
+
   signals:
     void songIdChanged();
     void practiceAssetIdChanged();
@@ -102,10 +118,27 @@ class ReminderController : public QObject {
     void statusMessageChanged();
     void showAllRemindersChanged();
     void remindersChanged();
+    void calendarDataChanged();
 
   private:
+    struct DayCompletionSummary {
+        int dueCount{0};
+        int completedCount{0};
+        int partialCount{0};
+        bool practiced{false};
+        QString status;
+    };
+
     void setStatusMessage(const QString &message);
     QList<ReminderDayEntry> loadDayEntries(const QDate &date);
+    QList<DayReminderModel::DayReminderCompletion>
+    buildCompletionList(const QList<ReminderDayEntry> &entries, const QDate &date) const;
+    DayReminderModel::DayReminderCompletion
+    completionForReminder(const ReminderDayEntry &entry, const QDate &date) const;
+    QList<JournalEntry> journalEntriesForReminder(const ReminderDayEntry &entry,
+                                                  const QDate &date) const;
+    DayCompletionSummary summarizeDay(const QDate &date) const;
+    static QString statusKey(ReminderCompletionEvaluator::Status status);
     static void applyScheduleType(const QString &scheduleType, const QDate &date,
                                   class Reminder &reminder, int intervalDays = 0,
                                   int weekday = -1);
@@ -119,6 +152,8 @@ class ReminderController : public QObject {
 
     IReminderRepository &m_reminderRepo;
     IReminderConditionRepository &m_conditionRepo;
+    IPracticeJournalRepository &m_journalRepo;
+    IReminderCompletionRepository &m_completionRepo;
     ReminderListModel m_songReminders;
     DayReminderModel m_dayReminders;
     qlonglong m_songId{};

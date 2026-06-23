@@ -5,19 +5,25 @@
 
 #include "ReminderController.h"
 
+#include "JournalEntry.h"
+#include "JournalDayEntry.h"
 #include "Reminder.h"
+#include "ReminderCompletionEvaluator.h"
 #include "ReminderCondition.h"
+#include "PracticeTrackerService.h"
 #include "ReminderConstants.h"
-#include "interfaces/IReminderConditionRepository.h"
+#include <QSet>
 #include "interfaces/IReminderRepository.h"
 #include "interfaces/ISongRepository.h"
 
 ReminderController::ReminderController(IReminderRepository &reminderRepo,
                                        IReminderConditionRepository &conditionRepo,
+                                       IPracticeJournalRepository &journalRepo,
+                                       IReminderCompletionRepository &completionRepo,
                                        ISongRepository &songRepo,
                                        PracticeAssetController &assetController, QObject *parent)
     : QObject(parent), m_reminderRepo(reminderRepo), m_conditionRepo(conditionRepo),
-      m_assetController(assetController),
+      m_journalRepo(journalRepo), m_completionRepo(completionRepo), m_assetController(assetController),
       m_songReminders(reminderRepo, conditionRepo, &songRepo, this), m_dayReminders(this),
       m_filterDate(QDate::currentDate()) {}
 
@@ -97,21 +103,26 @@ void ReminderController::reloadSongReminders() {
 void ReminderController::reloadDayReminders() {
     m_dayReminders.setFilterDate(m_filterDate);
 
+    QList<ReminderDayEntry> entries;
     if (m_showAllReminders) {
         if (!m_allActiveCacheValid) {
             m_allActiveCache = m_reminderRepo.listAllActiveWithSong();
             m_allActiveCacheValid = true;
         }
-        m_dayReminders.applyEntries(m_allActiveCache);
-    } else if (m_dayCache.contains(m_filterDate)) {
-        m_dayReminders.applyEntries(m_dayCache.value(m_filterDate));
-    } else {
-        const QList<ReminderDayEntry> entries = loadDayEntries(m_filterDate);
-        m_dayCache.insert(m_filterDate, entries);
+        entries = m_allActiveCache;
         m_dayReminders.applyEntries(entries);
+    } else {
+        if (m_dayCache.contains(m_filterDate)) {
+            entries = m_dayCache.value(m_filterDate);
+        } else {
+            entries = loadDayEntries(m_filterDate);
+            m_dayCache.insert(m_filterDate, entries);
+        }
+        m_dayReminders.applyEntries(entries, buildCompletionList(entries, m_filterDate));
     }
 
     emit remindersChanged();
+    emit calendarDataChanged();
 }
 
 void ReminderController::invalidateDayCache() {
@@ -332,4 +343,198 @@ QVariantMap ReminderController::practiceAssetPayload(qlonglong assetId) const {
     map.insert(QStringLiteral("videoId"), asset->videoId);
     map.insert(QStringLiteral("imageId"), asset->imageId);
     return map;
+}
+
+QString ReminderController::statusKey(ReminderCompletionEvaluator::Status status) {
+    switch (status) {
+    case ReminderCompletionEvaluator::Status::Completed:
+        return QStringLiteral("done");
+    case ReminderCompletionEvaluator::Status::Partial:
+        return QStringLiteral("partial");
+    case ReminderCompletionEvaluator::Status::ManuallyCompleted:
+        return QStringLiteral("manual");
+    case ReminderCompletionEvaluator::Status::NotPracticed:
+    default:
+        return QStringLiteral("pending");
+    }
+}
+
+QList<JournalEntry> ReminderController::journalEntriesForReminder(const ReminderDayEntry &entry,
+                                                                  const QDate &date) const {
+    if (entry.reminder.practiceAssetId > 0) {
+        return m_journalRepo.listForAssetAndDate(entry.reminder.practiceAssetId, date);
+    }
+    return m_journalRepo.listForSongAndDate(entry.reminder.songId, date);
+}
+
+DayReminderModel::DayReminderCompletion
+ReminderController::completionForReminder(const ReminderDayEntry &entry,
+                                          const QDate &date) const {
+    DayReminderModel::DayReminderCompletion info;
+    const QList<JournalEntry> entries = journalEntriesForReminder(entry, date);
+    info.hasJournalEntry = !entries.isEmpty();
+
+    ReminderCondition condition;
+    if (entry.reminder.id > 0) {
+        const QList<ReminderCondition> conditions =
+            m_conditionRepo.listForReminder(entry.reminder.id);
+        if (!conditions.isEmpty()) {
+            condition = conditions.first();
+        }
+    }
+
+    const bool manuallyAccepted =
+        m_completionRepo.isAccepted(entry.reminder.id, date) && info.hasJournalEntry;
+    const ReminderCompletionEvaluator::Result result =
+        ReminderCompletionEvaluator::evaluate(entries, condition, manuallyAccepted);
+
+    info.status = statusKey(result.status);
+    info.detail = result.detailMessage;
+    info.isCompleted = result.status == ReminderCompletionEvaluator::Status::Completed ||
+                       result.status == ReminderCompletionEvaluator::Status::ManuallyCompleted;
+    return info;
+}
+
+QList<DayReminderModel::DayReminderCompletion>
+ReminderController::buildCompletionList(const QList<ReminderDayEntry> &entries,
+                                      const QDate &date) const {
+    QList<DayReminderModel::DayReminderCompletion> completion;
+    completion.reserve(entries.size());
+    for (const ReminderDayEntry &entry : entries) {
+        completion.append(completionForReminder(entry, date));
+    }
+    return completion;
+}
+
+ReminderController::DayCompletionSummary ReminderController::summarizeDay(const QDate &date) const {
+    DayCompletionSummary summary;
+    if (!date.isValid()) {
+        summary.status = QStringLiteral("empty");
+        return summary;
+    }
+
+    const QList<JournalDayEntry> journalEntries = m_journalRepo.listDayEntriesWithSong(date);
+    summary.practiced = !journalEntries.isEmpty();
+
+    const QList<ReminderDayEntry> reminders = m_reminderRepo.listForDateWithSong(date);
+    summary.dueCount = reminders.size();
+
+    for (const ReminderDayEntry &entry : reminders) {
+        const DayReminderModel::DayReminderCompletion info = completionForReminder(entry, date);
+        if (info.isCompleted) {
+            ++summary.completedCount;
+        } else if (info.status == QStringLiteral("partial")) {
+            ++summary.partialCount;
+        }
+    }
+
+    if (summary.dueCount > 0) {
+        if (summary.completedCount == summary.dueCount) {
+            summary.status = QStringLiteral("complete");
+        } else if (summary.partialCount > 0) {
+            summary.status = QStringLiteral("partial");
+        } else if (summary.completedCount > 0) {
+            summary.status = QStringLiteral("mixed");
+        } else {
+            summary.status = QStringLiteral("due");
+        }
+    } else if (summary.practiced) {
+        summary.status = QStringLiteral("practiced");
+    } else {
+        summary.status = QStringLiteral("empty");
+    }
+
+    return summary;
+}
+
+QVariantList ReminderController::monthCalendarSummary(int year, int month) const {
+    QVariantList days;
+    if (year < 1 || month < 1 || month > 12) {
+        return days;
+    }
+
+    const QDate monthStart(year, month, 1);
+    const int daysInMonth = monthStart.daysInMonth();
+
+    for (int day = 1; day <= daysInMonth; ++day) {
+        const QDate date(year, month, day);
+        const DayCompletionSummary summary = summarizeDay(date);
+
+        QVariantMap map;
+        map.insert(QStringLiteral("day"), day);
+        map.insert(QStringLiteral("status"), summary.status);
+        map.insert(QStringLiteral("practiced"), summary.practiced);
+        map.insert(QStringLiteral("dueCount"), summary.dueCount);
+        map.insert(QStringLiteral("completedCount"), summary.completedCount);
+        map.insert(QStringLiteral("partialCount"), summary.partialCount);
+        days.append(map);
+    }
+
+    return days;
+}
+
+QVariantList ReminderController::dayPracticeDetails(const QDate &date) const {
+    QVariantList items;
+    if (!date.isValid()) {
+        return items;
+    }
+
+    QSet<qlonglong> songsWithReminders;
+    const QList<ReminderDayEntry> reminders = m_reminderRepo.listForDateWithSong(date);
+    for (const ReminderDayEntry &entry : reminders) {
+        songsWithReminders.insert(entry.reminder.songId);
+
+        const DayReminderModel::DayReminderCompletion info = completionForReminder(entry, date);
+        QVariantMap map;
+        map.insert(QStringLiteral("kind"), QStringLiteral("reminder"));
+        map.insert(QStringLiteral("reminderId"), entry.reminder.id);
+        map.insert(QStringLiteral("songId"), entry.reminder.songId);
+        map.insert(QStringLiteral("songTitle"), entry.songTitle);
+        map.insert(QStringLiteral("baseBpm"), entry.baseBpm);
+        map.insert(QStringLiteral("practiceAssetId"), entry.reminder.practiceAssetId);
+        map.insert(QStringLiteral("completionStatus"), info.status);
+        map.insert(QStringLiteral("completionDetail"), info.detail);
+        map.insert(QStringLiteral("isCompleted"), info.isCompleted);
+        items.append(map);
+    }
+
+    const QList<JournalDayEntry> journalEntries = m_journalRepo.listDayEntriesWithSong(date);
+    for (const JournalDayEntry &entry : journalEntries) {
+        if (songsWithReminders.contains(entry.songId)) {
+            continue;
+        }
+
+        QVariantMap map;
+        map.insert(QStringLiteral("kind"), QStringLiteral("journal"));
+        map.insert(QStringLiteral("entryId"), entry.entryId);
+        map.insert(QStringLiteral("songId"), entry.songId);
+        map.insert(QStringLiteral("songTitle"), entry.songTitle);
+        map.insert(QStringLiteral("baseBpm"), entry.baseBpm);
+        map.insert(QStringLiteral("practiceAssetId"), entry.assetId);
+        map.insert(QStringLiteral("completionStatus"), QStringLiteral("practiced"));
+        map.insert(QStringLiteral("completionDetail"),
+                   tr("Practiced (%1 min)")
+                       .arg(PracticeTrackerService::durationMinutesFromSeconds(
+                           entry.durationSeconds)));
+        map.insert(QStringLiteral("isCompleted"), true);
+        items.append(map);
+    }
+
+    return items;
+}
+
+bool ReminderController::acceptPartialCompletion(qlonglong reminderId, const QDate &date) {
+    if (reminderId <= 0 || !date.isValid()) {
+        return false;
+    }
+
+    if (!m_completionRepo.setAccepted(reminderId, date, true)) {
+        setStatusMessage(tr("Could not save completion."));
+        return false;
+    }
+
+    invalidateDayCache();
+    reloadDayReminders();
+    emit calendarDataChanged();
+    return true;
 }

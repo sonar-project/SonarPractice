@@ -1,0 +1,97 @@
+name: Windows Installer
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+
+env:
+  QT_VERSION: "6.8.3"
+  QT_ARCH: win64_msvc2022_64
+  QT_MODULES: qtmultimedia qtshadertools
+  AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: bash scripts/ci/set_version.sh "${GITHUB_REF_NAME}"
+
+      - name: Resolve app version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            version="$(grep -m1 'project(SonarPractice VERSION' CMakeLists.txt | sed -E 's/.*VERSION ([0-9.]+).*/\1/')"
+            echo "value=${version}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: ${{ env.QT_ARCH }}
+          modules: ${{ env.QT_MODULES }}
+          tools: tools_ninja tools_cmake
+          aqtsource: ${{ env.AQT_SOURCE }}
+          cache: true
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}" \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_CXX_CPPCHECK="" \
+            -DCMAKE_C_CPPCHECK=""
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --target SonarPractice
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Create installer
+        shell: cmd
+        env:
+          BUILD_DIR: ${{ github.workspace }}\build
+          QTDIR: ${{ env.QT_ROOT_DIR }}
+          APP_VERSION: ${{ steps.version.outputs.value }}
+        run: build_installer.bat
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: SonarPractice-Windows-Installer
+          path: Output/SonarPractice_*_Setup.exe
+          if-no-files-found: error
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Output/SonarPractice_*_Setup.exe
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
