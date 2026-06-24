@@ -48,6 +48,7 @@ GroupBox {
                 id: startBarSpin
                 from: 1
                 to: 999
+                implicitWidth: 70
                 value: practiceTracker.startBar
                 onValueModified: practiceTracker.startBar = value
 
@@ -63,6 +64,7 @@ GroupBox {
                 id: endBarSpin
                 from: 1
                 to: 999
+                implicitWidth: 70
                 value: practiceTracker.endBar
                 onValueModified: practiceTracker.endBar = value
 
@@ -81,6 +83,7 @@ GroupBox {
                 id: bpmSpin
                 from: 20
                 to: 320
+                implicitWidth: 70
                 stepSize: 5
                 value: practiceTracker.targetBpm
                 onValueModified: practiceTracker.targetBpm = value
