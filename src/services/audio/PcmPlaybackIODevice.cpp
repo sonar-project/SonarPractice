@@ -18,9 +18,8 @@ void PcmPlaybackIODevice::setPcmData(const QByteArray &pcmData) {
     QMutexLocker locker(&m_mutex);
     m_pcmData = pcmData;
     m_readPosition.store(0);
-    if (!m_pcmData.isEmpty()) {
-        m_regionEndByte = m_pcmData.size();
-    }
+    m_regionStartByte = 0;
+    m_regionEndByte = m_pcmData.isEmpty() ? 0 : m_pcmData.size();
 }
 
 /**
@@ -33,8 +32,15 @@ void PcmPlaybackIODevice::setPcmData(const QByteArray &pcmData) {
 void PcmPlaybackIODevice::setLoopRegion(qint64 regionStartByte, qint64 regionEndByte,
                                         bool loopEnabled) {
     QMutexLocker locker(&m_mutex);
-    m_regionStartByte = qMax<qint64>(0, regionStartByte);
-    m_regionEndByte = qMax(m_regionStartByte, regionEndByte);
+    const qint64 bufferSize = static_cast<qint64>(m_pcmData.size());
+    qint64 startByte = qBound<qint64>(0, regionStartByte, bufferSize);
+    qint64 endByte = qBound<qint64>(0, regionEndByte, bufferSize);
+    if (endByte <= startByte && bufferSize > 0) {
+        startByte = 0;
+        endByte = bufferSize;
+    }
+    m_regionStartByte = startByte;
+    m_regionEndByte = endByte;
     m_loopEnabled = loopEnabled;
 }
 

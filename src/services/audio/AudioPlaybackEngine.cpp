@@ -112,7 +112,7 @@ AudioPlaybackEngine::AudioPlaybackEngine(QObject *parent)
     SampleRequest request;
     request.sampleRateHz = AudioConstants::kDefaultSampleRateHz;
     request.channelCount = AudioConstants::kChannelCount;
-    m_decodedChannelCount = request.channelCount;
+    m_sourceChannelCount = request.channelCount;
     updatePlaybackFormat(request);
 
     // --- Timer ---
@@ -161,9 +161,9 @@ void AudioPlaybackEngine::loadFile(const QString &filePath) {
     setProcessingState(tr("Preparing audio file…"), -1);
     emit loadingChanged();
 
-    m_decodedInterleaved.clear();
-    m_decodedChannelCount = AudioConstants::kChannelCount;
-    m_decodedSampleRateHz = AudioConstants::kDefaultSampleRateHz;
+    m_sourceFilePath.clear();
+    m_sourceDurationMs = 0;
+    m_segmentSourceStartMs = 0;
     m_lastError.clear();
     emit errorChanged();
 
@@ -177,14 +177,18 @@ void AudioPlaybackEngine::loadFile(const QString &filePath) {
         return;
     }
 
-    m_regionStartMs = AudioConstants::kDefaultRegionStartMs;
-    m_durationMs = 0;
+    m_sourceFilePath = normalizedPath;
+    m_segmentSourceStartMs = 0;
+    m_segmentSourceEndMs = 0;
     m_peaks.clear();
     emit peaksChanged();
     emit durationMsChanged();
+    teardownActivePlayback();
+    m_playbackDevice.setPcmData({});
 
     BuildParameters params;
     params.sourceFilePath = normalizedPath;
+    params.mode = BuildParameters::Mode::MetadataAndPeaks;
     params.tempoPercent = m_pendingTempoPercent;
     params.eqPresetId = m_eqPresetId;
 
@@ -207,10 +211,18 @@ void AudioPlaybackEngine::cancelProcessing() {
  */
 void AudioPlaybackEngine::play() {
     if (m_playbackDevice.size() <= 0) {
-        m_lastError =
-            tr("No playback data — please wait or reload the file.");
-        emit errorChanged();
-        qCWarning(lcAudio) << "play() skipped: empty PCM buffer";
+        if (m_sourceFilePath.isEmpty()) {
+            m_lastError = tr("No playback data — please wait or reload the file.");
+            emit errorChanged();
+            qCWarning(lcAudio) << "play() skipped: no source file";
+            return;
+        }
+        if (m_loading) {
+            m_autoPlayAfterSegmentBuild = true;
+            return;
+        }
+        m_autoPlayAfterSegmentBuild = true;
+        startSegmentBuild();
         return;
     }
 
@@ -220,6 +232,7 @@ void AudioPlaybackEngine::play() {
     }
 
     m_pauseRequested = false;
+    syncLoopRegionToEngine();
     m_playbackDevice.resetReadPosition();
 
     if (m_audioSink->state() == QAudio::SuspendedState) {
@@ -314,11 +327,23 @@ void AudioPlaybackEngine::setEqPresetId(const QString &presetId) {
  * @param regionEndMs The end time in milliseconds.
  */
 void AudioPlaybackEngine::setRegionMs(qint64 regionStartMs, qint64 regionEndMs) {
-    m_regionStartMs = qMax<qint64>(0, regionStartMs);
-    m_regionEndMs = qMax(m_regionStartMs, regionEndMs);
-    if (m_durationMs > 0) {
-        m_regionEndMs = qMin(m_regionEndMs, m_durationMs);
+    const qint64 newStart = qMax<qint64>(0, regionStartMs);
+    qint64 newEnd = qMax(newStart, regionEndMs);
+    if (m_sourceDurationMs > 0) {
+        newEnd = qMin(newEnd, m_sourceDurationMs);
     }
+
+    const bool regionChanged = newStart != m_regionStartMs || newEnd != m_regionEndMs;
+    m_regionStartMs = newStart;
+    m_regionEndMs = newEnd;
+
+    if (regionChanged && m_playbackDevice.size() > 0) {
+        teardownActivePlayback();
+        m_playbackDevice.setPcmData({});
+        m_segmentSourceStartMs = 0;
+        m_segmentSourceEndMs = 0;
+    }
+
     syncLoopRegionToEngine();
     emit positionMsChanged();
 }
@@ -360,14 +385,14 @@ bool AudioPlaybackEngine::isPlaying() const { return m_playing; }
  * @return Current position in ms.
  */
 qint64 AudioPlaybackEngine::positionMs() const {
-    return bytesToMs(m_playbackDevice.playbackPositionBytes());
+    return m_segmentSourceStartMs + bytesToMs(m_playbackDevice.playbackPositionBytes());
 }
 
 /**
  * @brief Returns the total duration of the current audio file in milliseconds.
  * @return Total duration in ms.
  */
-qint64 AudioPlaybackEngine::durationMs() const { return m_durationMs; }
+qint64 AudioPlaybackEngine::durationMs() const { return m_sourceDurationMs; }
 
 /**
  * @brief Returns the computed peak values for waveform visualization.
@@ -394,7 +419,7 @@ bool AudioPlaybackEngine::hasPlaybackData() const {
 // ---------------------------------------------------------------------------
 
 void AudioPlaybackEngine::scheduleRebuild(bool immediate) {
-    if (m_decodedInterleaved.empty()) {
+    if (m_sourceFilePath.isEmpty()) {
         return;
     }
     if (immediate) {
@@ -405,19 +430,28 @@ void AudioPlaybackEngine::scheduleRebuild(bool immediate) {
     m_tempoDebounceTimer.start();
 }
 
-void AudioPlaybackEngine::startRebuild() {
+void AudioPlaybackEngine::startRebuild() { startSegmentBuild(); }
+
+void AudioPlaybackEngine::startSegmentBuild() {
+    if (m_sourceFilePath.isEmpty()) {
+        return;
+    }
+
     m_resumeAfterRebuild = m_playing;
     m_resumePositionMs = positionMs();
     teardownActivePlayback();
+    m_playbackDevice.setPcmData({});
 
     m_loading = true;
     setProcessingState(tr("Processing audio…"), -1);
     emit loadingChanged();
 
     BuildParameters params;
-    params.sourceInterleaved = m_decodedInterleaved;
-    params.channelCount = m_decodedChannelCount;
-    params.sampleRateHz = m_decodedSampleRateHz;
+    params.sourceFilePath = m_sourceFilePath;
+    params.mode = BuildParameters::Mode::PlaybackSegment;
+    params.regionStartMs = m_regionStartMs;
+    params.regionEndMs = m_regionEndMs > 0 ? m_regionEndMs : m_sourceDurationMs;
+    params.sourceSampleRateHz = m_sourceSampleRateHz;
     params.tempoPercent = m_pendingTempoPercent;
     params.eqPresetId = m_eqPresetId;
 
@@ -445,12 +479,14 @@ void AudioPlaybackEngine::handleRebuildFinished(AudioBuildResult result) {
     emit loadingChanged();
 
     if (result.cancelled) {
+        m_autoPlayAfterSegmentBuild = false;
         m_activeLoadPath.clear();
         return;
     }
 
     if (!result.success) {
         m_lastError = result.errorMessage;
+        m_autoPlayAfterSegmentBuild = false;
         m_activeLoadPath.clear();
         emit errorChanged();
         return;
@@ -458,16 +494,40 @@ void AudioPlaybackEngine::handleRebuildFinished(AudioBuildResult result) {
 
     m_appliedTempoPercent = result.tempoPercent;
 
-    if (!result.decodedInterleaved.empty()) {
-        m_decodedInterleaved = std::move(result.decodedInterleaved);
-        m_decodedChannelCount = result.channelCount;
-        m_decodedSampleRateHz = result.sampleRateHz;
-        m_activeLoadPath.clear();
-        m_lastError.clear();
-        emit errorChanged();
+    if (result.metadataOnly) {
+        applyMetadataResult(result);
+        return;
     }
 
+    m_activeLoadPath.clear();
+    m_lastError.clear();
+    emit errorChanged();
     applyBuildResult(result);
+}
+
+void AudioPlaybackEngine::applyMetadataResult(const AudioBuildResult &result) {
+    m_peaks = result.peaks;
+    m_sourceDurationMs = result.durationMs;
+    m_sourceSampleRateHz = result.sampleRateHz;
+    m_sourceChannelCount = result.channelCount;
+    if (m_regionEndMs <= 0 && m_sourceDurationMs > 0) {
+        m_regionEndMs = m_sourceDurationMs;
+    }
+    m_activeLoadPath.clear();
+    m_lastError.clear();
+
+    SampleRequest request;
+    request.sampleRateHz = result.sampleRateHz;
+    request.channelCount = result.channelCount;
+    updatePlaybackFormat(request);
+
+    emit peaksChanged();
+    emit durationMsChanged();
+    emit errorChanged();
+
+    if (m_autoPlayAfterSegmentBuild) {
+        QTimer::singleShot(0, this, [this]() { startSegmentBuild(); });
+    }
 }
 
 void AudioPlaybackEngine::applyBuildResult(const AudioBuildResult &result) {
@@ -477,6 +537,7 @@ void AudioPlaybackEngine::applyBuildResult(const AudioBuildResult &result) {
 
     if (result.pcmInt16.isEmpty() || result.channelCount <= 0) {
         m_lastError = tr("Processing produced no playback data.");
+        m_autoPlayAfterSegmentBuild = false;
         emit errorChanged();
         return;
     }
@@ -485,43 +546,33 @@ void AudioPlaybackEngine::applyBuildResult(const AudioBuildResult &result) {
 
     ++m_bufferGeneration;
     m_playbackDevice.setPcmData(result.pcmInt16);
-    m_peaks = result.peaks;
-    emit peaksChanged();
+    m_segmentSourceStartMs = result.segmentSourceStartMs;
+    m_segmentSourceEndMs = result.segmentSourceEndMs;
 
     SampleRequest request;
     request.sampleRateHz = result.sampleRateHz;
     request.channelCount = result.channelCount;
     updatePlaybackFormat(request);
 
-    const qint64 previousDurationMs = m_durationMs;
-    m_durationMs = result.durationMs;
-
-    if (previousDurationMs > 0 && m_durationMs > 0 && previousDurationMs != m_durationMs) {
-        const auto scaleMs = [previousDurationMs, newDurationMs = m_durationMs](qint64 ms) {
-            const qint64 scaled = (ms * newDurationMs) / previousDurationMs;
-            return qBound<qint64>(0, scaled, newDurationMs);
-        };
-        m_regionStartMs = scaleMs(m_regionStartMs);
-        m_regionEndMs = scaleMs(m_regionEndMs);
-        if (m_regionEndMs <= m_regionStartMs) {
-            m_regionEndMs = m_durationMs;
-        }
-        if (resumePlayback) {
-            resumeMs = scaleMs(resumeMs);
-        }
-    }
-
-    emit durationMsChanged();
     syncLoopRegionToEngine();
     emit playbackReadyChanged();
 
+    const bool autoPlay = m_autoPlayAfterSegmentBuild;
+    m_autoPlayAfterSegmentBuild = false;
+
     if (resumePlayback) {
-        const qint64 resumePositionMs = resumeMs;
-        QTimer::singleShot(0, this, [this, resumePositionMs]() {
+        QTimer::singleShot(0, this, [this, resumeMs]() {
             if (m_loading) {
                 return;
             }
-            restartSinkFromPosition(resumePositionMs);
+            restartSinkFromPosition(resumeMs);
+        });
+    } else if (autoPlay) {
+        QTimer::singleShot(0, this, [this]() {
+            if (m_loading) {
+                return;
+            }
+            play();
         });
     }
 }
@@ -607,7 +658,7 @@ bool AudioPlaybackEngine::ensureAudioSink() {
     return true;
 }
 
-void AudioPlaybackEngine::restartSinkFromPosition(qint64 positionMs) {
+void AudioPlaybackEngine::restartSinkFromPosition(qint64 sourcePositionMs) {
     m_pauseRequested = false;
     destroyAudioSink();
 
@@ -615,9 +666,8 @@ void AudioPlaybackEngine::restartSinkFromPosition(qint64 positionMs) {
         return;
     }
 
-    const qint64 clampedMs = m_durationMs > 0 ? qBound<qint64>(0, positionMs, m_durationMs)
-                                              : qMax<qint64>(0, positionMs);
-    m_playbackDevice.setPlaybackPositionBytes(msToBytes(clampedMs));
+    syncLoopRegionToEngine();
+    m_playbackDevice.setPlaybackPositionBytes(sourceMsToPlaybackBytes(sourcePositionMs));
     m_audioSink->start(&m_playbackDevice);
 
     if (m_audioSink->error() != QAudio::NoError) {
@@ -647,6 +697,15 @@ void AudioPlaybackEngine::handleSinkStateChanged(QAudio::State state) {
         return;
     }
     if (state == QAudio::IdleState || state == QAudio::StoppedState) {
+        if (state == QAudio::IdleState && m_playing && m_loopEnabled && !m_pauseRequested &&
+            m_playbackDevice.size() > 0) {
+            syncLoopRegionToEngine();
+            m_playbackDevice.resetReadPosition();
+            if (m_audioSink != nullptr) {
+                m_audioSink->start(&m_playbackDevice);
+            }
+            return;
+        }
         if (m_playing) {
             m_playing = false;
             m_positionTimer.stop();
@@ -668,17 +727,57 @@ void AudioPlaybackEngine::syncLoopRegionToEngine() {
     if (m_playbackDevice.size() <= 0) {
         return;
     }
-    qint64 endMs = m_regionEndMs;
-    if (endMs <= 0 || endMs > m_durationMs) {
-        endMs = m_durationMs;
+
+    const qint64 bufferBytes = m_playbackDevice.size();
+    qint64 segmentSourceStart = m_segmentSourceStartMs;
+    qint64 segmentSourceEnd = m_segmentSourceEndMs;
+    if (segmentSourceEnd <= segmentSourceStart) {
+        segmentSourceEnd = m_regionEndMs > 0 ? m_regionEndMs : m_sourceDurationMs;
     }
-    const qint64 startByte = msToBytes(m_regionStartMs);
-    qint64 endByte = msToBytes(endMs);
-    if (endByte <= startByte) {
-        endByte = m_playbackDevice.size();
+
+    const qint64 sourceSpanMs = segmentSourceEnd - segmentSourceStart;
+    qint64 loopEndMs = m_regionEndMs > 0 ? m_regionEndMs : m_sourceDurationMs;
+    const qint64 loopStartMs = qBound(segmentSourceStart, m_regionStartMs, segmentSourceEnd);
+    loopEndMs = qBound(loopStartMs, loopEndMs, segmentSourceEnd);
+
+    qint64 startByte = 0;
+    qint64 endByte = bufferBytes;
+
+    if (sourceSpanMs > 0 && (loopStartMs > segmentSourceStart || loopEndMs < segmentSourceEnd)) {
+        startByte = ((loopStartMs - segmentSourceStart) * bufferBytes) / sourceSpanMs;
+        endByte = loopEndMs >= segmentSourceEnd ? bufferBytes
+                                                : ((loopEndMs - segmentSourceStart) * bufferBytes) /
+                                                      sourceSpanMs;
     }
-    endByte = qMin(endByte, m_playbackDevice.size());
+
+    startByte = qBound<qint64>(0, startByte, bufferBytes);
+    endByte = qBound<qint64>(0, endByte, bufferBytes);
+    if (endByte <= startByte && bufferBytes > 0) {
+        startByte = 0;
+        endByte = bufferBytes;
+    }
+
     m_playbackDevice.setLoopRegion(startByte, endByte, m_loopEnabled);
+}
+
+qint64 AudioPlaybackEngine::sourceMsToPlaybackBytes(qint64 sourceMs) const {
+    if (m_playbackDevice.size() <= 0) {
+        return 0;
+    }
+
+    qint64 segmentSourceStart = m_segmentSourceStartMs;
+    qint64 segmentSourceEnd = m_segmentSourceEndMs;
+    if (segmentSourceEnd <= segmentSourceStart) {
+        segmentSourceEnd = m_regionEndMs > 0 ? m_regionEndMs : m_sourceDurationMs;
+    }
+
+    const qint64 sourceSpanMs = segmentSourceEnd - segmentSourceStart;
+    if (sourceSpanMs <= 0) {
+        return 0;
+    }
+
+    const qint64 clampedSourceMs = qBound(segmentSourceStart, sourceMs, segmentSourceEnd);
+    return ((clampedSourceMs - segmentSourceStart) * m_playbackDevice.size()) / sourceSpanMs;
 }
 
 // ---------------------------------------------------------------------------
@@ -750,9 +849,22 @@ std::vector<float> AudioPlaybackEngine::decodeFileToFloat(const QString &filePat
     }
 
     QEventLoop loop;
+    std::size_t globalFrameIndex = 0;
+    bool reachedEndFrame = false;
+
+    const auto frameInRange = [&](std::size_t frameIndex) {
+        if (frameIndex < static_cast<std::size_t>(request.decodeStartFrame)) {
+            return false;
+        }
+        if (request.decodeEndFrame > 0 &&
+            frameIndex >= static_cast<std::size_t>(request.decodeEndFrame)) {
+            return false;
+        }
+        return true;
+    };
 
     const auto appendDecodedBuffer = [&](const QAudioBuffer &buffer) {
-        if (isCancelled()) {
+        if (isCancelled() || reachedEndFrame) {
             return;
         }
 
@@ -774,18 +886,33 @@ std::vector<float> AudioPlaybackEngine::decodeFileToFloat(const QString &filePat
         }
 
         const auto channelCount = static_cast<std::size_t>(request.channelCount);
-        samples.reserve(samples.size() + static_cast<std::size_t>(frameCount) * channelCount);
 
         for (qsizetype frame = 0; frame < frameCount; ++frame) {
             if ((frame & 0xFFF) == 0 && isCancelled()) {
                 return;
             }
-            for (int channel = 0; channel < request.channelCount; ++channel) {
-                SampleRequest sampleReq;
-                sampleReq.frameIndex = frame;
-                sampleReq.channelIndex = channel;
-                samples.push_back(sampleFromBuffer(buffer, sampleReq));
+
+            if (request.decodeEndFrame > 0 &&
+                globalFrameIndex >= static_cast<std::size_t>(request.decodeEndFrame)) {
+                reachedEndFrame = true;
+                decoder.stop();
+                loop.quit();
+                return;
             }
+
+            if (frameInRange(globalFrameIndex)) {
+                if (samples.empty()) {
+                    samples.reserve(static_cast<std::size_t>(frameCount) * channelCount);
+                }
+                for (int channel = 0; channel < request.channelCount; ++channel) {
+                    SampleRequest sampleReq;
+                    sampleReq.frameIndex = frame;
+                    sampleReq.channelIndex = channel;
+                    samples.push_back(sampleFromBuffer(buffer, sampleReq));
+                }
+            }
+
+            ++globalFrameIndex;
         }
     };
 

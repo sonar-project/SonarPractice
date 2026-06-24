@@ -337,6 +337,7 @@ Rectangle {
 
     Dialog {
         id: partialConfirmDialog
+        implicitWidth: Math.max(240, root.sidePanelWidth - 32)
 
         property int reminderId: 0
         property var targetDate: null
@@ -351,6 +352,7 @@ Rectangle {
         title: qsTr("Mark as done?")
 
         contentItem: Label {
+            width: partialConfirmDialog.availableWidth
             wrapMode: Text.WordWrap
             text: qsTr("%1\n\n%2\n\nMark this exercise as completed for the day?")
                     .arg(partialConfirmDialog.songTitle)

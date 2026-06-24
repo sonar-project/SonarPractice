@@ -11,7 +11,11 @@ class AudioProcessorWorker : public QObject {
     explicit AudioProcessorWorker(QObject *parent = nullptr);
 
   public slots:
-    void process(AudioPlaybackEngine::BuildParameters params);
+    void process(const AudioPlaybackEngine::BuildParameters& params);
+
+  private:
+    void processMetadataAndPeaks(const AudioPlaybackEngine::BuildParameters& params);
+    void processPlaybackSegment(const AudioPlaybackEngine::BuildParameters& params);
 
   signals:
     void resultReady(AudioBuildResult result);

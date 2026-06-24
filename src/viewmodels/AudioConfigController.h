@@ -172,6 +172,7 @@ class AudioConfigController : public QObject {
     void pushRegionUndoSnapshot();
     void clearRegionUndoStack();
     void applyRegionMs(qint64 regionStartMs, qint64 regionEndMs, bool recordUndo);
+    void syncRegionToEngine();
     /** Rescales region markers when processed duration changes (e.g. after tempo commit). */
     void scaleRegionToNewDuration(qint64 oldDurationMs, qint64 newDurationMs);
     [[nodiscard]] static qint64 scalePlaybackMs(qint64 millisecond, qint64 oldDurationMs,
