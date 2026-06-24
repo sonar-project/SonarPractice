@@ -388,7 +388,7 @@ bool AudioPlaybackEngine::isPlaying() const { return m_playing; }
  * @return Current position in ms.
  */
 qint64 AudioPlaybackEngine::positionMs() const {
-    return m_segmentSourceStartMs + bytesToMs(m_playbackDevice.playbackPositionBytes());
+    return sourceMsFromPlaybackBytes(m_playbackDevice.playbackPositionBytes());
 }
 
 /**
@@ -559,6 +559,7 @@ void AudioPlaybackEngine::applyBuildResult(const AudioBuildResult &result) {
 
     syncLoopRegionToEngine();
     emit playbackReadyChanged();
+    emit positionMsChanged();
 
     const bool autoPlay = m_autoPlayAfterSegmentBuild;
     m_autoPlayAfterSegmentBuild = false;
@@ -781,6 +782,26 @@ qint64 AudioPlaybackEngine::sourceMsToPlaybackBytes(qint64 sourceMs) const {
 
     const qint64 clampedSourceMs = qBound(segmentSourceStart, sourceMs, segmentSourceEnd);
     return ((clampedSourceMs - segmentSourceStart) * m_playbackDevice.size()) / sourceSpanMs;
+}
+
+qint64 AudioPlaybackEngine::sourceMsFromPlaybackBytes(qint64 playbackBytes) const {
+    if (m_playbackDevice.size() <= 0) {
+        return m_segmentSourceStartMs;
+    }
+
+    qint64 segmentSourceStart = m_segmentSourceStartMs;
+    qint64 segmentSourceEnd = m_segmentSourceEndMs;
+    if (segmentSourceEnd <= segmentSourceStart) {
+        segmentSourceEnd = m_regionEndMs > 0 ? m_regionEndMs : m_sourceDurationMs;
+    }
+
+    const qint64 sourceSpanMs = segmentSourceEnd - segmentSourceStart;
+    if (sourceSpanMs <= 0) {
+        return segmentSourceStart;
+    }
+
+    const qint64 clampedBytes = qBound<qint64>(0, playbackBytes, m_playbackDevice.size());
+    return segmentSourceStart + (clampedBytes * sourceSpanMs) / m_playbackDevice.size();
 }
 
 // ---------------------------------------------------------------------------

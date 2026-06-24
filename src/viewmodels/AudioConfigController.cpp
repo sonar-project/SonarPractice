@@ -87,7 +87,9 @@ void AudioConfigController::connectEngine() {
         m_engineLoadedMediaFileId =
             m_loadingTargetMediaFileId > 0 ? m_loadingTargetMediaFileId : m_mediaFileId;
         m_loadingTargetMediaFileId = 0;
+        syncRegionToEngine();
         emit durationMsChanged();
+        emit positionMsChanged();
 
         if (m_pendingPlayAfterLoad) {
             m_pendingPlayAfterLoad = false;
