@@ -388,7 +388,7 @@ bool AudioPlaybackEngine::isPlaying() const { return m_playing; }
  * @return Current position in ms.
  */
 qint64 AudioPlaybackEngine::positionMs() const {
-    return m_segmentSourceStartMs + bytesToMs(m_playbackDevice.playbackPositionBytes());
+    return sourceMsFromPlaybackBytes(m_playbackDevice.playbackPositionBytes());
 }
 
 /**
@@ -559,6 +559,7 @@ void AudioPlaybackEngine::applyBuildResult(const AudioBuildResult &result) {
 
     syncLoopRegionToEngine();
     emit playbackReadyChanged();
+    emit positionMsChanged();
 
     const bool autoPlay = m_autoPlayAfterSegmentBuild;
     m_autoPlayAfterSegmentBuild = false;
@@ -661,6 +662,14 @@ bool AudioPlaybackEngine::ensureAudioSink() {
     return true;
 }
 
+/**
+ * @brief Restarts the audio output starting from a specific time.
+ *
+ * This function stops the current audio output, re-initializes the sink,
+ * seeks to the requested position, and begins playback again.
+ *
+ * @param sourcePositionMs The position in milliseconds where playback should start.
+ */
 void AudioPlaybackEngine::restartSinkFromPosition(qint64 sourcePositionMs) {
     m_pauseRequested = false;
     destroyAudioSink();
@@ -681,12 +690,28 @@ void AudioPlaybackEngine::restartSinkFromPosition(qint64 sourcePositionMs) {
     beginPlaybackFromSink();
 }
 
+/**
+ * @brief Sets the internal state to playing and starts the tracking timer.
+ * * This function marks the engine as currently playing, starts the
+ * timer used to track the playback position, and notifies observers
+ * that the playback state has changed.
+ */
 void AudioPlaybackEngine::beginPlaybackFromSink() {
     m_playing = true;
     m_positionTimer.start();
     emit playingChanged();
 }
 
+/**
+ * @brief Handles changes in the audio sink's state.
+ *
+ * This function reacts to state transitions of the audio sink (e.g., Active, Idle, Stopped).
+ * It manages auto-looping when the sink goes idle, stops playback timers if the
+ * playback has finished or stopped, and triggers the playback start sequence
+ * when the sink becomes active.
+ *
+ * @param state The new state reported by the audio sink.
+ */
 void AudioPlaybackEngine::handleSinkStateChanged(QAudio::State state) {
     qCDebug(lcAudio) << "sink state" << state << "pauseRequested" << m_pauseRequested;
 
@@ -718,6 +743,15 @@ void AudioPlaybackEngine::handleSinkStateChanged(QAudio::State state) {
     }
 }
 
+/**
+ * @brief Updates the audio output configuration.
+ *
+ * This function sets the sample rate, channel count, and channel mapping
+ * based on the provided sample request. It also fixes the sample format
+ * to 16-bit signed integers.
+ *
+ * @param request The configuration settings to apply to the audio format.
+ */
 void AudioPlaybackEngine::updatePlaybackFormat(SampleRequest request) {
     m_audioFormat.setSampleRate(request.sampleRateHz);
     m_audioFormat.setChannelCount(request.channelCount);
@@ -726,6 +760,14 @@ void AudioPlaybackEngine::updatePlaybackFormat(SampleRequest request) {
         QAudioFormat::defaultChannelConfigForChannelCount(request.channelCount));
 }
 
+/**
+ * @brief Synchronizes the loop markers from time-based values to byte offsets.
+ *
+ * This function calculates the start and end byte positions for the playback
+ * device based on the current loop start/end times in milliseconds. It ensures
+ * the calculated byte range is valid, fits within the audio buffer, and
+ * updates the playback device's loop region accordingly.
+ */
 void AudioPlaybackEngine::syncLoopRegionToEngine() {
     if (m_playbackDevice.size() <= 0) {
         return;
@@ -763,6 +805,16 @@ void AudioPlaybackEngine::syncLoopRegionToEngine() {
     m_playbackDevice.setLoopRegion(startByte, endByte, m_loopEnabled);
 }
 
+/**
+ * @brief Converts a time position in milliseconds to a byte offset.
+ *
+ * This function calculates the corresponding byte index within the audio
+ * buffer for a given point in time. It clamps the input time to the current
+ * active segment range and scales it based on the buffer size.
+ *
+ * @param sourceMs The time position in milliseconds to convert.
+ * @return The calculated byte offset within the playback device.
+ */
 qint64 AudioPlaybackEngine::sourceMsToPlaybackBytes(qint64 sourceMs) const {
     if (m_playbackDevice.size() <= 0) {
         return 0;
@@ -781,6 +833,36 @@ qint64 AudioPlaybackEngine::sourceMsToPlaybackBytes(qint64 sourceMs) const {
 
     const qint64 clampedSourceMs = qBound(segmentSourceStart, sourceMs, segmentSourceEnd);
     return ((clampedSourceMs - segmentSourceStart) * m_playbackDevice.size()) / sourceSpanMs;
+}
+
+/**
+ * @brief Converts a byte offset back into a time position in milliseconds.
+ *
+ * This function calculates the time in the source stream that corresponds to
+ * a specific byte index in the playback buffer. It clamps the input bytes
+ * to the valid buffer range before performing the scale conversion.
+ *
+ * @param playbackBytes The byte offset within the playback device to convert.
+ * @return The corresponding time position in milliseconds.
+ */
+qint64 AudioPlaybackEngine::sourceMsFromPlaybackBytes(qint64 playbackBytes) const {
+    if (m_playbackDevice.size() <= 0) {
+        return m_segmentSourceStartMs;
+    }
+
+    qint64 segmentSourceStart = m_segmentSourceStartMs;
+    qint64 segmentSourceEnd = m_segmentSourceEndMs;
+    if (segmentSourceEnd <= segmentSourceStart) {
+        segmentSourceEnd = m_regionEndMs > 0 ? m_regionEndMs : m_sourceDurationMs;
+    }
+
+    const qint64 sourceSpanMs = segmentSourceEnd - segmentSourceStart;
+    if (sourceSpanMs <= 0) {
+        return segmentSourceStart;
+    }
+
+    const qint64 clampedBytes = qBound<qint64>(0, playbackBytes, m_playbackDevice.size());
+    return segmentSourceStart + (clampedBytes * sourceSpanMs) / m_playbackDevice.size();
 }
 
 // ---------------------------------------------------------------------------

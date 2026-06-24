@@ -122,6 +122,7 @@ class AudioPlaybackEngine : public QObject {
     [[nodiscard]] qint64 bytesToMs(qint64 bytes) const;
     [[nodiscard]] qint64 msToBytes(qint64 millisecond) const;
     [[nodiscard]] qint64 sourceMsToPlaybackBytes(qint64 sourceMs) const;
+    [[nodiscard]] qint64 sourceMsFromPlaybackBytes(qint64 playbackBytes) const;
 
     PcmPlaybackIODevice m_playbackDevice;
     std::unique_ptr<QAudioSink> m_audioSink;

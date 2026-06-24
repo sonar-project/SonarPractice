@@ -51,6 +51,14 @@ void AudioConfigController::connectPitchAnalyzer() {
     m_pitchAnalysisThread->start();
 }
 
+/**
+ * @brief Establishes signal-slot connections between the playback engine and the controller.
+ *
+ * This function hooks into the engine's signals to update the UI, manage playback
+ * states, synchronize loop regions, and handle errors. It also contains logic for
+ * post-loading workflows, such as automatically resuming playback or applying
+ * saved presets once audio data is ready.
+ */
 void AudioConfigController::connectEngine() {
     connect(&m_engine, &AudioPlaybackEngine::playingChanged, this,
             &AudioConfigController::playingChanged);
@@ -119,8 +127,10 @@ void AudioConfigController::connectEngine() {
         m_engineLoadedMediaFileId =
             m_loadingTargetMediaFileId > 0 ? m_loadingTargetMediaFileId : m_mediaFileId;
         m_loadingTargetMediaFileId = 0;
+        syncRegionToEngine();
         emit durationMsChanged();
         updateHasCustomRegion();
+        emit positionMsChanged(); // TODO: testing
 
         if (m_pendingPlayAfterLoad) {
             m_pendingPlayAfterLoad = false;
@@ -140,6 +150,16 @@ void AudioConfigController::connectEngine() {
 
 qlonglong AudioConfigController::mediaFileId() const { return m_mediaFileId; }
 
+/**
+ * @brief Sets the active media file ID and initiates loading if necessary.
+ *
+ * This function updates the current media file ID. If the ID is the same as the
+ * one already loaded, it checks if the engine has valid data and reloads the media
+ * if it appears to be missing or invalid. If a new ID is provided, it saves the
+ * current settings and triggers a fresh load operation.
+ *
+ * @param mediaFileId The unique identifier of the media file to set.
+ */
 void AudioConfigController::setMediaFileId(qlonglong mediaFileId) {
     const bool sameId = m_mediaFileId == mediaFileId;
     if (sameId) {
