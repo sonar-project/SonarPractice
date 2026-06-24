@@ -155,6 +155,9 @@ void AudioPlaybackEngine::loadFile(const QString &filePath) {
     if (m_loading && normalizedPath == m_activeLoadPath) {
         return;
     }
+    if (m_loading) {
+        m_cancelRequested.store(true, std::memory_order_release);
+    }
     stop();
     m_activeLoadPath = normalizedPath;
     m_loading = true;
@@ -465,7 +468,7 @@ void AudioPlaybackEngine::dispatchProcess(BuildParameters params) {
     emit requestProcess(std::move(params));
 }
 
-void AudioPlaybackEngine::handleRebuildFinished(AudioBuildResult result) {
+void AudioPlaybackEngine::handleRebuildFinished(const AudioBuildResult &result) {
     if (result.buildGeneration != m_buildGeneration) {
         return;
     }
@@ -745,9 +748,9 @@ void AudioPlaybackEngine::syncLoopRegionToEngine() {
 
     if (sourceSpanMs > 0 && (loopStartMs > segmentSourceStart || loopEndMs < segmentSourceEnd)) {
         startByte = ((loopStartMs - segmentSourceStart) * bufferBytes) / sourceSpanMs;
-        endByte = loopEndMs >= segmentSourceEnd ? bufferBytes
-                                                : ((loopEndMs - segmentSourceStart) * bufferBytes) /
-                                                      sourceSpanMs;
+        endByte = loopEndMs >= segmentSourceEnd
+                      ? bufferBytes
+                      : ((loopEndMs - segmentSourceStart) * bufferBytes) / sourceSpanMs;
     }
 
     startByte = qBound<qint64>(0, startByte, bufferBytes);

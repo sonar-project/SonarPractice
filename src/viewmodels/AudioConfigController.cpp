@@ -48,9 +48,13 @@ void AudioConfigController::connectEngine() {
             &AudioConfigController::durationMsChanged);
 
     connect(&m_engine, &AudioPlaybackEngine::peaksChanged, this, [this]() {
+        if (m_loadingTargetMediaFileId > 0 && m_mediaFileId != m_loadingTargetMediaFileId) {
+            return;
+        }
         syncPeaksFromEngine();
         if (!m_engine.peaks().isEmpty() && m_engine.durationMs() > 0) {
-            m_engineLoadedMediaFileId = m_mediaFileId;
+            m_engineLoadedMediaFileId =
+                m_loadingTargetMediaFileId > 0 ? m_loadingTargetMediaFileId : m_mediaFileId;
             syncRegionToEngine();
             if (!m_engine.hasPlaybackData() && m_engine.lastError().isEmpty()) {
                 setStatusMessage(tr("Waveform ready."));
@@ -65,6 +69,9 @@ void AudioConfigController::connectEngine() {
     });
 
     connect(&m_engine, &AudioPlaybackEngine::playbackReadyChanged, this, [this]() {
+        if (m_loadingTargetMediaFileId > 0 && m_mediaFileId != m_loadingTargetMediaFileId) {
+            return;
+        }
         const qint64 newDurationMs = m_engine.durationMs();
         const bool initialLoad = m_lastPlaybackDurationMs <= 0 || m_regionEndMs <= 0;
         if (initialLoad) {
@@ -77,7 +84,8 @@ void AudioConfigController::connectEngine() {
             scaleRegionToNewDuration(m_lastPlaybackDurationMs, newDurationMs);
         }
         m_lastPlaybackDurationMs = newDurationMs;
-        m_engineLoadedMediaFileId = m_mediaFileId;
+        m_engineLoadedMediaFileId =
+            m_loadingTargetMediaFileId > 0 ? m_loadingTargetMediaFileId : m_mediaFileId;
         m_loadingTargetMediaFileId = 0;
         emit durationMsChanged();
 
@@ -102,9 +110,9 @@ qlonglong AudioConfigController::mediaFileId() const { return m_mediaFileId; }
 void AudioConfigController::setMediaFileId(qlonglong mediaFileId) {
     const bool sameId = m_mediaFileId == mediaFileId;
     if (sameId) {
-        const bool waveformReady =
-            m_engine.durationMs() > 0 && !m_engine.peaks().isEmpty();
-        if (mediaFileId > 0 && !waveformReady && !m_engine.isLoading()) {
+        const bool engineMatches = m_engineLoadedMediaFileId == mediaFileId &&
+                                   m_engine.durationMs() > 0 && !m_engine.peaks().isEmpty();
+        if (mediaFileId > 0 && !engineMatches && !m_engine.isLoading()) {
             reloadMedia();
         }
         return;
@@ -264,6 +272,8 @@ void AudioConfigController::reloadMedia() {
         return;
     }
 
+    m_engine.cancelProcessing();
+
     const std::optional<MediaFile> mediaFile = m_dependencies.mediaRepo.getMediaFile(m_mediaFileId);
     if (!mediaFile.has_value()) {
         setStatusMessage(tr("Media file not found."));
@@ -317,6 +327,7 @@ void AudioConfigController::preparePresetsForMedia(qlonglong mediaFileId) {
     emit mediaFileIdChanged();
     setSelectedPresetIndex(-1);
     refreshPresetList();
+    reloadMedia();
 }
 
 void AudioConfigController::loadPresetForMedia(qlonglong mediaFileId, int presetIndex) {
@@ -355,29 +366,26 @@ void AudioConfigController::playMediaFile(qlonglong mediaFileId) {
         return;
     }
 
-    if (m_mediaFileId == mediaFileId && m_engine.isLoading()) {
-        m_engine.play();
-        return;
+    if (m_mediaFileId != mediaFileId) {
+        persistCurrentSettings();
+        m_mediaFileId = mediaFileId;
+        emit mediaFileIdChanged();
     }
 
-    if (m_mediaFileId == mediaFileId && m_engine.durationMs() > 0 && !m_engine.isLoading()) {
-        m_engine.play();
-        return;
-    }
+    const bool engineReadyForMedia = m_engineLoadedMediaFileId == mediaFileId;
 
-    if (m_mediaFileId == mediaFileId && m_engine.hasPlaybackData() &&
-        m_engineLoadedMediaFileId == mediaFileId) {
+    if (engineReadyForMedia) {
+        if (m_engine.isLoading()) {
+            m_pendingPlayAfterLoad = true;
+            m_engine.play();
+            return;
+        }
         m_engine.play();
         return;
     }
 
     m_pendingPlayAfterLoad = true;
     m_pendingPresetLoad = false;
-    if (m_mediaFileId != mediaFileId) {
-        persistCurrentSettings();
-        m_mediaFileId = mediaFileId;
-        emit mediaFileIdChanged();
-    }
     reloadMedia();
 }
 

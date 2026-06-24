@@ -100,13 +100,13 @@ class AudioPlaybackEngine : public QObject {
     void peaksChanged();
     void errorChanged();
     void playbackReadyChanged();
-    void requestProcess(AudioPlaybackEngine::BuildParameters params); // NEU
+    void requestProcess(AudioPlaybackEngine::BuildParameters params);
 
   private:
     void scheduleRebuild(bool immediate);
     void startRebuild();
     void startSegmentBuild();
-    void handleRebuildFinished(AudioBuildResult result);
+    void handleRebuildFinished(const AudioBuildResult &result);
     void applyBuildResult(const AudioBuildResult &result);
     void applyMetadataResult(const AudioBuildResult &result);
     void destroyAudioSink();
