@@ -74,17 +74,17 @@ class JournalTableModel : public QAbstractTableModel {
 
   private:
     struct JournalRow {
-        qlonglong id{0};
+        qlonglong id{};
         QDate date;
-        int startBar{0};
-        int endBar{0};
-        int bpm{0};
-        int streak{0};
-        int durationMinutes{0};
+        int startBar{};
+        int endBar{};
+        int bpm{};
+        int streak{};
+        int durationMinutes{};
     };
 
     IPracticeJournalRepository &m_journalRepo;
-    qlonglong m_assetId{0};
+    qlonglong m_assetId{};
     QDate m_selectedDate;
     QList<JournalRow> m_rows;
 };
