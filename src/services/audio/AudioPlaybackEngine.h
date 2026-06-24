@@ -18,6 +18,7 @@
 struct AudioBuildResult {
     bool success{false};
     bool cancelled{false};
+    bool metadataOnly{false};
     QString errorMessage;
     QByteArray pcmInt16;
     QVector<float> peaks;
@@ -25,8 +26,9 @@ struct AudioBuildResult {
     int channelCount{2};
     int tempoPercent{100};
     qint64 durationMs{0};
+    qint64 segmentSourceStartMs{0};
+    qint64 segmentSourceEndMs{0};
     quint64 buildGeneration{0};
-    std::vector<float> decodedInterleaved;
 };
 
 Q_DECLARE_METATYPE(AudioBuildResult)
@@ -36,6 +38,8 @@ struct SampleRequest {
     int channelIndex{0};
     int channelCount{2};
     int sampleRateHz{44100};
+    qint64 decodeStartFrame{0};
+    qint64 decodeEndFrame{0};
 };
 
 class AudioProcessorWorker;
@@ -48,10 +52,13 @@ class AudioPlaybackEngine : public QObject {
     ~AudioPlaybackEngine() override;
 
     struct BuildParameters {
+        enum class Mode { MetadataAndPeaks, PlaybackSegment };
+
         QString sourceFilePath;
-        std::vector<float> sourceInterleaved;
-        int channelCount{0};
-        int sampleRateHz{0};
+        Mode mode{Mode::MetadataAndPeaks};
+        qint64 regionStartMs{0};
+        qint64 regionEndMs{0};
+        int sourceSampleRateHz{0};
         int tempoPercent{100};
         QString eqPresetId;
         quint64 buildGeneration{0};
@@ -93,13 +100,15 @@ class AudioPlaybackEngine : public QObject {
     void peaksChanged();
     void errorChanged();
     void playbackReadyChanged();
-    void requestProcess(AudioPlaybackEngine::BuildParameters params); // NEU
+    void requestProcess(AudioPlaybackEngine::BuildParameters params);
 
   private:
     void scheduleRebuild(bool immediate);
     void startRebuild();
-    void handleRebuildFinished(AudioBuildResult result);
+    void startSegmentBuild();
+    void handleRebuildFinished(const AudioBuildResult &result);
     void applyBuildResult(const AudioBuildResult &result);
+    void applyMetadataResult(const AudioBuildResult &result);
     void destroyAudioSink();
     void teardownActivePlayback();
     bool ensureAudioSink();
@@ -112,6 +121,7 @@ class AudioPlaybackEngine : public QObject {
     void dispatchProcess(BuildParameters params);
     [[nodiscard]] qint64 bytesToMs(qint64 bytes) const;
     [[nodiscard]] qint64 msToBytes(qint64 millisecond) const;
+    [[nodiscard]] qint64 sourceMsToPlaybackBytes(qint64 sourceMs) const;
 
     PcmPlaybackIODevice m_playbackDevice;
     std::unique_ptr<QAudioSink> m_audioSink;
@@ -122,9 +132,12 @@ class AudioPlaybackEngine : public QObject {
     QThread *m_workerThread{nullptr};
     AudioProcessorWorker *m_worker{nullptr};
 
-    std::vector<float> m_decodedInterleaved;
-    int m_decodedChannelCount{2};
-    int m_decodedSampleRateHz{44100};
+    QString m_sourceFilePath;
+    int m_sourceChannelCount{2};
+    int m_sourceSampleRateHz{44100};
+    qint64 m_sourceDurationMs{0};
+    qint64 m_segmentSourceStartMs{0};
+    qint64 m_segmentSourceEndMs{0};
 
     int m_pendingTempoPercent{100};
     int m_appliedTempoPercent{100};
@@ -140,8 +153,6 @@ class AudioPlaybackEngine : public QObject {
     QString m_processingStage;
     int m_processingProgress{-1};
 
-    qint64 m_durationMs{0};
-
     QVector<float> m_peaks;
 
     QString m_lastError;
@@ -153,6 +164,7 @@ class AudioPlaybackEngine : public QObject {
     qint64 m_resumePositionMs{0};
 
     bool m_pauseRequested{false};
+    bool m_autoPlayAfterSegmentBuild{false};
 
     QString m_activeLoadPath;
 

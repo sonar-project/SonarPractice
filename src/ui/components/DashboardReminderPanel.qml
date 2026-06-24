@@ -417,7 +417,7 @@ Rectangle {
 
     Dialog {
         id: partialConfirmDialog
-        implicitWidth: parent
+        implicitWidth: Math.max(240, root.panelWidth - 32)
 
         property int reminderId: 0
         property string songTitle: ""
@@ -429,6 +429,7 @@ Rectangle {
         standardButtons: Dialog.Ok | Dialog.Cancel
 
         contentItem: Label {
+            width: partialConfirmDialog.availableWidth
             wrapMode: Text.WordWrap
             text: qsTr("%1\n\n%2\n\nThe reminder condition was only partially met. Mark as completed for this day anyway?")
                     .arg(partialConfirmDialog.songTitle)

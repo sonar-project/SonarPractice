@@ -1,6 +1,7 @@
 #include "AudioProcessorWorker.h"
 
 #include "AudioConstants.h"
+#include "AudioPeakCache.h"
 #include "AudioPeakExtractor.h"
 #include "ParametricEq.h"
 #include "RubberBandPipeline.h"
@@ -14,14 +15,6 @@ Q_LOGGING_CATEGORY(lcWorker, "sonarp.audio.worker")
 
 namespace {
 
-     /**
-     * @brief Upmixes mono interleaved audio to stereo.
-     * If the input has a single channel, each sample is duplicated to the left and right channels.
-     * The function operates in‑place: the supplied vector is replaced with stereo data and the
-     * channel count is updated to 2.
-     * @param[in,out] interleaved Audio samples in interleaved format; will be replaced with stereo data.
-     * @param[in,out] channelCount Number of channels; set to 2 on success, unchanged otherwise.
-     */
     void upmixMonoToStereo(std::vector<float> &interleaved, int &channelCount) {
         if (channelCount != 1) {
             return;
@@ -44,111 +37,199 @@ namespace {
         channelCount = AudioConstants::kChannelCount;
     }
 
-     /**
-     * @brief Checks whether processing has been cancelled.
-     * Returns true if a non‑null cancellation flag is present and set.
-     * @param[in] cancelRequested Pointer to an atomic boolean indicating cancellation request.
-     * @return true if cancelled, false otherwise or if the pointer is null.
-     */
     [[nodiscard]] bool isCancelled(const std::atomic_bool *cancelRequested) {
         return cancelRequested != nullptr && cancelRequested->load(std::memory_order_acquire);
     }
 
-} // namespace
-
-AudioProcessorWorker::AudioProcessorWorker(QObject *parent) : QObject(parent) {}
-
-/**
-* @brief Processes an audio build request.
-* Performs file decoding (if a file path is provided), optional tempo stretching,
-* equalisation, peak extraction and conversion to 16‑bit PCM. Progress and the final
-* result are reported via Qt signals.
-* @param[in] params Build parameters containing source data, file path, tempo,
-*                   EQ preset, cancellation flag and generation/tempo identifiers.
-* @note The function may emit `progressUpdated` and `resultReady` signals.
-*       It does not return a value; errors or cancellation are communicated through
-*       the `AudioBuildResult` passed to `resultReady`.
-*/
-void AudioProcessorWorker::process(AudioPlaybackEngine::BuildParameters params) {
-    const std::atomic_bool *const cancelRequested = params.cancelRequested;
-    const auto cancelled = [&]() { return isCancelled(cancelRequested); };
-    const auto cancelledResult = [&params]() {
+    [[nodiscard]] AudioBuildResult cancelledResult(const AudioPlaybackEngine::BuildParameters &params) {
         AudioBuildResult result;
         result.cancelled = true;
         result.buildGeneration = params.buildGeneration;
         result.tempoPercent = params.tempoPercent;
         result.errorMessage = QObject::tr("Processing cancelled.");
         return result;
-    };
+    }
+
+    [[nodiscard]] qint64 durationMsForFrames(std::size_t frameCount, int sampleRateHz) {
+        if (frameCount == 0 || sampleRateHz <= 0) {
+            return 0;
+        }
+        return (static_cast<qint64>(frameCount) * 1000LL) / static_cast<qint64>(sampleRateHz);
+    }
+
+} // namespace
+
+AudioProcessorWorker::AudioProcessorWorker(QObject *parent) : QObject(parent) {}
+
+void AudioProcessorWorker::process(const AudioPlaybackEngine::BuildParameters& params) {
+    const std::atomic_bool *const cancelRequested = params.cancelRequested;
+    const auto cancelled = [&]() { return isCancelled(cancelRequested); };
 
     if (cancelled()) {
-        emit resultReady(cancelledResult());
+        emit resultReady(cancelledResult(params));
         return;
     }
+
+    if (params.mode == AudioPlaybackEngine::BuildParameters::Mode::MetadataAndPeaks) {
+        processMetadataAndPeaks(params);
+        return;
+    }
+
+    processPlaybackSegment(params);
+}
+
+void AudioProcessorWorker::processMetadataAndPeaks(const AudioPlaybackEngine::BuildParameters& params) {
+    const std::atomic_bool *const cancelRequested = params.cancelRequested;
+    const auto cancelled = [&]() { return isCancelled(cancelRequested); };
 
     AudioBuildResult result;
     result.buildGeneration = params.buildGeneration;
     result.tempoPercent = params.tempoPercent;
-    std::vector<float> sourceInterleaved = std::move(params.sourceInterleaved);
-    int channelCount = params.channelCount;
-    int sampleRateHz = params.sampleRateHz;
+    result.metadataOnly = true;
 
-    if (!params.sourceFilePath.isEmpty()) {
-        emit progressUpdated(QObject::tr("Reading audio file…"), -1);
-
-        SampleRequest decodeRequest;
-        QString decodeError;
-        sourceInterleaved = AudioPlaybackEngine::decodeFileToFloat(
-            params.sourceFilePath, decodeRequest, decodeError, cancelRequested);
-        channelCount = decodeRequest.channelCount;
-        sampleRateHz = decodeRequest.sampleRateHz;
-
-        if (cancelled() || decodeError == QStringLiteral("Cancelled.")) {
-            emit resultReady(cancelledResult());
-            return;
-        }
-
-        if (sourceInterleaved.empty()) {
-            result.errorMessage = decodeError.isEmpty()
-                                      ? QObject::tr("Decoder returned no audio data.")
-                                      : decodeError;
-            emit resultReady(result);
-            return;
-        }
-
-        if (channelCount <= 0) {
-            channelCount = AudioConstants::kChannelCount;
-        }
-
-        if (sampleRateHz <= 0) {
-            sampleRateHz = AudioConstants::kDefaultSampleRateHz;
-        }
-
-        const auto channelCountSize = static_cast<size_t>(channelCount);
-        if (channelCountSize > 0 && sourceInterleaved.size() % channelCountSize != 0) {
-            sourceInterleaved.resize(sourceInterleaved.size() -
-                                     (sourceInterleaved.size() % channelCountSize));
-        }
-
-        upmixMonoToStereo(sourceInterleaved, channelCount);
-        result.decodedInterleaved = sourceInterleaved;
-        emit progressUpdated(QObject::tr("Audio file read"), 25);
-    }
-
-    if (cancelled()) {
-        emit resultReady(cancelledResult());
-        return;
-    }
-
-    if (sourceInterleaved.empty() || channelCount <= 0 || sampleRateHz <= 0) {
-        qCWarning(lcWorker) << "Invalid parameters in processing request";
-        result.errorMessage = QObject::tr("No audio data to process.");
+    if (params.sourceFilePath.isEmpty()) {
+        result.errorMessage = QObject::tr("No audio file path provided.");
         emit resultReady(result);
         return;
     }
 
+    AudioPeakCacheEntry cacheEntry;
+    if (AudioPeakCache::read(params.sourceFilePath, cacheEntry)) {
+        emit progressUpdated(QObject::tr("Loading waveform cache…"), 100);
+        result.peaks = cacheEntry.peaks;
+        result.durationMs = cacheEntry.durationMs;
+        result.sampleRateHz = cacheEntry.sampleRateHz;
+        result.channelCount = cacheEntry.channelCount;
+        result.success = true;
+        emit resultReady(result);
+        return;
+    }
+
+    emit progressUpdated(QObject::tr("Analyzing audio file…"), -1);
+
+    SampleRequest decodeRequest;
+    QString decodeError;
+    const std::vector<float> sourceInterleaved = AudioPlaybackEngine::decodeFileToFloat(
+        params.sourceFilePath, decodeRequest, decodeError, cancelRequested);
+
+    if (cancelled() || decodeError == QStringLiteral("Cancelled.")) {
+        emit resultReady(cancelledResult(params));
+        return;
+    }
+
+    if (sourceInterleaved.empty()) {
+        result.errorMessage = decodeError.isEmpty() ? QObject::tr("Decoder returned no audio data.")
+                                                    : decodeError;
+        emit resultReady(result);
+        return;
+    }
+
+    int channelCount = decodeRequest.channelCount;
+    int sampleRateHz = decodeRequest.sampleRateHz;
+    if (channelCount <= 0) {
+        channelCount = AudioConstants::kChannelCount;
+    }
+    if (sampleRateHz <= 0) {
+        sampleRateHz = AudioConstants::kDefaultSampleRateHz;
+    }
+
+    std::vector<float> normalized = sourceInterleaved;
+    upmixMonoToStereo(normalized, channelCount);
+
+    result.peaks = AudioPeakExtractor::computePeaks(normalized, channelCount,
+                                                    AudioConstants::kPeakBucketCount);
+    result.channelCount = channelCount;
+    result.sampleRateHz = sampleRateHz;
+
+    const auto channelCountSize = static_cast<std::size_t>(channelCount);
+    const auto frameCount = normalized.size() / channelCountSize;
+    result.durationMs = durationMsForFrames(frameCount, sampleRateHz);
+    result.success = true;
+
+    AudioPeakCacheEntry cacheWrite;
+    cacheWrite.peaks = result.peaks;
+    cacheWrite.durationMs = result.durationMs;
+    cacheWrite.sampleRateHz = result.sampleRateHz;
+    cacheWrite.channelCount = result.channelCount;
+    if (!AudioPeakCache::write(params.sourceFilePath, cacheWrite)) {
+        qCDebug(lcWorker) << "Could not write peak cache for" << params.sourceFilePath;
+    }
+
+    emit progressUpdated(QObject::tr("Waveform ready"), 100);
+    emit resultReady(result);
+}
+
+void AudioProcessorWorker::processPlaybackSegment(const AudioPlaybackEngine::BuildParameters& params) {
+    const std::atomic_bool *const cancelRequested = params.cancelRequested;
+    const auto cancelled = [&]() { return isCancelled(cancelRequested); };
+
+    AudioBuildResult result;
+    result.buildGeneration = params.buildGeneration;
+    result.tempoPercent = params.tempoPercent;
+
+    if (params.sourceFilePath.isEmpty()) {
+        result.errorMessage = QObject::tr("No audio file path provided.");
+        emit resultReady(result);
+        return;
+    }
+
+    emit progressUpdated(QObject::tr("Reading playback segment…"), -1);
+
+    const int sampleRateForSeek = params.sourceSampleRateHz > 0 ? params.sourceSampleRateHz
+                                                                 : AudioConstants::kDefaultSampleRateHz;
+
+    SampleRequest decodeRequest;
+    decodeRequest.decodeStartFrame =
+        (params.regionStartMs * static_cast<qint64>(sampleRateForSeek)) / 1000LL;
+    if (params.regionEndMs > params.regionStartMs) {
+        decodeRequest.decodeEndFrame =
+            (params.regionEndMs * static_cast<qint64>(sampleRateForSeek)) / 1000LL;
+    }
+
+    QString decodeError;
+    std::vector<float> sourceInterleaved = AudioPlaybackEngine::decodeFileToFloat(
+        params.sourceFilePath, decodeRequest, decodeError, cancelRequested);
+
+    if (cancelled() || decodeError == QStringLiteral("Cancelled.")) {
+        emit resultReady(cancelledResult(params));
+        return;
+    }
+
+    if (sourceInterleaved.empty()) {
+        result.errorMessage = decodeError.isEmpty() ? QObject::tr("Decoder returned no audio data.")
+                                                    : decodeError;
+        emit resultReady(result);
+        return;
+    }
+
+    int channelCount = decodeRequest.channelCount;
+    int sampleRateHz = decodeRequest.sampleRateHz;
+    if (channelCount <= 0) {
+        channelCount = AudioConstants::kChannelCount;
+    }
+    if (sampleRateHz <= 0) {
+        sampleRateHz = AudioConstants::kDefaultSampleRateHz;
+    }
+
+    const auto channelCountSize = static_cast<size_t>(channelCount);
+    if (channelCountSize > 0 && sourceInterleaved.size() % channelCountSize != 0) {
+        sourceInterleaved.resize(sourceInterleaved.size() -
+                                 (sourceInterleaved.size() % channelCountSize));
+    }
+
+    upmixMonoToStereo(sourceInterleaved, channelCount);
     result.sampleRateHz = sampleRateHz;
     result.channelCount = channelCount;
+
+    const auto sourceFrames = sourceInterleaved.size() / channelCountSize;
+    result.segmentSourceStartMs = params.regionStartMs;
+    result.segmentSourceEndMs =
+        params.regionStartMs + durationMsForFrames(sourceFrames, sampleRateHz);
+
+    if (cancelled()) {
+        emit resultReady(cancelledResult(params));
+        return;
+    }
 
     const double tempoRatio =
         AudioConstants::rubberBandTimeRatioFromTempoPercent(params.tempoPercent);
@@ -174,7 +255,7 @@ void AudioProcessorWorker::process(AudioPlaybackEngine::BuildParameters params) 
     if (!pipeline.stretch(sourceInterleaved, channelCount, sampleRateHz, tempoRatio, stretched,
                           result.errorMessage, stretchProgress, stretchCancelled)) {
         if (cancelled() || result.errorMessage == QStringLiteral("Cancelled.")) {
-            emit resultReady(cancelledResult());
+            emit resultReady(cancelledResult(params));
             return;
         }
         emit resultReady(result);
@@ -182,11 +263,10 @@ void AudioProcessorWorker::process(AudioPlaybackEngine::BuildParameters params) 
     }
 
     if (cancelled()) {
-        emit resultReady(cancelledResult());
+        emit resultReady(cancelledResult(params));
         return;
     }
 
-    const auto channelCountSize = static_cast<std::size_t>(result.channelCount);
     if (stretched.empty() || channelCountSize == 0 || stretched.size() % channelCountSize != 0) {
         result.errorMessage = QObject::tr("Tempo processing returned invalid audio data.");
         emit resultReady(result);
@@ -201,17 +281,14 @@ void AudioProcessorWorker::process(AudioPlaybackEngine::BuildParameters params) 
     equalizer.process(stretched, result.channelCount);
 
     if (cancelled()) {
-        emit resultReady(cancelledResult());
+        emit resultReady(cancelledResult(params));
         return;
     }
 
     result.pcmInt16 = AudioPlaybackEngine::floatToInt16(stretched);
-    result.peaks = AudioPeakExtractor::computePeaks(stretched, result.channelCount,
-                                                    AudioConstants::kPeakBucketCount);
 
-    const auto frameCount = stretched.size() / static_cast<std::size_t>(result.channelCount);
-    result.durationMs =
-        (static_cast<qint64>(frameCount) * 1000LL) / static_cast<qint64>(sampleRateHz);
+    const auto frameCount = stretched.size() / channelCountSize;
+    result.durationMs = durationMsForFrames(frameCount, sampleRateHz);
     result.success = true;
 
     emit progressUpdated(QObject::tr("Done"), 100);

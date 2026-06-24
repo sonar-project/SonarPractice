@@ -49,6 +49,11 @@ add_audio_test(rubberBandPipelineTest
     tst_rubberBandPipelineTest.h
 )
 
+add_audio_test(audioPeakCacheTest
+    tst_audioPeakCacheTest.cpp
+    tst_audioPeakCacheTest.h
+)
+
 add_audio_test(audioPlaybackHelpersTest
     tst_audioPlaybackHelpersTest.cpp
     tst_audioPlaybackHelpersTest.h
@@ -66,6 +71,7 @@ set_tests_properties(
     pcmPlaybackIODeviceTest
     audioFilterTest
     audioPeakExtractorTest
+    audioPeakCacheTest
     rubberBandPipelineTest
     audioPlaybackHelpersTest
     audioAnalyzerTest

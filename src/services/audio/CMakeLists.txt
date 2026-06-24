@@ -4,6 +4,8 @@ qt_add_library(AudioLib STATIC
     AudioBufferConverter.h
     AudioBufferConverter.cpp
     AudioConstants.h
+    AudioPeakCache.h
+    AudioPeakCache.cpp
     BiquadFilter.h
     BiquadFilter.cpp
     ParametricEq.h

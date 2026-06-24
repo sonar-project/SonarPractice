@@ -60,6 +60,11 @@ void AudioConfigController::connectEngine() {
             m_cancelPending = false;
             setStatusMessage(tr("Processing cancelled."));
         }
+        if (!m_engine.isLoading() && m_pendingPlayAfterLoad && m_engine.durationMs() > 0 &&
+            !m_engine.hasPlaybackData()) {
+            m_pendingPlayAfterLoad = false;
+            m_engine.play();
+        }
         emit loadingChanged();
     });
 
@@ -74,8 +79,20 @@ void AudioConfigController::connectEngine() {
     connect(&m_engine, &AudioPlaybackEngine::durationMsChanged, this,
             &AudioConfigController::durationMsChanged);
 
-    connect(&m_engine, &AudioPlaybackEngine::peaksChanged, this,
-            &AudioConfigController::syncPeaksFromEngine);
+    connect(&m_engine, &AudioPlaybackEngine::peaksChanged, this, [this]() {
+        if (m_loadingTargetMediaFileId > 0 && m_mediaFileId != m_loadingTargetMediaFileId) {
+            return;
+        }
+        syncPeaksFromEngine();
+        if (!m_engine.peaks().isEmpty() && m_engine.durationMs() > 0) {
+            m_engineLoadedMediaFileId =
+                m_loadingTargetMediaFileId > 0 ? m_loadingTargetMediaFileId : m_mediaFileId;
+            syncRegionToEngine();
+            if (!m_engine.hasPlaybackData() && m_engine.lastError().isEmpty()) {
+                setStatusMessage(tr("Waveform ready."));
+            }
+        }
+    });
 
     connect(&m_engine, &AudioPlaybackEngine::errorChanged, this, [this]() {
         if (!m_engine.lastError().isEmpty()) {
@@ -84,6 +101,9 @@ void AudioConfigController::connectEngine() {
     });
 
     connect(&m_engine, &AudioPlaybackEngine::playbackReadyChanged, this, [this]() {
+        if (m_loadingTargetMediaFileId > 0 && m_mediaFileId != m_loadingTargetMediaFileId) {
+            return;
+        }
         const qint64 newDurationMs = m_engine.durationMs();
         const bool initialLoad = m_lastPlaybackDurationMs <= 0 || m_regionEndMs <= 0;
         if (initialLoad) {
@@ -96,16 +116,15 @@ void AudioConfigController::connectEngine() {
             scaleRegionToNewDuration(m_lastPlaybackDurationMs, newDurationMs);
         }
         m_lastPlaybackDurationMs = newDurationMs;
-        m_engineLoadedMediaFileId = m_mediaFileId;
+        m_engineLoadedMediaFileId =
+            m_loadingTargetMediaFileId > 0 ? m_loadingTargetMediaFileId : m_mediaFileId;
         m_loadingTargetMediaFileId = 0;
         emit durationMsChanged();
         updateHasCustomRegion();
 
         if (m_pendingPlayAfterLoad) {
             m_pendingPlayAfterLoad = false;
-            if (m_engine.hasPlaybackData()) {
-                m_engine.play();
-            }
+            m_engine.play();
         } else if (m_pendingPresetLoad) {
             m_pendingPresetLoad = false;
             loadSelectedPreset();
@@ -124,9 +143,9 @@ qlonglong AudioConfigController::mediaFileId() const { return m_mediaFileId; }
 void AudioConfigController::setMediaFileId(qlonglong mediaFileId) {
     const bool sameId = m_mediaFileId == mediaFileId;
     if (sameId) {
-        if (mediaFileId > 0 &&
-            (!m_engine.hasPlaybackData() || m_engineLoadedMediaFileId != mediaFileId) &&
-            !m_engine.isLoading()) {
+        const bool engineMatches = m_engineLoadedMediaFileId == mediaFileId &&
+                                   m_engine.durationMs() > 0 && !m_engine.peaks().isEmpty();
+        if (mediaFileId > 0 && !engineMatches && !m_engine.isLoading()) {
             reloadMedia();
         }
         return;
@@ -437,6 +456,8 @@ void AudioConfigController::reloadMedia() {
         return;
     }
 
+    m_engine.cancelProcessing();
+
     const std::optional<MediaFile> mediaFile = m_dependencies.mediaRepo.getMediaFile(m_mediaFileId);
     if (!mediaFile.has_value()) {
         setStatusMessage(tr("Media file not found."));
@@ -468,6 +489,7 @@ void AudioConfigController::reloadMedia() {
     m_engine.setTempoPercent(m_tempoPercent);
     m_engine.setEqPresetId(m_eqPresetId);
     m_engine.setLoopEnabled(m_loopEnabled);
+    syncRegionToEngine();
 
     m_loadingTargetMediaFileId = m_mediaFileId;
     updateHasCustomRegion();
@@ -498,6 +520,7 @@ void AudioConfigController::preparePresetsForMedia(qlonglong mediaFileId) {
     emit mediaFileIdChanged();
     setSelectedPresetIndex(-1);
     refreshPresetList();
+    reloadMedia();
 }
 
 void AudioConfigController::loadPresetForMedia(qlonglong mediaFileId, int presetIndex) {
@@ -536,24 +559,26 @@ void AudioConfigController::playMediaFile(qlonglong mediaFileId) {
         return;
     }
 
-    if (m_mediaFileId == mediaFileId && m_engine.isLoading()) {
-        m_pendingPlayAfterLoad = true;
-        return;
+    if (m_mediaFileId != mediaFileId) {
+        persistCurrentSettings();
+        m_mediaFileId = mediaFileId;
+        emit mediaFileIdChanged();
     }
 
-    if (m_mediaFileId == mediaFileId && m_engine.hasPlaybackData() &&
-        m_engineLoadedMediaFileId == mediaFileId) {
+    const bool engineReadyForMedia = m_engineLoadedMediaFileId == mediaFileId;
+
+    if (engineReadyForMedia) {
+        if (m_engine.isLoading()) {
+            m_pendingPlayAfterLoad = true;
+            m_engine.play();
+            return;
+        }
         m_engine.play();
         return;
     }
 
     m_pendingPlayAfterLoad = true;
     m_pendingPresetLoad = false;
-    if (m_mediaFileId != mediaFileId) {
-        persistCurrentSettings();
-        m_mediaFileId = mediaFileId;
-        emit mediaFileIdChanged();
-    }
     reloadMedia();
 }
 
@@ -563,8 +588,8 @@ void AudioConfigController::togglePlayback() {
         return;
     }
 
-    if (!m_engine.hasPlaybackData()) {
-        setStatusMessage(tr("Playback not ready yet — please wait a moment."));
+    if (m_engine.isLoading()) {
+        m_engine.play();
         return;
     }
 
@@ -676,6 +701,20 @@ void AudioConfigController::applyRegionMs(qint64 regionStartMs, qint64 regionEnd
     emit regionChanged();
     updateHasCustomRegion();
     persistCurrentSettings();
+}
+
+void AudioConfigController::syncRegionToEngine() {
+    qint64 regionEnd = m_regionEndMs;
+    const qint64 duration = m_engine.durationMs();
+    if (regionEnd <= 0 && duration > 0) {
+        regionEnd = duration;
+        if (m_regionEndMs <= 0) {
+            m_regionEndMs = regionEnd;
+            emit regionChanged();
+        }
+    }
+
+    m_engine.setRegionMs(m_regionStartMs, regionEnd);
 }
 
 void AudioConfigController::persistCurrentSettings() { saveSettingsForMedia(m_mediaFileId); }
