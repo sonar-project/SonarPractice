@@ -22,14 +22,28 @@ if (Test-Path $DeployDir) {
 }
 New-Item -ItemType Directory -Path $DeployDir | Out-Null
 
-$RubberBand = Get-ChildItem -Path $BuildDir -Filter "libSonarPractice_Rubberband.dll" -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-if (-not $RubberBand) {
-    $RubberBand = Get-ChildItem -Path $BuildDir -Filter "SonarPractice_Rubberband.dll" -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-}
-if ($RubberBand) {
-    Copy-Item $RubberBand.FullName $DeployDir
+#$RubberBand = Get-ChildItem -Path $BuildDir -Filter "libSonarPractice_Rubberband.dll" -ErrorAction SilentlyContinue |
+#    Select-Object -First 1
+#if (-not $RubberBand) {
+#    $RubberBand = Get-ChildItem -Path $BuildDir -Filter "SonarPractice_Rubberband.dll" -ErrorAction SilentlyContinue |
+#        Select-Object -First 1
+#}
+#if ($RubberBand) {
+#    Copy-Item $RubberBand.FullName $DeployDir
+#}
+
+$ExpectedName = "SonarPractice_Rubberband.dll"
+$TargetFile = Join-Path -Path $DeployDir -ChildPath $ExpectedName
+
+$FoundFile = Get-ChildItem -Path $BuildDir -Filter "*SonarPractice_Rubberband.dll" -ErrorAction SilentlyContinue |
+             Select-Object -First 1
+
+if ($FoundFile) {
+    Write-Host "Kopiere $($FoundFile.Name) nach $TargetFile"
+    Copy-Item -Path $FoundFile.FullName -Destination $TargetFile -Force
+} else {
+    Write-Error "DLL wurde nicht gefunden!"
+    exit 1
 }
 
 Copy-Item (Join-Path $BuildDir "SonarPractice.exe") $DeployDir
