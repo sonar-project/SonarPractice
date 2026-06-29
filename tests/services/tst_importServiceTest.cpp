@@ -238,6 +238,30 @@ void TestImportService::testImportWithCopyStrategyCreatesManagedFile() {
     QVERIFY(QFileInfo::exists(resolvedPath));
 }
 
+void TestImportService::testImportWithCopyStrategySkipsWhenManagedFileAlreadyExists() {
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString managedRoot = tempDir.filePath(QStringLiteral("managed"));
+    m_appSettings->setManagedStorageRoot(managedRoot);
+    m_appSettings->setStorageStrategy(QStringLiteral("copy"));
+    m_appSettings->saveConfiguration();
+    createImportService();
+
+    const ImportResult first = m_importService->importFile(m_testGp3Path, StorageStrategy::Copy);
+    QCOMPARE(first.status, ImportStatus::Imported);
+
+    const QString managedPath = QDir(managedRoot).filePath(QStringLiteral("testfile.gp3"));
+    QVERIFY(QFileInfo::exists(managedPath));
+
+    QVERIFY(m_songRepo.deleteSong(first.songId));
+    QCOMPARE(m_songRepo.getAllSongs().size(), 0);
+
+    const ImportResult second = m_importService->importFile(m_testGp3Path, StorageStrategy::Copy);
+    QCOMPARE(second.status, ImportStatus::Skipped);
+    QCOMPARE(QDir(managedRoot).entryList(QDir::Files), QStringList({QStringLiteral("testfile.gp3")}));
+}
+
 void TestImportService::testImportDirectoryCopiesIntoNamedSubfolder() {
     QTemporaryDir tempDir;
     QVERIFY(tempDir.isValid());

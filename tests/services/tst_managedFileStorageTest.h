@@ -11,6 +11,7 @@ class TestManagedFileStorage : public QObject {
     void testLinkKeepsOriginalPath();
     void testCopyCreatesManagedFile();
     void testCopyUsesIncrementedNameWhenFileExists();
+    void testCopyReusesExistingFileWhenHashMatches();
     void testMoveRemovesSourceFile();
 };
 

@@ -33,6 +33,7 @@ class TestImportService : public QObject {
     void testImportPathsSetsBusy();
     void testImportFinishedClearsBusyBeforeSignal();
     void testImportWithCopyStrategyCreatesManagedFile();
+    void testImportWithCopyStrategySkipsWhenManagedFileAlreadyExists();
     void testImportDirectoryCopiesIntoNamedSubfolder();
     void testImportDirectoryStoresRelativePaths();
     void testImportPathsStoresRelativePathsForMultipleSubfolders();

@@ -11,6 +11,7 @@ struct ManagedFileResult {
     QString storedPath{};
     QString relativePath{};
     bool isManaged{false};
+    bool duplicateContent{false};
     QString message{};
 };
 

@@ -168,6 +168,12 @@ namespace {
             return result;
         }
 
+        if (storedFile.duplicateContent) {
+            result.status = ImportStatus::Skipped;
+            result.message = ImportService::tr("Duplicate file hash");
+            return result;
+        }
+
         const MediaKind extensionKind = mediaKindForExtension(ctx.environment, extension);
 
         QString songTitle = fileInfo.completeBaseName();

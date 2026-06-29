@@ -1,5 +1,7 @@
 #include "ManagedFileStorage.h"
 
+#include "fnv1a.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -8,9 +10,23 @@ namespace {
 
     constexpr int kMaxDuplicateFileNameAttempts = 10000;
 
-    QString uniqueFileName(const QDir &rootDir, const QString &fileName) {
-        if (!rootDir.exists(fileName)) {
-            return fileName;
+    struct ResolvedDestination {
+        QString fileName;
+        bool duplicateContent{false};
+    };
+
+    QString hashOfFileAt(const QDir &destinationDir, const QString &fileName) {
+        return FNV1a::calculate(destinationDir.filePath(fileName));
+    }
+
+    ResolvedDestination resolveDestinationFileName(const QDir &destinationDir, const QString &fileName,
+                                                 const QString &fileHash) {
+        if (!destinationDir.exists(fileName)) {
+            return {.fileName = fileName, .duplicateContent = false};
+        }
+
+        if (hashOfFileAt(destinationDir, fileName) == fileHash) {
+            return {.fileName = fileName, .duplicateContent = true};
         }
 
         const QFileInfo info(fileName);
@@ -23,19 +39,22 @@ namespace {
                     ? QStringLiteral("%1_ver%2").arg(baseName).arg(counter)
                     : QStringLiteral("%1_ver%2.%3").arg(baseName).arg(counter).arg(suffix);
 
-            if (!rootDir.exists(candidate)) {
-                return candidate;
+            if (!destinationDir.exists(candidate)) {
+                return {.fileName = candidate, .duplicateContent = false};
+            }
+
+            if (hashOfFileAt(destinationDir, candidate) == fileHash) {
+                return {.fileName = candidate, .duplicateContent = true};
             }
         }
 
-        return fileName;
+        return {.fileName = fileName, .duplicateContent = false};
     }
 
 } // namespace
 
 ManagedFileResult ManagedFileStorage::storeFile(StorageStrategy strategy,
                                                 const StorageParameters &params) {
-    Q_UNUSED(params.fileHash)
     Q_UNUSED(params.extension)
 
     ManagedFileResult result;
@@ -56,6 +75,11 @@ ManagedFileResult ManagedFileStorage::storeFile(StorageStrategy strategy,
 
     if (params.managedRoot.trimmed().isEmpty()) {
         result.message = tr("Managed storage root is empty");
+        return result;
+    }
+
+    if (params.fileHash.trimmed().isEmpty()) {
+        result.message = tr("File hash is empty");
         return result;
     }
 
@@ -82,9 +106,19 @@ ManagedFileResult ManagedFileStorage::storeFile(StorageStrategy strategy,
         destinationDir = QDir(destinationRoot);
     }
 
-    const QString relativePath =
-        relativePrefix + uniqueFileName(destinationDir, sourceInfo.fileName());
+    const ResolvedDestination resolved =
+        resolveDestinationFileName(destinationDir, sourceInfo.fileName(), params.fileHash);
+    const QString relativePath = relativePrefix + resolved.fileName;
     const QString destinationPath = rootDir.filePath(relativePath);
+
+    if (resolved.duplicateContent) {
+        result.success = true;
+        result.storedPath = destinationPath;
+        result.relativePath = relativePath;
+        result.isManaged = true;
+        result.duplicateContent = true;
+        return result;
+    }
 
     if (strategy == StorageStrategy::Copy) {
         if (!QFile::copy(params.sourcePath, destinationPath)) {
