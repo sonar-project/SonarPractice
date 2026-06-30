@@ -15,7 +15,7 @@ This file summarizes licenses and linking for dependencies bundled with or requi
 - **License:** **GNU General Public License (GPL)** (see upstream `COPYING` and file headers). Not LGPL. Commercial/proprietary use requires a [separate licence from Breakfast Quay](https://breakfastquay.com/technology/license.html).
 - **Linking:**
   - **Linux:** dynamic only (`librubberband.so` via pkg-config; static archives are rejected at configure time).
-  - **Windows:** dynamic only (`librubberband.dll`) build via CMake FetchContent (`single/RubberBandSingle.cpp`, tag `v4.0.0`).
+  - **Windows:** dynamic only (`SonarPractice_RubberbandLib.dll`) build via CMake FetchContent (`single/RubberBandSingle.cpp`, tag `v4.0.0`).
 
 ## libgp_parser
 

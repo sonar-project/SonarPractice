@@ -9,26 +9,29 @@ fetchcontent_declare(
     GIT_SHALLOW TRUE
 )
 
-if(NOT TARGET SonarPractice_Rubberband)
+if(NOT TARGET SonarPractice_RubberbandLib)
     fetchcontent_getproperties(rubberband)
     if(NOT rubberband_POPULATED)
         fetchcontent_makeavailable(rubberband)
     endif()
 
-    add_library(SonarPractice_Rubberband SHARED "${rubberband_SOURCE_DIR}/single/RubberBandSingle.cpp"
+    add_library(SonarPractice_RubberbandLib SHARED "${rubberband_SOURCE_DIR}/single/RubberBandSingle.cpp"
     )
-    target_include_directories(SonarPractice_Rubberband PUBLIC "${rubberband_SOURCE_DIR}")
-    target_compile_definitions(SonarPractice_Rubberband PRIVATE NOMINMAX)
-    set_target_properties(SonarPractice_Rubberband PROPERTIES
+    target_include_directories(SonarPractice_RubberbandLib PUBLIC "${rubberband_SOURCE_DIR}")
+    target_compile_definitions(SonarPractice_RubberbandLib PRIVATE NOMINMAX)
+    set_target_properties(SonarPractice_RubberbandLib PROPERTIES
         CXX_STANDARD 14
         CXX_STANDARD_REQUIRED ON
         POSITION_INDEPENDENT_CODE ON
     )
+    if(WIN32)
+        set_target_properties(SonarPractice_RubberbandLib PROPERTIES PREFIX "")
+    endif()
     if(MSVC)
-        target_compile_options(SonarPractice_Rubberband PRIVATE /bigobj)
+        target_compile_options(SonarPractice_RubberbandLib PRIVATE /bigobj)
     endif()
 endif()
 
-if(NOT TARGET SonarPractice::Rubberband)
-    add_library(SonarPractice::Rubberband ALIAS SonarPractice_Rubberband)
+if(NOT TARGET SonarPractice::RubberbandLib)
+    add_library(SonarPractice::RubberbandLib ALIAS SonarPractice_RubberbandLib)
 endif()

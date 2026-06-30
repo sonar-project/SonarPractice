@@ -27,7 +27,7 @@ if exist "%DEPLOY_DIR%" rd /s /q "%DEPLOY_DIR%"
 mkdir "%DEPLOY_DIR%"
 
 :: 2. RubberBand und EXE kopieren
-copy "%BUILD_DIR%\libSonarPractice_Rubberband.dll" "%DEPLOY_DIR%\"
+copy "%BUILD_DIR%\SonarPractice_RubberbandLib.dll" "%DEPLOY_DIR%\"
 copy "%BUILD_DIR%\SonarPractice.exe" "%DEPLOY_DIR%\"
 
 :: 3. Qt-Abhaengigkeiten hinzufuegen

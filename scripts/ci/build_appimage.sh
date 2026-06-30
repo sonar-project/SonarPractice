@@ -83,7 +83,7 @@ cmake --build "${BUILD_DIR}" --target SonarPractice
 mkdir -p "${APPDIR}/usr/bin"
 cp "${BUILD_DIR}/SonarPractice" "${APPDIR}/usr/bin/"
 
-RUBBERBAND_LIB="$(find "${BUILD_DIR}" -maxdepth 1 -name 'libSonarPractice_Rubberband.so*' -print -quit)"
+RUBBERBAND_LIB="$(find "${BUILD_DIR}" -maxdepth 1 -name 'libSonarPractice_RubberbandLib.so*' -print -quit)"
 if [[ -n "${RUBBERBAND_LIB}" ]]; then
   cp "${RUBBERBAND_LIB}" "${APPDIR}/usr/bin/"
 fi

@@ -16,7 +16,7 @@ VERSION="${VERSION:-$(grep -m1 'project(SonarPractice VERSION' "$ROOT/CMakeLists
 ARTIFACT="${ROOT}/SonarPractice-${VERSION}-x86_64.AppImage"
 
 BINARY="${BUILD_DIR}/SonarPractice"
-RUBBERBAND_LIB="${BUILD_DIR}/libSonarPractice_Rubberband.so"
+RUBBERBAND_LIB="${BUILD_DIR}/libSonarPractice_RubberbandLib.so"
 
 if [[ ! -x "${BINARY}" ]]; then
   echo "Binary not found: ${BINARY}" >&2

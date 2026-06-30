@@ -27,7 +27,7 @@ target_link_libraries(AudioLib
         Qt6::Core
         Qt6::Concurrent
         Qt6::Multimedia
-        SonarPractice::Rubberband
+        SonarPractice::RubberbandLib
 )
 
 target_include_directories(AudioLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
