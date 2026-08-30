@@ -14,7 +14,7 @@ namespace {
     constexpr auto kTranslationResourcePath = ":/i18n";
 
     QString migrateLegacyLanguageCode(const QString &languageCode) {
-        const QString trimmed = languageCode.trimmed();
+        QString trimmed = languageCode.trimmed();
         if (trimmed.compare(SonarpTranslationCatalog::sourceLanguage(), Qt::CaseInsensitive) == 0) {
             return SonarpTranslationCatalog::sourceLanguage();
         }
@@ -133,7 +133,7 @@ QString TranslationManager::localeLabel(const QString &localeCode) {
 }
 
 QString TranslationManager::normalizeLanguageCode(const QString &localeCode) {
-    const QString trimmed = localeCode.trimmed();
+    QString trimmed = localeCode.trimmed();
     if (trimmed.isEmpty()) {
         return QString();
     }
@@ -148,7 +148,7 @@ QString TranslationManager::normalizeLanguageCode(const QString &localeCode) {
 
 QString TranslationManager::resolveSystemLocale() const {
     const QLocale system = QLocale::system();
-    const QString systemName = system.name();
+    QString systemName = system.name();
     if (catalogLocales().contains(systemName)) {
         return systemName;
     }
