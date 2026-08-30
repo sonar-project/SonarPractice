@@ -8,8 +8,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-QT_DIR="${QT_DIR:-$HOME/Qt/6.11.1/gcc_64}"
-BUILD_DIR="${BUILD_DIR:-$ROOT/build/Desktop_Qt_6_11_1_Release}"
+QT_DIR="${QT_DIR:-$HOME/Qt/6.11.2/gcc_64}"
+BUILD_DIR="${BUILD_DIR:-$ROOT/build/Desktop_Qt_6_11_2_Release}"
 APPDIR="${ROOT}/AppDir"
 LINUXDEPLOY="${LINUXDEPLOY:-$HOME/.local/bin/linuxdeploy-x86_64.AppImage}"
 VERSION="${VERSION:-$(grep -m1 'project(SonarPractice VERSION' "$ROOT/CMakeLists.txt" | sed -E 's/.*VERSION ([0-9.]+).*/\1/')}"

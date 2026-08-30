@@ -184,6 +184,10 @@ target_include_directories(SonarPractice PRIVATE
     ${CMAKE_SOURCE_DIR}/src/viewmodels
 )
 
+set_property(TARGET SonarPractice PROPERTY QT_EXCLUDE_SOURCES_FROM_TRANSLATION
+    src/ui/web/alphatab/*
+)
+
 target_compile_definitions(SonarPractice PRIVATE QT_QML_DEBUG_ENABLED)
 
 target_link_libraries(SonarPractice
