@@ -1,6 +1,6 @@
 /**
  * @file GuitarProPreviewController.cpp
- * @brief Async Guitar Pro ASCII tab preview for the Practice Hub.
+ * @brief Guitar Pro ASCII preview + AlphaTab WebEngine player bridge.
  */
 
 #include "GuitarProPreviewController.h"
@@ -10,12 +10,36 @@
 #include "MediaFile.h"
 #include "interfaces/IMediaFileRepository.h"
 
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 #include <QMetaObject>
 #include <QThread>
+#include <utility>
+
+namespace {
+
+    QString jsStringLiteral(const QString &value) {
+        QString escaped = value;
+        escaped.replace(QLatin1Char('\\'), QStringLiteral("\\\\"));
+        escaped.replace(QLatin1Char('\''), QStringLiteral("\\'"));
+        escaped.replace(QLatin1Char('\n'), QStringLiteral("\\n"));
+        escaped.replace(QLatin1Char('\r'), QStringLiteral("\\r"));
+        return QLatin1Char('\'') + escaped + QLatin1Char('\'');
+    }
+
+} // namespace
 
 GuitarProPreviewController::GuitarProPreviewController(const Dependencies &dependencies,
                                                        QObject *parent)
-    : QObject(parent), m_dependencies(dependencies) {}
+    : QObject(parent), m_dependencies(dependencies) {
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+    m_usePlayer = true;
+#else
+    m_usePlayer = false;
+#endif
+}
 
 bool GuitarProPreviewController::loading() const { return m_loading; }
 
@@ -47,9 +71,102 @@ int GuitarProPreviewController::selectedTrackIndex() const { return m_selectedTr
 
 qlonglong GuitarProPreviewController::mediaFileId() const { return m_mediaFileId; }
 
+bool GuitarProPreviewController::playerAvailable() const {
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool GuitarProPreviewController::usePlayer() const { return m_usePlayer && playerAvailable(); }
+
+void GuitarProPreviewController::setUsePlayer(bool usePlayer) {
+    const bool next = usePlayer && playerAvailable();
+    if (m_usePlayer == next) {
+        return;
+    }
+    m_usePlayer = next;
+    emit usePlayerChanged();
+    if (m_usePlayer && !m_scoreBase64.isEmpty()) {
+        emitPlayerCommand(loadScoreJavaScript());
+    }
+}
+
+const QString &GuitarProPreviewController::scoreBase64() const { return m_scoreBase64; }
+
+QString GuitarProPreviewController::playerPageUrl() const {
+    return QStringLiteral(
+        "qrc:/qt/qml/com/sonarp/sonarpractice/src/ui/web/alphatab/player.html");
+}
+
+bool GuitarProPreviewController::playing() const { return m_playing; }
+
+bool GuitarProPreviewController::playerReady() const { return m_playerReady; }
+
+int GuitarProPreviewController::tempoPercent() const { return m_tempoPercent; }
+
+void GuitarProPreviewController::setTempoPercent(int tempoPercent) {
+    const int clamped = qBound(25, tempoPercent, 200);
+    if (m_tempoPercent == clamped) {
+        return;
+    }
+    m_tempoPercent = clamped;
+    emit tempoPercentChanged();
+    emitPlayerCommand(QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.setTempoPercent(%1);")
+                          .arg(m_tempoPercent));
+}
+
+bool GuitarProPreviewController::loopEnabled() const { return m_loopEnabled; }
+
+void GuitarProPreviewController::setLoopEnabled(bool enabled) {
+    if (m_loopEnabled == enabled) {
+        return;
+    }
+    m_loopEnabled = enabled;
+    emit loopChanged();
+    emitPlayerCommand(applyPlayerSettingsJavaScript());
+}
+
+int GuitarProPreviewController::loopStartBar() const { return m_loopStartBar; }
+
+void GuitarProPreviewController::setLoopStartBar(int bar) {
+    const int clamped = qMax(1, bar);
+    if (m_loopStartBar == clamped) {
+        return;
+    }
+    m_loopStartBar = clamped;
+    if (m_loopEndBar < m_loopStartBar) {
+        m_loopEndBar = m_loopStartBar;
+    }
+    emit loopChanged();
+    if (m_loopEnabled) {
+        emitPlayerCommand(applyPlayerSettingsJavaScript());
+    }
+}
+
+int GuitarProPreviewController::loopEndBar() const { return m_loopEndBar; }
+
+void GuitarProPreviewController::setLoopEndBar(int bar) {
+    const int clamped = qMax(m_loopStartBar, bar);
+    if (m_loopEndBar == clamped) {
+        return;
+    }
+    m_loopEndBar = clamped;
+    emit loopChanged();
+    if (m_loopEnabled) {
+        emitPlayerCommand(applyPlayerSettingsJavaScript());
+    }
+}
+
+int GuitarProPreviewController::barCount() const { return m_barCount; }
+
 void GuitarProPreviewController::setSelectedTrackIndex(int index) {
     if (index < 0 || index >= static_cast<int>(m_preview.tracks.size())) {
-        return;
+        // Allow AlphaTab-only track list after scoreLoaded overwrote names.
+        if (index < 0 || index >= m_trackNames.size()) {
+            return;
+        }
     }
     if (m_selectedTrackIndex == index) {
         return;
@@ -57,13 +174,127 @@ void GuitarProPreviewController::setSelectedTrackIndex(int index) {
     m_selectedTrackIndex = index;
     emit selectedTrackIndexChanged();
     applySelectedTrack();
+    emitPlayerCommand(QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.setTrackIndex(%1);")
+                          .arg(m_selectedTrackIndex));
 }
 
 void GuitarProPreviewController::clear() {
     ++m_loadGeneration;
     setLoading(false);
+    setPlaying(false);
+    setPlayerReady(false);
     resetPreviewState();
     setVisible(false);
+}
+
+void GuitarProPreviewController::play() {
+    emitPlayerCommand(QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.play();"));
+}
+
+void GuitarProPreviewController::pause() {
+    emitPlayerCommand(QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.pause();"));
+}
+
+void GuitarProPreviewController::stop() {
+    emitPlayerCommand(QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.stop();"));
+    setPlaying(false);
+}
+
+void GuitarProPreviewController::playPause() {
+    emitPlayerCommand(QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.playPause();"));
+}
+
+QString GuitarProPreviewController::loadScoreJavaScript() const {
+    if (m_scoreBase64.isEmpty()) {
+        return {};
+    }
+    return QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.loadScoreBase64(%1);")
+        .arg(jsStringLiteral(m_scoreBase64));
+}
+
+QString GuitarProPreviewController::applyPlayerSettingsJavaScript() const {
+    return QStringLiteral(
+               "if (window.sonarAlphaTab) {"
+               " window.sonarAlphaTab.setTrackIndex(%1);"
+               " window.sonarAlphaTab.setTempoPercent(%2);"
+               " window.sonarAlphaTab.setLoop(%3, %4, %5);"
+               "}")
+        .arg(m_selectedTrackIndex)
+        .arg(m_tempoPercent)
+        .arg(m_loopEnabled ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(m_loopStartBar)
+        .arg(m_loopEndBar);
+}
+
+void GuitarProPreviewController::handlePlayerEvent(const QString &json) {
+    const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+    if (!doc.isObject()) {
+        return;
+    }
+    const QJsonObject root = doc.object();
+    const QString event = root.value(QStringLiteral("event")).toString();
+    const QJsonObject payload = root.value(QStringLiteral("payload")).toObject();
+
+    if (event == QLatin1String("bridgeReady")) {
+        if (!m_scoreBase64.isEmpty()) {
+            emitPlayerCommand(loadScoreJavaScript());
+        }
+        return;
+    }
+
+    if (event == QLatin1String("scoreLoaded")) {
+        const QJsonArray names = payload.value(QStringLiteral("trackNames")).toArray();
+        if (!names.isEmpty()) {
+            QStringList trackNames;
+            trackNames.reserve(names.size());
+            for (const QJsonValue &v : names) {
+                trackNames.append(v.toString());
+            }
+            if (m_trackNames != trackNames) {
+                m_trackNames = trackNames;
+                emit trackNamesChanged();
+            }
+        }
+        const QString title = payload.value(QStringLiteral("title")).toString();
+        if (!title.isEmpty() && m_title != title) {
+            m_title = title;
+            emit titleChanged();
+        }
+        const QString artist = payload.value(QStringLiteral("artist")).toString();
+        if (!artist.isEmpty() && m_artist != artist) {
+            m_artist = artist;
+            emit artistChanged();
+        }
+        setBarCount(payload.value(QStringLiteral("barCount")).toInt());
+        if (m_loopEndBar < 1) {
+            m_loopEndBar = 1;
+        }
+        if (m_barCount > 0 && m_loopEndBar > m_barCount) {
+            m_loopEndBar = m_barCount;
+            emit loopChanged();
+        }
+        emitPlayerCommand(applyPlayerSettingsJavaScript());
+        return;
+    }
+
+    if (event == QLatin1String("playerReady")) {
+        setPlayerReady(true);
+        emitPlayerCommand(applyPlayerSettingsJavaScript());
+        return;
+    }
+
+    if (event == QLatin1String("playerState")) {
+        setPlaying(payload.value(QStringLiteral("playing")).toBool());
+        return;
+    }
+
+    if (event == QLatin1String("error")) {
+        const QString message = payload.value(QStringLiteral("message")).toString();
+        if (!message.isEmpty()) {
+            setErrorMessage(message);
+            m_dependencies.errorLog.logError(QStringLiteral("GuitarProPreview.player"), message);
+        }
+    }
 }
 
 void GuitarProPreviewController::load(qlonglong mediaFileId) {
@@ -92,6 +323,8 @@ void GuitarProPreviewController::load(qlonglong mediaFileId) {
 
     setVisible(true);
     setLoading(true);
+    setPlayerReady(false);
+    setPlaying(false);
     setErrorMessage({});
     if (m_mediaFileId != mediaFileId) {
         m_mediaFileId = mediaFileId;
@@ -103,18 +336,34 @@ void GuitarProPreviewController::load(qlonglong mediaFileId) {
         result.mediaFileId = mediaFileId;
         result.generation = generation;
 
-        const std::optional<AsciiTabRenderer::SongPreview> preview =
-            AsciiTabRenderer::loadFromFile(path);
-        if (!preview.has_value()) {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
             result.ok = false;
-            result.errorMessage = tr("Could not parse Guitar Pro file");
-        } else if (preview->tracks.empty()) {
-            result.ok = false;
-            result.errorMessage = tr("Guitar Pro file has no tracks");
-            result.preview = *preview;
+            result.errorMessage = tr("Could not read Guitar Pro file");
         } else {
-            result.ok = true;
-            result.preview = *preview;
+            result.scoreBase64 = QString::fromLatin1(file.readAll().toBase64());
+            file.close();
+
+            const std::optional<AsciiTabRenderer::SongPreview> preview =
+                AsciiTabRenderer::loadFromFile(path);
+            if (!preview.has_value()) {
+                // Player may still load the raw bytes via AlphaTab.
+                result.ok = !result.scoreBase64.isEmpty();
+                if (!result.ok) {
+                    result.errorMessage = tr("Could not parse Guitar Pro file");
+                } else {
+                    result.errorMessage = tr("ASCII preview unavailable; using interactive player");
+                }
+            } else if (preview->tracks.empty()) {
+                result.ok = !result.scoreBase64.isEmpty();
+                result.preview = *preview;
+                if (!result.ok) {
+                    result.errorMessage = tr("Guitar Pro file has no tracks");
+                }
+            } else {
+                result.ok = true;
+                result.preview = *preview;
+            }
         }
 
         QMetaObject::invokeMethod(
@@ -147,11 +396,16 @@ void GuitarProPreviewController::applyLoadResult(const LoadResult &result) {
     m_mediaFileId = result.mediaFileId;
     emit mediaFileIdChanged();
 
-    if (m_title != m_preview.title) {
+    if (m_scoreBase64 != result.scoreBase64) {
+        m_scoreBase64 = result.scoreBase64;
+        emit scoreBase64Changed();
+    }
+
+    if (m_title != m_preview.title && !m_preview.title.isEmpty()) {
         m_title = m_preview.title;
         emit titleChanged();
     }
-    if (m_artist != m_preview.artist) {
+    if (m_artist != m_preview.artist && !m_preview.artist.isEmpty()) {
         m_artist = m_preview.artist;
         emit artistChanged();
     }
@@ -175,12 +429,12 @@ void GuitarProPreviewController::applyLoadResult(const LoadResult &result) {
         }
     }
 
-    if (m_trackNames != names) {
+    if (!names.isEmpty() && m_trackNames != names) {
         m_trackNames = names;
         emit trackNamesChanged();
     }
 
-    m_selectedTrackIndex = defaultIndex;
+    m_selectedTrackIndex = names.isEmpty() ? 0 : defaultIndex;
     emit selectedTrackIndexChanged();
     applySelectedTrack();
 
@@ -188,20 +442,21 @@ void GuitarProPreviewController::applyLoadResult(const LoadResult &result) {
         m_loaded = true;
         emit loadedChanged();
     }
-    setErrorMessage({});
+
+    if (!result.errorMessage.isEmpty() && m_preview.tracks.empty()) {
+        setErrorMessage(result.errorMessage);
+    } else {
+        setErrorMessage({});
+    }
+
+    if (usePlayer() && !m_scoreBase64.isEmpty()) {
+        emitPlayerCommand(loadScoreJavaScript());
+    }
 }
 
 void GuitarProPreviewController::applySelectedTrack() {
     if (m_selectedTrackIndex < 0 ||
         m_selectedTrackIndex >= static_cast<int>(m_preview.tracks.size())) {
-        if (!m_tuning.isEmpty()) {
-            m_tuning.clear();
-            emit tuningChanged();
-        }
-        if (!m_tabText.isEmpty()) {
-            m_tabText.clear();
-            emit tabTextChanged();
-        }
         return;
     }
 
@@ -233,12 +488,48 @@ void GuitarProPreviewController::setErrorMessage(const QString &message) {
     emit errorMessageChanged();
 }
 
+void GuitarProPreviewController::setPlaying(bool playing) {
+    if (m_playing == playing) {
+        return;
+    }
+    m_playing = playing;
+    emit playingChanged();
+}
+
+void GuitarProPreviewController::setPlayerReady(bool ready) {
+    if (m_playerReady == ready) {
+        return;
+    }
+    m_playerReady = ready;
+    emit playerReadyChanged();
+}
+
+void GuitarProPreviewController::setBarCount(int count) {
+    const int clamped = qMax(0, count);
+    if (m_barCount == clamped) {
+        return;
+    }
+    m_barCount = clamped;
+    emit barCountChanged();
+}
+
+void GuitarProPreviewController::emitPlayerCommand(const QString &javaScript) {
+    if (javaScript.isEmpty() || !usePlayer()) {
+        return;
+    }
+    emit runPlayerJavaScript(javaScript);
+}
+
 void GuitarProPreviewController::resetPreviewState() {
     const bool hadLoaded = m_loaded;
     m_preview = {};
     m_mediaFileId = 0;
     emit mediaFileIdChanged();
 
+    if (!m_scoreBase64.isEmpty()) {
+        m_scoreBase64.clear();
+        emit scoreBase64Changed();
+    }
     if (!m_title.isEmpty()) {
         m_title.clear();
         emit titleChanged();
@@ -263,6 +554,11 @@ void GuitarProPreviewController::resetPreviewState() {
         m_selectedTrackIndex = -1;
         emit selectedTrackIndexChanged();
     }
+    setBarCount(0);
+    m_loopEnabled = false;
+    m_loopStartBar = 1;
+    m_loopEndBar = 1;
+    emit loopChanged();
     if (hadLoaded) {
         m_loaded = false;
         emit loadedChanged();

@@ -12,6 +12,10 @@
 #include <QTimer>
 #include <qcoreapplication.h>
 
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
+#endif
+
 #include "AppSettings.h"
 #include "ApplicationBootstrap.h"
 #include "StartupController.h"
@@ -58,6 +62,11 @@ int main(int argc, char *argv[]) {
 
     QCoreApplication::setOrganizationName(QStringLiteral("sonarp"));
     QCoreApplication::setApplicationName(QStringLiteral("SonarPractice"));
+
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+    // Must run before QCoreApplication / QApplication construction.
+    QtWebEngineQuick::initialize();
+#endif
 
     QApplication app(argc, argv);
 

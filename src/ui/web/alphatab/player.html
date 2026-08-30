@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SonarPractice AlphaTab Player</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #16161f;
+      color: #eceff1;
+      font-family: system-ui, sans-serif;
+      height: 100%;
+      overflow: hidden;
+    }
+    #wrap {
+      height: 100%;
+      overflow: auto;
+      box-sizing: border-box;
+      padding: 8px 12px 24px;
+    }
+    #alphaTab { min-height: 120px; }
+    #status {
+      padding: 8px 12px;
+      color: #90a4ae;
+      font-size: 13px;
+    }
+    #status.error { color: #ef9a9a; }
+  </style>
+  <script src="alphaTab.min.js"></script>
+</head>
+<body>
+  <div id="status">Loading player…</div>
+  <div id="wrap">
+    <div id="alphaTab"></div>
+  </div>
+  <script src="player.js"></script>
+</body>
+</html>

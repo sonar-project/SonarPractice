@@ -74,6 +74,27 @@ endif()
 
 include(src/viewmodels/ViewModelQmlSources.cmake)
 
+set(SONARPRACTICE_QML_PLAYER_FILES)
+set(SONARPRACTICE_ALPHATAB_RESOURCES)
+if(SONARPRACTICE_HAS_WEBENGINE)
+    list(APPEND SONARPRACTICE_QML_PLAYER_FILES
+        src/ui/components/GuitarProPlayerView.qml
+    )
+    list(APPEND SONARPRACTICE_ALPHATAB_RESOURCES
+        src/ui/web/alphatab/player.html
+        src/ui/web/alphatab/player.js
+        src/ui/web/alphatab/alphaTab.min.js
+        src/ui/web/alphatab/font/Bravura.woff2
+        src/ui/web/alphatab/font/Bravura.woff
+        src/ui/web/alphatab/font/Bravura.otf
+        src/ui/web/alphatab/font/Bravura-OFL.txt
+        src/ui/web/alphatab/soundfont/sonivox.sf3
+        src/ui/web/alphatab/soundfont/LICENSE
+        src/ui/web/alphatab/soundfont/README.md
+        src/ui/web/alphatab/ALPHATAB_LICENSE
+    )
+endif()
+
 qt_add_qml_module(SonarPractice
     URI com.sonarp.sonarpractice
     SOURCES
@@ -93,6 +114,7 @@ qt_add_qml_module(SonarPractice
     src/ui/components/DashboardExerciseList.qml
     src/ui/components/DashboardReminderPanel.qml
     src/ui/components/GuitarProTabPreview.qml
+    ${SONARPRACTICE_QML_PLAYER_FILES}
     src/ui/components/ImportProgressOverlay.qml
     src/ui/components/JournalMarkdownEditor.qml
     src/ui/components/JournalTableView.qml
@@ -132,11 +154,18 @@ qt_add_qml_module(SonarPractice
 
     src/ui/js/MediaKind.js
     src/ui/js/MarkdownFormat.js
+    ${SONARPRACTICE_ALPHATAB_RESOURCES}
     sonarpractice.desktop
     RESOURCES assets/app.rc.in
     RESOURCES build_installer.bat
     RESOURCES setup_script.iss
 )
+
+if(SONARPRACTICE_HAS_WEBENGINE)
+    target_compile_definitions(SonarPractice PRIVATE SONARPRACTICE_HAS_WEBENGINE)
+    target_compile_definitions(ViewModelsLib PUBLIC SONARPRACTICE_HAS_WEBENGINE)
+    target_link_libraries(SonarPractice PRIVATE Qt6::WebEngineQuick)
+endif()
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

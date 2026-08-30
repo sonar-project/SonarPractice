@@ -16,9 +16,10 @@ class IMediaFileRepository;
 class IPathResolver;
 
 /**
- * @brief QML view model for read-only Guitar Pro ASCII tablature preview.
+ * @brief QML view model for Guitar Pro preview (ASCII) and AlphaTab player bridge.
  *
- * Parses on a worker thread; track switching reuses the cached SongPreview.
+ * Parses metadata/tab on a worker thread. When WebEngine is available, exposes
+ * score bytes as base64 for the embedded AlphaTab page plus playback controls.
  */
 class GuitarProPreviewController : public QObject {
     Q_OBJECT
@@ -37,6 +38,19 @@ class GuitarProPreviewController : public QObject {
     Q_PROPERTY(int selectedTrackIndex READ selectedTrackIndex WRITE setSelectedTrackIndex NOTIFY
                    selectedTrackIndexChanged)
     Q_PROPERTY(qlonglong mediaFileId READ mediaFileId NOTIFY mediaFileIdChanged)
+
+    /** True when the app was built with Qt WebEngine (AlphaTab player). */
+    Q_PROPERTY(bool playerAvailable READ playerAvailable CONSTANT)
+    Q_PROPERTY(bool usePlayer READ usePlayer WRITE setUsePlayer NOTIFY usePlayerChanged)
+    Q_PROPERTY(QString scoreBase64 READ scoreBase64 NOTIFY scoreBase64Changed)
+    Q_PROPERTY(QString playerPageUrl READ playerPageUrl CONSTANT)
+    Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
+    Q_PROPERTY(bool playerReady READ playerReady NOTIFY playerReadyChanged)
+    Q_PROPERTY(int tempoPercent READ tempoPercent WRITE setTempoPercent NOTIFY tempoPercentChanged)
+    Q_PROPERTY(bool loopEnabled READ loopEnabled WRITE setLoopEnabled NOTIFY loopChanged)
+    Q_PROPERTY(int loopStartBar READ loopStartBar WRITE setLoopStartBar NOTIFY loopChanged)
+    Q_PROPERTY(int loopEndBar READ loopEndBar WRITE setLoopEndBar NOTIFY loopChanged)
+    Q_PROPERTY(int barCount READ barCount NOTIFY barCountChanged)
 
   public:
     struct Dependencies {
@@ -63,11 +77,40 @@ class GuitarProPreviewController : public QObject {
     void setSelectedTrackIndex(int index);
     [[nodiscard]] qlonglong mediaFileId() const;
 
+    [[nodiscard]] bool playerAvailable() const;
+    [[nodiscard]] bool usePlayer() const;
+    void setUsePlayer(bool usePlayer);
+    [[nodiscard]] const QString &scoreBase64() const;
+    [[nodiscard]] QString playerPageUrl() const;
+    [[nodiscard]] bool playing() const;
+    [[nodiscard]] bool playerReady() const;
+    [[nodiscard]] int tempoPercent() const;
+    void setTempoPercent(int tempoPercent);
+    [[nodiscard]] bool loopEnabled() const;
+    void setLoopEnabled(bool enabled);
+    [[nodiscard]] int loopStartBar() const;
+    void setLoopStartBar(int bar);
+    [[nodiscard]] int loopEndBar() const;
+    void setLoopEndBar(int bar);
+    [[nodiscard]] int barCount() const;
+
   public slots:
     /** Loads and shows preview for @p mediaFileId (Guitar Pro only). */
     Q_INVOKABLE void load(qlonglong mediaFileId);
     /** Hides the panel and clears the current preview. */
     Q_INVOKABLE void clear();
+
+    Q_INVOKABLE void play();
+    Q_INVOKABLE void pause();
+    Q_INVOKABLE void stop();
+    Q_INVOKABLE void playPause();
+
+    /** Called from QML/WebChannel when AlphaTab posts a JSON event. */
+    Q_INVOKABLE void handlePlayerEvent(const QString &json);
+    /** JavaScript snippet to (re)load the current score into AlphaTab. */
+    Q_INVOKABLE QString loadScoreJavaScript() const;
+    /** JavaScript snippet applying track/tempo/loop to a ready player. */
+    Q_INVOKABLE QString applyPlayerSettingsJavaScript() const;
 
   signals:
     void loadingChanged();
@@ -81,6 +124,15 @@ class GuitarProPreviewController : public QObject {
     void trackNamesChanged();
     void selectedTrackIndexChanged();
     void mediaFileIdChanged();
+    void usePlayerChanged();
+    void scoreBase64Changed();
+    void playingChanged();
+    void playerReadyChanged();
+    void tempoPercentChanged();
+    void loopChanged();
+    void barCountChanged();
+    /** Ask QML WebEngineView to evaluate @p javaScript. */
+    void runPlayerJavaScript(const QString &javaScript);
 
   private:
     struct LoadResult {
@@ -89,6 +141,7 @@ class GuitarProPreviewController : public QObject {
         bool ok{false};
         QString errorMessage{};
         AsciiTabRenderer::SongPreview preview{};
+        QString scoreBase64{};
     };
 
     void applyLoadResult(const LoadResult &result);
@@ -96,6 +149,10 @@ class GuitarProPreviewController : public QObject {
     void setLoading(bool loading);
     void setErrorMessage(const QString &message);
     void resetPreviewState();
+    void setPlaying(bool playing);
+    void setPlayerReady(bool ready);
+    void setBarCount(int count);
+    void emitPlayerCommand(const QString &javaScript);
 
     Dependencies m_dependencies;
     std::atomic<int> m_loadGeneration{0};
@@ -112,6 +169,16 @@ class GuitarProPreviewController : public QObject {
     QStringList m_trackNames{};
     int m_selectedTrackIndex{-1};
     AsciiTabRenderer::SongPreview m_preview{};
+
+    bool m_usePlayer{true};
+    QString m_scoreBase64{};
+    bool m_playing{false};
+    bool m_playerReady{false};
+    int m_tempoPercent{100};
+    bool m_loopEnabled{false};
+    int m_loopStartBar{1};
+    int m_loopEndBar{1};
+    int m_barCount{0};
 };
 
 #endif // GUITARPROPREVIEWCONTROLLER_H

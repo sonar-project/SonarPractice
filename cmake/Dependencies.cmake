@@ -19,6 +19,16 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS
     Widgets
 )
 
+# Optional: AlphaTab player via Qt WebEngine (ASCII preview remains the fallback).
+set(SONARPRACTICE_HAS_WEBENGINE OFF)
+find_package(Qt6 QUIET COMPONENTS WebEngineQuick)
+if(TARGET Qt6::WebEngineQuick)
+    set(SONARPRACTICE_HAS_WEBENGINE ON)
+    message(STATUS "Qt WebEngineQuick found — Guitar Pro AlphaTab player enabled")
+else()
+    message(STATUS "Qt WebEngineQuick not found — Guitar Pro ASCII preview only")
+endif()
+
 include(FindRubberband)
 include(FindFFmpeg)
 
