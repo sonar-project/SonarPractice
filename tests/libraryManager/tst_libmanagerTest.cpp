@@ -1,9 +1,11 @@
 #include "tst_libmanagerTest.h"
 
+#include <AsciiTabRenderer.h>
 #include <LibraryManager.h>
 
 #include <QDir>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QTest>
 
 namespace {
@@ -43,6 +45,36 @@ namespace {
         verifyMetadata(*result, expectedArtist, expectedTitle, fileLabel);
     }
 
+    void verifyAsciiPreview(const char *fileName, const QString &expectedTitle) {
+        const QString testFile = testDataPath(fileName);
+        QVERIFY2(QFileInfo::exists(testFile),
+                 qPrintable(QStringLiteral("Missing test file: %1").arg(testFile)));
+
+        const std::optional<AsciiTabRenderer::SongPreview> preview =
+            AsciiTabRenderer::loadFromFile(testFile);
+        QVERIFY2(preview.has_value(),
+                 qPrintable(QStringLiteral("ASCII preview failed for %1").arg(testFile)));
+        QCOMPARE(preview->title, expectedTitle);
+        QVERIFY(!preview->tracks.empty());
+
+        bool foundTab = false;
+        for (const AsciiTabRenderer::TrackPreview &track : preview->tracks) {
+            if (track.percussion) {
+                continue;
+            }
+            QVERIFY(track.tabText.contains(QLatin1Char('|')));
+            QVERIFY(track.tabText.contains(QLatin1Char('-')));
+            // At least one fret digit somewhere in the preview.
+            static const QRegularExpression digit(QStringLiteral("[0-9]"));
+            QVERIFY2(track.tabText.contains(digit),
+                     qPrintable(QStringLiteral("Expected fret digits in tab for track '%1':\n%2")
+                                    .arg(track.name, track.tabText)));
+            foundTab = true;
+            break;
+        }
+        QVERIFY2(foundTab, "Expected at least one non-percussion track with tablature");
+    }
+
 } // namespace
 
 QTEST_MAIN(TestLibManager)
@@ -70,4 +102,18 @@ void TestLibManager::testParseGP5File() {
 void TestLibManager::testParseGPFile() {
     parseAndVerify("testfile.gp", QStringLiteral("SonarPractice"), QStringLiteral("Example File 1"),
                    "GP");
+}
+
+void TestLibManager::testAsciiTabPreviewGp5() {
+    verifyAsciiPreview("testfile.gp5", QStringLiteral("Example File GP5"));
+}
+
+void TestLibManager::testAsciiTabPreviewGpx() {
+    verifyAsciiPreview("testfile.gpx", QStringLiteral("Example File 1"));
+}
+
+void TestLibManager::testAsciiTabMissingFile() {
+    const std::optional<AsciiTabRenderer::SongPreview> preview =
+        AsciiTabRenderer::loadFromFile(QStringLiteral("/tmp/does-not-exist-sonar.gp5"));
+    QVERIFY(!preview.has_value());
 }

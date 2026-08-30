@@ -4,6 +4,7 @@
 #include "AppSettings.h"
 #include "AudioConfigController.h"
 #include "CatalogViewCache.h"
+#include "GuitarProPreviewController.h"
 #include "ImportService.h"
 #include "LibraryLinkModel.h"
 #include "LinkGroupService.h"
@@ -140,6 +141,7 @@ class ApplicationBootstrap : public QObject {
     [[nodiscard]] ReminderController *reminderController() const;
     [[nodiscard]] PracticeAssetController *practiceAssetController() const;
     [[nodiscard]] AudioConfigController *audioConfigController() const;
+    [[nodiscard]] GuitarProPreviewController *guitarProPreviewController() const;
     [[nodiscard]] LinkGroupService *linkGroupService() const;
     [[nodiscard]] LibraryLinkModel *libraryLinkModel() const;
     [[nodiscard]] PathResolver *pathResolver() const;
@@ -222,6 +224,7 @@ class ApplicationBootstrap : public QObject {
     std::unique_ptr<ReminderController> m_reminderController;
     std::unique_ptr<PracticeAssetController> m_practiceAssetController;
     std::unique_ptr<AudioConfigController> m_audioConfigController;
+    std::unique_ptr<GuitarProPreviewController> m_guitarProPreviewController;
 };
 
 #endif // APPLICATIONBOOTSTRAP_H

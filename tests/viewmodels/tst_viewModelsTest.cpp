@@ -16,6 +16,7 @@
 #include "PracticeConstants.h"
 #include "PracticeSessionController.h"
 #include "PracticeTrackerController.h"
+#include "GuitarProPreviewController.h"
 #include "Reminder.h"
 #include "ReminderCondition.h"
 #include "ReminderController.h"
@@ -27,6 +28,7 @@
 #include "User.h"
 
 #include <QDateTime>
+#include <QFileInfo>
 #include <QLocale>
 #include <QSignalSpy>
 #include <QSqlDatabase>
@@ -943,6 +945,69 @@ void TestViewModels::testPracticeAssetControllerFilteredAudioFiles() {
 
     const QVariantList allAudio = m_practiceAssetController->filteredAudioFiles(QString());
     QCOMPARE(allAudio.size(), 2);
+}
+
+void TestViewModels::testGuitarProPreviewControllerLoadsTab() {
+    const std::optional<qlonglong> songId = createSong(QStringLiteral("Preview Song"));
+    QVERIFY(songId.has_value());
+
+    QDir projectRoot(QFileInfo(QString::fromUtf8(__FILE__)).absolutePath());
+    QVERIFY(projectRoot.cdUp());
+    QVERIFY(projectRoot.cdUp());
+    const QString gpPath = projectRoot.filePath(QStringLiteral("testdata/testfile.gp5"));
+    QVERIFY(QFileInfo::exists(gpPath));
+
+    const std::optional<qlonglong> mediaId =
+        createMediaFile(*songId, gpPath, MediaKind::GuitarPro, true);
+    QVERIFY(mediaId.has_value());
+
+    PathResolver resolver(QStringLiteral("/managed/root"));
+    GuitarProPreviewController controller({
+        .mediaRepo = m_mediaFileRepo,
+        .pathResolver = resolver,
+        .errorLog = *m_errorLog,
+    });
+
+    QSignalSpy loadedSpy(&controller, &GuitarProPreviewController::loadedChanged);
+    QSignalSpy loadingSpy(&controller, &GuitarProPreviewController::loadingChanged);
+
+    controller.load(*mediaId);
+    QVERIFY(controller.visible());
+    QTRY_VERIFY_WITH_TIMEOUT(controller.loaded(), 5000);
+    QVERIFY(!controller.loading());
+    QVERIFY(controller.errorMessage().isEmpty());
+    QCOMPARE(controller.title(), QStringLiteral("Example File GP5"));
+    QVERIFY(!controller.trackNames().isEmpty());
+    QVERIFY(controller.tabText().contains(QLatin1Char('|')));
+    QVERIFY(controller.tabText().contains(QLatin1Char('-')));
+    QVERIFY(loadedSpy.count() >= 1);
+    QVERIFY(loadingSpy.count() >= 2);
+
+    controller.clear();
+    QVERIFY(!controller.visible());
+    QVERIFY(!controller.loaded());
+    QVERIFY(controller.tabText().isEmpty());
+}
+
+void TestViewModels::testGuitarProPreviewControllerRejectsNonGp() {
+    const std::optional<qlonglong> songId = createSong(QStringLiteral("Doc Preview Song"));
+    QVERIFY(songId.has_value());
+
+    const std::optional<qlonglong> mediaId =
+        createMediaFile(*songId, QStringLiteral("/tmp/preview.pdf"), MediaKind::Document);
+    QVERIFY(mediaId.has_value());
+
+    PathResolver resolver(QStringLiteral("/managed/root"));
+    GuitarProPreviewController controller({
+        .mediaRepo = m_mediaFileRepo,
+        .pathResolver = resolver,
+        .errorLog = *m_errorLog,
+    });
+
+    controller.load(*mediaId);
+    QVERIFY(controller.visible());
+    QVERIFY(!controller.loaded());
+    QVERIFY(!controller.errorMessage().isEmpty());
 }
 
 std::optional<qlonglong> TestViewModels::createSong(const QString &title, int baseBpm) {

@@ -92,6 +92,7 @@ qt_add_qml_module(SonarPractice
     src/ui/components/DarkTextField.qml
     src/ui/components/DashboardExerciseList.qml
     src/ui/components/DashboardReminderPanel.qml
+    src/ui/components/GuitarProTabPreview.qml
     src/ui/components/ImportProgressOverlay.qml
     src/ui/components/JournalMarkdownEditor.qml
     src/ui/components/JournalTableView.qml

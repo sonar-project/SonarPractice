@@ -19,6 +19,7 @@ GroupBox {
     signal assetOpenRequested(int mediaId)
     signal practiceRequested(int mediaId)
     signal audioConfigRequested(int mediaId)
+    signal guitarProPreviewRequested(int mediaId)
     signal mediaSelected(int mediaId)
 
     /** Media confirmed via the active-material radio — required to start the practice timer. */
@@ -610,6 +611,25 @@ GroupBox {
                                         return;
                                     }
                                     kindRow.openSelectedEntry();
+                                }
+                            }
+
+                            Button {
+                                text: qsTr("Preview")
+                                enabled: !root.mediaSelectionLocked && kindRow.selectedEntry() !== null
+                                focusPolicy: Qt.TabFocus
+                                visible: kindRow.isGuitarPro
+
+                                Keys.onReturnPressed: event => event.accepted = true
+                                Keys.onEnterPressed: event => event.accepted = true
+
+                                onClicked: {
+                                    if (selectionGuard.running) {
+                                        return;
+                                    }
+                                    const entry = kindRow.selectedEntry();
+                                    if (entry)
+                                        root.guitarProPreviewRequested(entry.mediaId);
                                 }
                             }
 

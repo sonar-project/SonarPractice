@@ -193,6 +193,13 @@ bool ApplicationBootstrap::openCoreDatabase() {
             .pathResolver = *m_pathResolver,
         });
 
+    m_guitarProPreviewController =
+        std::make_unique<GuitarProPreviewController>(GuitarProPreviewController::Dependencies{
+            .mediaRepo = *m_mediaFileRepo,
+            .pathResolver = *m_pathResolver,
+            .errorLog = *m_errorLog,
+        });
+
     wireServices();
     return true;
 }
@@ -385,6 +392,9 @@ PracticeAssetController *ApplicationBootstrap::practiceAssetController() const {
 }
 AudioConfigController *ApplicationBootstrap::audioConfigController() const {
     return m_audioConfigController.get();
+}
+GuitarProPreviewController *ApplicationBootstrap::guitarProPreviewController() const {
+    return m_guitarProPreviewController.get();
 }
 LinkGroupService *ApplicationBootstrap::linkGroupService() const {
     return m_linkGroupService.get();

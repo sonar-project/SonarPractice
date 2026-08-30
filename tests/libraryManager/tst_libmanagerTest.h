@@ -12,8 +12,9 @@ class TestLibManager : public QObject {
     void testParseGP4File();
     void testParseGP5File();
     void testParseGPFile();
-
-  private:
+    void testAsciiTabPreviewGp5();
+    void testAsciiTabPreviewGpx();
+    void testAsciiTabMissingFile();
 };
 
 #endif // TST_LIBMANTEST_H

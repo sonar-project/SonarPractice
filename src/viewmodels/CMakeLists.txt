@@ -28,6 +28,8 @@ qt_add_library(ViewModelsLib STATIC
     AudioConfigController.cpp
     PracticeAssetController.h
     PracticeAssetController.cpp
+    GuitarProPreviewController.h
+    GuitarProPreviewController.cpp
     AppInfo.h
 )
 

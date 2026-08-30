@@ -30,5 +30,7 @@ set(VIEWMODEL_QML_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/ReminderController.cpp
     ${CMAKE_CURRENT_LIST_DIR}/AudioConfigController.h
     ${CMAKE_CURRENT_LIST_DIR}/AudioConfigController.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/GuitarProPreviewController.h
+    ${CMAKE_CURRENT_LIST_DIR}/GuitarProPreviewController.cpp
     ${CMAKE_CURRENT_LIST_DIR}/AppInfo.h
 )

@@ -23,6 +23,7 @@ Page {
     signal practiceRequested(int mediaId)
     signal openCalendarRequested
     signal audioConfigRequested(int mediaId)
+    signal guitarProPreviewRequested(int mediaId)
 
     // Resolve group title once (fallback to song title):
     readonly property string groupTitle: {
@@ -62,6 +63,7 @@ Page {
         journalEditor.syncFromTracker();
         journalEditor.ready = true;
         reminderController.songId = root.songId;
+        guitarProPreviewController.clear();
         const assetId = root.resolveInitialPracticeAssetId();
         if (assetId > 0) {
             songInfo.requestedActivePracticeAssetId = assetId;
@@ -128,9 +130,17 @@ Page {
                     onAssetOpenRequested: mediaId => root.assetOpenRequested(mediaId)
                     onPracticeRequested: mediaId => root.practiceRequested(mediaId)
                     onAudioConfigRequested: mediaId => root.audioConfigRequested(mediaId)
+                    onGuitarProPreviewRequested: mediaId => {
+                        guitarProPreviewController.load(mediaId)
+                        root.guitarProPreviewRequested(mediaId)
+                    }
                     onActivePracticeAssetIdChanged: {
                         practiceTracker.assetId = songInfo.activePracticeAssetId;
                     }
+                }
+
+                GuitarProTabPreview {
+                    Layout.fillWidth: true
                 }
 
                 TrainingPanel {

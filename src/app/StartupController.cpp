@@ -153,6 +153,8 @@ void StartupController::registerContextProperties() {
                                      m_bootstrap.practiceAssetController());
     m_qmlContext->setContextProperty(QStringLiteral("audioConfigController"),
                                      m_bootstrap.audioConfigController());
+    m_qmlContext->setContextProperty(QStringLiteral("guitarProPreviewController"),
+                                     m_bootstrap.guitarProPreviewController());
     m_qmlContext->setContextProperty(QStringLiteral("linkGroupService"),
                                      m_bootstrap.linkGroupService());
     m_qmlContext->setContextProperty(QStringLiteral("libraryLinkModel"),

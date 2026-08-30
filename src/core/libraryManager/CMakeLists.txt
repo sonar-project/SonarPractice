@@ -2,6 +2,7 @@
 
 add_library(LibraryManager STATIC
     LibraryManager.cpp LibraryManager.h
+    AsciiTabRenderer.cpp AsciiTabRenderer.h
     instrument.cpp instrument.h
 )
 

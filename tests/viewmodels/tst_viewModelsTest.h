@@ -77,6 +77,8 @@ class TestViewModels : public QObject {
     void testReminderControllerDeleteReminderUpdatesCounts();
     void testPracticeAssetControllerCompositeUpsert();
     void testPracticeAssetControllerFilteredAudioFiles();
+    void testGuitarProPreviewControllerLoadsTab();
+    void testGuitarProPreviewControllerRejectsNonGp();
 
     void testLibrarySearchExpressionAndOr();
     void testLibrarySearchExpressionRegex();
