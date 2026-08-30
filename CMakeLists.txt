@@ -134,6 +134,7 @@ qt_add_qml_module(SonarPractice
     src/ui/pages/AudioConfigPage.qml
     src/ui/pages/ConfigPage.qml
     src/ui/pages/DashboardPage.qml
+    src/ui/pages/GuitarProPlayerPage.qml
     src/ui/pages/ImportSheet.qml
     src/ui/pages/LibraryPage.qml
     src/ui/pages/PracticeHubPage.qml

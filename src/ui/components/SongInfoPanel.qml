@@ -19,14 +19,20 @@ GroupBox {
     signal assetOpenRequested(int mediaId)
     signal practiceRequested(int mediaId)
     signal audioConfigRequested(int mediaId)
-    signal guitarProPreviewRequested(int mediaId)
     signal mediaSelected(int mediaId)
+    /** Free-play / browse: open GP in the embedded AlphaTab player page. */
+    signal guitarProInternalOpenRequested(int mediaId)
 
     /** Media confirmed via the active-material radio — required to start the practice timer. */
     property int activeMediaId: 0
     /** practice_asset_id for timer/journal — only set when practice material is confirmed via radio. */
     property int activePracticeAssetId: 0
     readonly property bool practiceMaterialReady: root.activePracticeAssetId > 0 && root.activeMediaId > 0
+    /**
+     * Guitar Pro file linked on the current practice asset (may differ from activeMediaId).
+     * Plain int (not a nested bind on `_pendingAsset`) so Training always sees updates.
+     */
+    property int guitarProMediaId: 0
     /** Internal reentrance guard for applyMediaSelection(). */
     property bool _applyingSelection: false
     /** Media file to pre-select when opening from a reminder or journal restore. */
@@ -116,7 +122,35 @@ GroupBox {
             documentId: 0
         })
 
+    function _syncGuitarProMediaIdFromPending() {
+        root.guitarProMediaId = root._pendingAsset.guitarProId ?? 0;
+    }
+
+    function _setPendingKindSlot(kind, mediaId) {
+        const prev = root._pendingAsset;
+        root._pendingAsset = {
+            guitarProId: kind === MediaKind.GuitarPro ? mediaId : (prev.guitarProId ?? 0),
+            audioId: kind === MediaKind.Audio ? mediaId : (prev.audioId ?? 0),
+            videoId: kind === MediaKind.Video ? mediaId : (prev.videoId ?? 0),
+            imageId: kind === MediaKind.Image ? mediaId : (prev.imageId ?? 0),
+            documentId: kind === MediaKind.Document ? mediaId : (prev.documentId ?? 0)
+        };
+        root._syncGuitarProMediaIdFromPending();
+    }
+
     function _commitPracticeMaterial(confirmedMediaId) {
+        // Keep the active row's selection in the matching pending slot.
+        for (const kind of root.kindOrder) {
+            const kindRow = root._kindRowCache[kind];
+            if (!kindRow || !kindRow.isPracticeMaterialActive())
+                continue;
+            const entry = kindRow.selectedEntry();
+            if (entry && entry.mediaId === confirmedMediaId) {
+                root._setPendingKindSlot(kind, entry.mediaId);
+                break;
+            }
+        }
+
         const a = root._pendingAsset;
         const hasAny = a.guitarProId > 0 || a.audioId > 0 || a.videoId > 0 || a.imageId > 0 || a.documentId > 0;
         if (!hasAny || confirmedMediaId <= 0) {
@@ -126,6 +160,7 @@ GroupBox {
         root.activeMediaId = confirmedMediaId;
         root.activePracticeAssetId = practiceAssetController.upsertCompositeAsset(
             root.songId, a.guitarProId, a.audioId, a.videoId, a.imageId, a.documentId);
+        root._syncGuitarProMediaIdFromPending();
         root._updateActiveMediaDisplayName();
     }
 
@@ -165,22 +200,7 @@ GroupBox {
         const newMediaId = entry ? entry.mediaId : 0;
 
         root._applyingSelection = true;
-
-        // Update local slot
-        const a = root._pendingAsset;
-        if (kind === MediaKind.GuitarPro)
-            a.guitarProId = newMediaId;
-        else if (kind === MediaKind.Audio)
-            a.audioId = newMediaId;
-        else if (kind === MediaKind.Video)
-            a.videoId = newMediaId;
-        else if (kind === MediaKind.Image)
-            a.imageId = newMediaId;
-        else if (kind === MediaKind.Document)
-            a.documentId = newMediaId;
-
-        root._pendingAsset = a;
-
+        root._setPendingKindSlot(kind, newMediaId);
         root._applyingSelection = false;
         root._updateKindLabels();
 
@@ -264,6 +284,7 @@ GroupBox {
                         imageId: asset.imageId ?? 0,
                         documentId: asset.documentId ?? 0
                     };
+                    root._syncGuitarProMediaIdFromPending();
                     _restoreComboForMediaId(MediaKind.GuitarPro, asset.guitarProId ?? 0);
                     _restoreComboForMediaId(MediaKind.Audio, asset.audioId ?? 0);
                     _restoreComboForMediaId(MediaKind.Video, asset.videoId ?? 0);
@@ -314,6 +335,7 @@ GroupBox {
                     imageId: asset.imageId ?? 0,
                     documentId: asset.documentId ?? 0
                 };
+                root._syncGuitarProMediaIdFromPending();
                 _restoreComboForMediaId(MediaKind.GuitarPro, asset.guitarProId ?? 0);
                 _restoreComboForMediaId(MediaKind.Audio, asset.audioId ?? 0);
                 _restoreComboForMediaId(MediaKind.Video, asset.videoId ?? 0);
@@ -333,9 +355,6 @@ GroupBox {
 
     readonly property var kindOrder: [MediaKind.GuitarPro, MediaKind.Video, MediaKind.Audio, MediaKind.Document, MediaKind.Image]
 
-    title: qsTr("Song information")
-    padding: 12
-
     background: Rectangle {
         radius: 10
         color: Theme.panelBackground
@@ -347,19 +366,12 @@ GroupBox {
         font.pixelSize: 14
         font.weight: Font.DemiBold
         color: Theme.textPrimary
+        padding: 1
     }
 
     ColumnLayout {
         width: parent.width
-        spacing: 10
-
-        Label {
-            Layout.fillWidth: true
-            text: root.songTitle
-            font.pixelSize: 20
-            font.weight: Font.Bold
-            color: Theme.textTitle
-        }
+        spacing: 12
 
         Label {
             text: root.songBaseBpm > 0 ? qsTr("Base tempo: %1 BPM").arg(root.songBaseBpm) : qsTr("No tempo set")
@@ -601,24 +613,15 @@ GroupBox {
                                 text: qsTr("Open")
                                 enabled: !root.mediaSelectionLocked && kindRow.selectedEntry() !== null
                                 focusPolicy: Qt.TabFocus
-                                visible: kindRow.modelData !== MediaKind.Audio && kindRow.modelData !== MediaKind.Video
-
-                                Keys.onReturnPressed: event => event.accepted = true
-                                Keys.onEnterPressed: event => event.accepted = true
-
-                                onClicked: {
-                                    if (selectionGuard.running) {
-                                        return;
-                                    }
-                                    kindRow.openSelectedEntry();
+                                // Internal AlphaTab for GP when available; docs/images via OS; audio/video hidden.
+                                visible: {
+                                    if (kindRow.modelData === MediaKind.Audio
+                                            || kindRow.modelData === MediaKind.Video)
+                                        return false
+                                    if (kindRow.isGuitarPro)
+                                        return guitarProPreviewController.playerAvailable
+                                    return true
                                 }
-                            }
-
-                            Button {
-                                text: qsTr("Preview")
-                                enabled: !root.mediaSelectionLocked && kindRow.selectedEntry() !== null
-                                focusPolicy: Qt.TabFocus
-                                visible: kindRow.isGuitarPro
 
                                 Keys.onReturnPressed: event => event.accepted = true
                                 Keys.onEnterPressed: event => event.accepted = true
@@ -628,8 +631,33 @@ GroupBox {
                                         return;
                                     }
                                     const entry = kindRow.selectedEntry();
-                                    if (entry)
-                                        root.guitarProPreviewRequested(entry.mediaId);
+                                    if (!entry)
+                                        return;
+                                    if (kindRow.isGuitarPro) {
+                                        root.guitarProInternalOpenRequested(entry.mediaId);
+                                        return;
+                                    }
+                                    kindRow.openSelectedEntry();
+                                }
+                            }
+
+                            Button {
+                                text: qsTr("Open externally")
+                                enabled: !root.mediaSelectionLocked && kindRow.selectedEntry() !== null
+                                        && !(kindRow.isInternalAudio
+                                             && kindRow.isAudioEntryPlaying(kindRow.selectedEntry()))
+                                focusPolicy: Qt.TabFocus
+                                visible: kindRow.isGuitarPro
+                                         || (kindRow.isInternalAudio && !kindRow.isInternalVideo)
+
+                                onClicked: {
+                                    if (selectionGuard.running) {
+                                        return;
+                                    }
+                                    const entry = kindRow.selectedEntry();
+                                    if (!entry)
+                                        return;
+                                    root.assetOpenRequested(entry.mediaId);
                                 }
                             }
 
@@ -662,21 +690,6 @@ GroupBox {
                                     if (entry) {
                                         root.audioConfigRequested(entry.mediaId);
                                     }
-                                }
-                            }
-
-                            Button {
-                                text: qsTr("Open externally")
-                                enabled: kindRow.selectedEntry() !== null && !kindRow.isAudioEntryPlaying(kindRow.selectedEntry())
-                                visible: kindRow.isInternalAudio
-                                flat: false
-                                focusPolicy: Qt.TabFocus
-
-                                onClicked: {
-                                    if (selectionGuard.running) {
-                                        return;
-                                    }
-                                    kindRow.openSelectedEntry();
                                 }
                             }
                         }

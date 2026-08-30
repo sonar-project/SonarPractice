@@ -243,6 +243,19 @@ ApplicationWindow {
         });
     }
 
+    function pushGuitarProPlayer(songTitle) {
+        if (!root.servicesReady)
+            return;
+        const current = stackView.currentItem;
+        if (current && current.objectName === "guitarProPlayerPage")
+            return;
+        if (current && typeof current.releaseKeyboardFocus === "function")
+            current.releaseKeyboardFocus();
+        stackView.push(guitarProPlayerComponent, {
+            songTitle: songTitle || ""
+        });
+    }
+
     function pushPracticeHub(songId, title, baseBpm, editingReminderId, practiceAssetId) {
         if (!root.servicesReady || practiceTracker.timerRunning)
             return;
@@ -354,6 +367,7 @@ ApplicationWindow {
             onPracticeRequested: mediaId => practiceSession.startPractice(mediaId)
             onOpenCalendarRequested: root.popToDashboard()
             onAudioConfigRequested: mediaId => root.pushAudioConfig(mediaId, songTitle)
+            onGuitarProPlayerRequested: root.pushGuitarProPlayer(songTitle)
         }
     }
 
@@ -363,6 +377,23 @@ ApplicationWindow {
         AudioConfigPage {
             onBackRequested: {
                 audioConfigController.stopPlayback();
+                stackView.pop();
+            }
+        }
+    }
+
+    Component {
+        id: guitarProPlayerComponent
+
+        GuitarProPlayerPage {
+            onBackRequested: {
+                guitarProPreviewController.pause();
+                stackView.pop();
+            }
+            onStopSessionRequested: {
+                guitarProPreviewController.pause();
+                practiceTracker.stopAndSaveWithAssetId(practiceTracker.assetId);
+                // Unlock navigation; return to Practice Hub.
                 stackView.pop();
             }
         }

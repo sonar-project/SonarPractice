@@ -23,19 +23,15 @@ Page {
         showBack: false
         sessionLocked: root.sessionLocked
         sessionLabel: qsTr("Timer running")
+        onStopSessionRequested: {
+            practiceTracker.stopAndSaveWithAssetId(practiceTracker.assetId);
+        }
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
+        anchors.margins: 35
         spacing: 12
-
-        Label {
-            text: qsTr("Launch hub")
-            font.pixelSize: 22
-            font.weight: Font.Bold
-            color: Theme.textHeading
-        }
 
         Label {
             Layout.fillWidth: true

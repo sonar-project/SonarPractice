@@ -9,6 +9,15 @@ import QtWebEngine
 Item {
     id: root
 
+    function themeJavaScript() {
+        return "window.sonarAlphaTab && window.sonarAlphaTab.setTheme("
+                + (Theme.isDark ? "true" : "false") + ");"
+    }
+
+    function runScript(javaScript) {
+        webView.runJavaScript(themeJavaScript() + (javaScript || ""))
+    }
+
     WebEngineView {
         id: webView
         anchors.fill: parent
@@ -28,21 +37,22 @@ Item {
         onLoadingChanged: function (request) {
             if (request.status === WebEngineView.LoadSucceededStatus) {
                 const js = guitarProPreviewController.loadScoreJavaScript()
-                if (js && js.length > 0)
-                    webView.runJavaScript(js)
+                root.runScript(js && js.length > 0 ? js : "")
             }
         }
-    }
-
-    function runScript(javaScript) {
-        if (javaScript && javaScript.length > 0)
-            webView.runJavaScript(javaScript)
     }
 
     Connections {
         target: guitarProPreviewController
         function onRunPlayerJavaScript(javaScript) {
             root.runScript(javaScript)
+        }
+    }
+
+    Connections {
+        target: Theme
+        function onIsDarkChanged() {
+            root.runScript("")
         }
     }
 }

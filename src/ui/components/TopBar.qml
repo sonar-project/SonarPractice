@@ -11,11 +11,29 @@ ToolBar {
     property bool showThemeToggle: true
     property bool sessionLocked: false
     property string sessionLabel: qsTr("Session active")
+    /** When true (default while sessionLocked), show a Stop-training control. */
+    property bool showStopSession: sessionLocked
+    /** Centered elapsed time while a training timer is running. */
+    property bool showSessionTimer: sessionLocked
 
     signal backRequested()
+    signal stopSessionRequested()
 
     background: Rectangle {
         color: Theme.toolbarBackground
+    }
+
+    // True horizontal center — visible on Hub and internal player while training.
+    Label {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        z: 1
+        visible: root.showSessionTimer
+        text: practiceTracker.elapsedDisplay
+        font.pixelSize: 20
+        font.weight: Font.Bold
+        font.family: "monospace"
+        color: Theme.accentTimer
     }
 
     RowLayout {
@@ -39,20 +57,13 @@ ToolBar {
 
             Label {
                 Layout.fillWidth: true
+                // Leave room for the centered timer so long titles don't cover it.
+                Layout.rightMargin: root.showSessionTimer ? 72 : 0
                 text: root.title
                 font.pixelSize: 18
                 font.weight: Font.DemiBold
                 color: Theme.textToolbar
                 elide: Text.ElideRight
-            }
-
-            Label {
-                Layout.fillWidth: true
-                visible: root.subtitle.length > 0
-                text: root.subtitle
-                font.pixelSize: 12
-                color: Theme.textHint
-                elide: Text.ElideMiddle
             }
         }
 
@@ -66,21 +77,27 @@ ToolBar {
             onClicked: Theme.toggle()
         }
 
-        Rectangle {
-            visible: root.sessionLocked
-            radius: 4
-            color: Theme.danger
-            implicitWidth: sessionLabel.implicitWidth + 16
-            implicitHeight: 24
+        Button {
+            id: stopSessionButton
+            visible: root.showStopSession
+            text: qsTr("Stop training")
+            flat: true
+            padding: 6
+            leftPadding: 10
+            rightPadding: 10
+            font.pixelSize: 11
+            font.weight: Font.Bold
+            palette.buttonText: Theme.textOnAccent
 
-            Label {
-                id: sessionLabel
-                anchors.centerIn: parent
-                text: root.sessionLabel
-                font.pixelSize: 11
-                font.weight: Font.Bold
-                color: Theme.textOnAccent
+            background: Rectangle {
+                radius: 4
+                color: stopSessionButton.down ? Qt.darker(Theme.danger, 1.15) : Theme.danger
             }
+
+            ToolTip.visible: hovered
+            ToolTip.text: root.sessionLabel
+
+            onClicked: root.stopSessionRequested()
         }
     }
 }

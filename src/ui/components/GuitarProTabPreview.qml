@@ -9,9 +9,8 @@ import QtQuick.Layouts
 GroupBox {
     id: root
 
-    title: qsTr("Guitar Pro preview")
-    visible: guitarProPreviewController.visible
-    padding: 12
+    /** When true, fills a dedicated stack page (always visible; Back closes the page). */
+    property bool pageMode: false
 
     background: Rectangle {
         radius: 10
@@ -19,17 +18,10 @@ GroupBox {
         border.color: Theme.border
     }
 
-    label: Label {
-        text: root.title
-        font.pixelSize: 14
-        font.weight: Font.DemiBold
-        color: Theme.textPrimary
-    }
-
     readonly property bool showPlayer: guitarProPreviewController.usePlayer
 
     ColumnLayout {
-        width: parent.width
+        anchors.fill: parent
         spacing: 8
 
         RowLayout {
@@ -67,12 +59,6 @@ GroupBox {
                 checkable: true
                 checked: guitarProPreviewController.usePlayer
                 onClicked: guitarProPreviewController.usePlayer = true
-            }
-
-            Button {
-                text: qsTr("Close")
-                flat: true
-                onClicked: guitarProPreviewController.clear()
             }
         }
 
@@ -116,6 +102,7 @@ GroupBox {
 
             Button {
                 text: guitarProPreviewController.playing ? qsTr("Pause") : qsTr("Play")
+                highlighted: true
                 onClicked: guitarProPreviewController.playPause()
             }
 
@@ -145,9 +132,14 @@ GroupBox {
             }
 
             CheckBox {
+                id: loopCheck
                 text: qsTr("Loop")
-                checked: guitarProPreviewController.loopEnabled
                 onToggled: guitarProPreviewController.loopEnabled = checked
+
+                Binding on checked {
+                    value: guitarProPreviewController.loopEnabled
+                    restoreMode: Binding.RestoreBindingOrValue
+                }
             }
 
             Label {
@@ -157,12 +149,21 @@ GroupBox {
             }
 
             SpinBox {
+                id: loopStartSpin
                 from: 1
-                to: Math.max(1, guitarProPreviewController.barCount)
-                value: guitarProPreviewController.loopStartBar
+                // Keep range wide enough before barCount arrives so values are not clamped to 1.
+                to: Math.max(1, guitarProPreviewController.barCount,
+                             guitarProPreviewController.loopEndBar,
+                             guitarProPreviewController.loopStartBar)
                 visible: guitarProPreviewController.loopEnabled
                 editable: true
                 onValueModified: guitarProPreviewController.loopStartBar = value
+
+                Binding on value {
+                    when: !loopStartSpin.activeFocus
+                    value: guitarProPreviewController.loopStartBar
+                    restoreMode: Binding.RestoreBindingOrValue
+                }
             }
 
             Label {
@@ -172,12 +173,20 @@ GroupBox {
             }
 
             SpinBox {
+                id: loopEndSpin
                 from: 1
-                to: Math.max(1, guitarProPreviewController.barCount)
-                value: guitarProPreviewController.loopEndBar
+                to: Math.max(1, guitarProPreviewController.barCount,
+                             guitarProPreviewController.loopEndBar,
+                             guitarProPreviewController.loopStartBar)
                 visible: guitarProPreviewController.loopEnabled
                 editable: true
                 onValueModified: guitarProPreviewController.loopEndBar = value
+
+                Binding on value {
+                    when: !loopEndSpin.activeFocus
+                    value: guitarProPreviewController.loopEndBar
+                    restoreMode: Binding.RestoreBindingOrValue
+                }
             }
         }
 
@@ -207,16 +216,18 @@ GroupBox {
         Loader {
             id: playerLoader
             Layout.fillWidth: true
-            Layout.preferredHeight: 360
+            Layout.fillHeight: root.pageMode
+            Layout.preferredHeight: root.pageMode ? 0 : 360
             Layout.minimumHeight: 220
             active: root.showPlayer && guitarProPreviewController.playerAvailable
-                    && guitarProPreviewController.visible
+                    && (root.pageMode || guitarProPreviewController.visible)
             source: active ? "GuitarProPlayerView.qml" : ""
         }
 
         ScrollView {
             Layout.fillWidth: true
-            Layout.preferredHeight: 220
+            Layout.fillHeight: root.pageMode && !root.showPlayer
+            Layout.preferredHeight: root.pageMode ? 0 : 220
             Layout.minimumHeight: 120
             clip: true
             visible: !root.showPlayer

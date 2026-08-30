@@ -23,12 +23,22 @@ Page {
     signal practiceRequested(int mediaId)
     signal openCalendarRequested
     signal audioConfigRequested(int mediaId)
-    signal guitarProPreviewRequested(int mediaId)
+    signal guitarProPlayerRequested()
 
     // Resolve group title once (fallback to song title):
     readonly property string groupTitle: {
         const info = linkGroupService.groupInfoForSong(root.songId);
         return (info && info.title && info.title.length > 0) ? info.title : root.songTitle;
+    }
+
+    /** Free play: load GP without training loop and open the player page. */
+    function openGuitarProInternally(mediaId) {
+        if (mediaId <= 0)
+            return;
+        guitarProPreviewController.usePlayer = true;
+        guitarProPreviewController.loopEnabled = false;
+        guitarProPreviewController.load(mediaId);
+        root.guitarProPlayerRequested();
     }
 
     background: Rectangle {
@@ -41,6 +51,17 @@ Page {
         sessionLocked: root.timerActive
         sessionLabel: qsTr("Timer running")
         onBackRequested: root.backRequested()
+        onStopSessionRequested: root.stopTrainingSession()
+    }
+
+    function stopTrainingSession() {
+        if (!practiceTracker.timerRunning)
+            return;
+        guitarProPreviewController.pause();
+        const assetId = songInfo.activePracticeAssetId > 0
+                      ? songInfo.activePracticeAssetId
+                      : practiceTracker.assetId;
+        practiceTracker.stopAndSaveWithAssetId(assetId);
     }
 
     function resolveInitialPracticeAssetId() {
@@ -130,17 +151,10 @@ Page {
                     onAssetOpenRequested: mediaId => root.assetOpenRequested(mediaId)
                     onPracticeRequested: mediaId => root.practiceRequested(mediaId)
                     onAudioConfigRequested: mediaId => root.audioConfigRequested(mediaId)
-                    onGuitarProPreviewRequested: mediaId => {
-                        guitarProPreviewController.load(mediaId)
-                        root.guitarProPreviewRequested(mediaId)
-                    }
+                    onGuitarProInternalOpenRequested: mediaId => root.openGuitarProInternally(mediaId)
                     onActivePracticeAssetIdChanged: {
                         practiceTracker.assetId = songInfo.activePracticeAssetId;
                     }
-                }
-
-                GuitarProTabPreview {
-                    Layout.fillWidth: true
                 }
 
                 TrainingPanel {
@@ -148,6 +162,9 @@ Page {
                     Layout.fillWidth: true
                     practiceAssetId: songInfo.activePracticeAssetId
                     practiceMaterialReady: songInfo.practiceMaterialReady
+                    guitarProMediaId: songInfo.guitarProMediaId
+                    songBaseBpm: root.songBaseBpm
+                    onInternalPlayerRequested: root.guitarProPlayerRequested()
                 }
 
                 Label {

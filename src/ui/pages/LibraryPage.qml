@@ -289,7 +289,11 @@ Page {
         title: qsTr("Library")
         showBack: true
         sessionLocked: root.sessionLocked
+        sessionLabel: qsTr("Timer running")
         onBackRequested: root.backRequested()
+        onStopSessionRequested: {
+            practiceTracker.stopAndSaveWithAssetId(practiceTracker.assetId);
+        }
     }
 
     Shortcut {

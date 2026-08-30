@@ -5,11 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SonarPractice AlphaTab Player</title>
   <style>
+    :root {
+      --sp-bg: #16161f;
+      --sp-text: #eceff1;
+      --sp-muted: #90a4ae;
+      --sp-error: #ef9a9a;
+      --sp-cursor-bar: rgba(124, 77, 255, 0.22);
+      --sp-cursor-beat: #7c4dff;
+      --sp-highlight: #7c4dff;
+    }
     html, body {
       margin: 0;
       padding: 0;
-      background: #16161f;
-      color: #eceff1;
+      background: var(--sp-bg);
+      color: var(--sp-text);
       font-family: system-ui, sans-serif;
       height: 100%;
       overflow: hidden;
@@ -19,14 +28,43 @@
       overflow: auto;
       box-sizing: border-box;
       padding: 8px 12px 24px;
+      background: var(--sp-bg);
     }
-    #alphaTab { min-height: 120px; }
+    #alphaTab {
+      min-height: 120px;
+      background: var(--sp-bg);
+    }
     #status {
       padding: 8px 12px;
-      color: #90a4ae;
+      color: var(--sp-muted);
       font-size: 13px;
     }
-    #status.error { color: #ef9a9a; }
+    #status.error { color: var(--sp-error); }
+
+    /* Playback cursors — width is required or the beat cursor stays invisible. */
+    .at-cursor-layer {
+      position: absolute;
+      z-index: 1000;
+      display: inline;
+      pointer-events: none;
+    }
+    .at-cursor-bar {
+      position: absolute;
+      background: var(--sp-cursor-bar);
+    }
+    .at-cursor-beat {
+      position: absolute;
+      background: var(--sp-cursor-beat);
+      width: 3px;
+    }
+    .at-selection div {
+      position: absolute;
+      background: var(--sp-cursor-bar);
+    }
+    .at-highlight * {
+      fill: var(--sp-highlight) !important;
+      stroke: var(--sp-highlight) !important;
+    }
   </style>
   <script src="alphaTab.min.js"></script>
 </head>

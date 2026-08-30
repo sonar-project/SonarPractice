@@ -85,20 +85,25 @@ void PracticeTrackerController::setSelectedDate(const QDate &date) {
 int PracticeTrackerController::startBar() const { return m_startBar; }
 
 void PracticeTrackerController::setStartBar(int value) {
-    if (m_startBar == value) {
+    const int clamped = qMax(1, value);
+    if (m_startBar == clamped && m_endBar >= clamped) {
         return;
     }
-    m_startBar = value;
+    m_startBar = clamped;
+    if (m_endBar < m_startBar) {
+        m_endBar = m_startBar;
+    }
     emit paramsChanged();
 }
 
 int PracticeTrackerController::endBar() const { return m_endBar; }
 
 void PracticeTrackerController::setEndBar(int value) {
-    if (m_endBar == value) {
+    const int clamped = qMax(m_startBar, value);
+    if (m_endBar == clamped) {
         return;
     }
-    m_endBar = value;
+    m_endBar = clamped;
     emit paramsChanged();
 }
 

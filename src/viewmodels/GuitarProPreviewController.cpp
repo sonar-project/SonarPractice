@@ -174,7 +174,8 @@ void GuitarProPreviewController::setSelectedTrackIndex(int index) {
     m_selectedTrackIndex = index;
     emit selectedTrackIndexChanged();
     applySelectedTrack();
-    emitPlayerCommand(QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.setTrackIndex(%1);")
+    emitPlayerCommand(QStringLiteral(
+                          "window.sonarAlphaTab && window.sonarAlphaTab.applySettings({ trackIndex: %1 });")
                           .arg(m_selectedTrackIndex));
 }
 
@@ -208,16 +209,32 @@ QString GuitarProPreviewController::loadScoreJavaScript() const {
     if (m_scoreBase64.isEmpty()) {
         return {};
     }
-    return QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.loadScoreBase64(%1);")
-        .arg(jsStringLiteral(m_scoreBase64));
+    return QStringLiteral(
+               "window.sonarAlphaTab && window.sonarAlphaTab.loadScoreBase64(%1, {"
+               " trackIndex: %2,"
+               " tempoPercent: %3,"
+               " loopEnabled: %4,"
+               " loopStartBar: %5,"
+               " loopEndBar: %6"
+               "});")
+        .arg(jsStringLiteral(m_scoreBase64))
+        .arg(m_selectedTrackIndex)
+        .arg(m_tempoPercent)
+        .arg(m_loopEnabled ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(m_loopStartBar)
+        .arg(m_loopEndBar);
 }
 
 QString GuitarProPreviewController::applyPlayerSettingsJavaScript() const {
     return QStringLiteral(
                "if (window.sonarAlphaTab) {"
-               " window.sonarAlphaTab.setTrackIndex(%1);"
-               " window.sonarAlphaTab.setTempoPercent(%2);"
-               " window.sonarAlphaTab.setLoop(%3, %4, %5);"
+               " window.sonarAlphaTab.applySettings({"
+               "  trackIndex: %1,"
+               "  tempoPercent: %2,"
+               "  loopEnabled: %3,"
+               "  loopStartBar: %4,"
+               "  loopEndBar: %5"
+               " });"
                "}")
         .arg(m_selectedTrackIndex)
         .arg(m_tempoPercent)
@@ -395,6 +412,10 @@ void GuitarProPreviewController::applyLoadResult(const LoadResult &result) {
     m_preview = result.preview;
     m_mediaFileId = result.mediaFileId;
     emit mediaFileIdChanged();
+
+    if (m_preview.barCount > 0) {
+        setBarCount(m_preview.barCount);
+    }
 
     if (m_scoreBase64 != result.scoreBase64) {
         m_scoreBase64 = result.scoreBase64;

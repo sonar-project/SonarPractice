@@ -77,6 +77,7 @@ std::optional<AsciiTabRenderer::SongPreview> AsciiTabRenderer::loadFromFile(cons
     preview.title = QString::fromStdString(song.name());
     preview.artist = QString::fromStdString(song.artist());
     preview.bpm = song.tempo_bpm;
+    preview.barCount = static_cast<int>(song.measure_headers.size());
     preview.tracks.reserve(song.tracks.size());
 
     for (int i = 0; i < static_cast<int>(song.tracks.size()); ++i) {

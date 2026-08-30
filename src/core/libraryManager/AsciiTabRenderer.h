@@ -30,6 +30,8 @@ class AsciiTabRenderer {
         QString title{};
         QString artist{};
         int bpm{};
+        /** Number of master bars / measures in the score (0 if unknown). */
+        int barCount{};
         std::vector<TrackPreview> tracks{};
     };
 
