@@ -22,6 +22,16 @@
     startBar: 1,
     endBar: 1,
   };
+  /** @type {{ volume: number, muted: boolean }[]} */
+  let pendingMixer = [];
+  let pendingMetronomeEnabled = false;
+  let pendingMetronomeDivision = 4;
+  let pendingCountInEnabled = false;
+
+  /** @type {AudioContext|null} */
+  let clickAudioCtx = null;
+  /** @type {number[]} */
+  let subdivisionTimeouts = [];
 
   function setStatus(text, isError) {
     statusEl.textContent = text || "";
@@ -182,16 +192,148 @@
     api.isLooping = true;
   }
 
+  function normalizeDivision(raw) {
+    const n = Number(raw);
+    if (n === 8 || n === 16 || n === 32) {
+      return n;
+    }
+    return 4;
+  }
+
+  function clicksPerBeat(division) {
+    const d = normalizeDivision(division);
+    if (d === 8) {
+      return 2;
+    }
+    if (d === 16) {
+      return 4;
+    }
+    if (d === 32) {
+      return 8;
+    }
+    return 1;
+  }
+
+  function ensureClickAudio() {
+    if (!clickAudioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) {
+        return null;
+      }
+      clickAudioCtx = new Ctx();
+    }
+    if (clickAudioCtx.state === "suspended") {
+      clickAudioCtx.resume().catch(function () {
+        /* ignore */
+      });
+    }
+    return clickAudioCtx;
+  }
+
+  function clearSubdivisionClicks() {
+    for (let i = 0; i < subdivisionTimeouts.length; i++) {
+      clearTimeout(subdivisionTimeouts[i]);
+    }
+    subdivisionTimeouts = [];
+  }
+
+  function playWebClick(accent) {
+    const ctx = ensureClickAudio();
+    if (!ctx) {
+      return;
+    }
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = accent ? 1200 : 800;
+    gain.gain.setValueAtTime(accent ? 0.18 : 0.09, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.045);
+  }
+
+  function scheduleSubdivisionClicks(beatDurationMs) {
+    clearSubdivisionClicks();
+    if (!pendingMetronomeEnabled && !pendingCountInEnabled) {
+      return;
+    }
+    const perBeat = clicksPerBeat(pendingMetronomeDivision);
+    if (perBeat <= 1 || !(beatDurationMs > 0)) {
+      return;
+    }
+    const speed = api && api.playbackSpeed > 0 ? api.playbackSpeed : 1;
+    const stepMs = beatDurationMs / perBeat / speed;
+    for (let i = 1; i < perBeat; i++) {
+      const id = setTimeout(function () {
+        playWebClick(false);
+      }, stepMs * i);
+      subdivisionTimeouts.push(id);
+    }
+  }
+
+  function applyPendingMixer() {
+    if (!api || !api.score || !playerReady) {
+      return;
+    }
+    const tracks = api.score.tracks || [];
+    for (let i = 0; i < tracks.length; i++) {
+      const entry = pendingMixer[i] || { volume: 1, muted: false };
+      const volume = Math.max(0, Math.min(1, Number(entry.volume)));
+      const muted = !!entry.muted;
+      if (typeof api.changeTrackVolume === "function") {
+        api.changeTrackVolume([tracks[i]], Number.isFinite(volume) ? volume : 1);
+      }
+      if (typeof api.changeTrackMute === "function") {
+        api.changeTrackMute([tracks[i]], muted);
+      }
+    }
+  }
+
+  function applyPendingMetronome() {
+    if (!api) {
+      return;
+    }
+    api.metronomeVolume = pendingMetronomeEnabled ? 1 : 0;
+    api.countInVolume = pendingCountInEnabled ? 1 : 0;
+    if (!pendingMetronomeEnabled) {
+      clearSubdivisionClicks();
+    }
+  }
+
   function applyAllPendingSettings() {
     applyTrackVisibility();
     applyPendingTempo();
     applyPendingLoop();
+    applyPendingMixer();
+    applyPendingMetronome();
   }
 
   function onEvent(emitter, handler) {
     if (emitter && typeof emitter.on === "function") {
       emitter.on(handler);
     }
+  }
+
+  function wireMetronomeEvents(instance) {
+    const MidiEventType =
+      alphaTab.midi && alphaTab.midi.MidiEventType ? alphaTab.midi.MidiEventType : null;
+    if (MidiEventType && MidiEventType.AlphaTabMetronome !== undefined) {
+      instance.midiEventsPlayedFilter = [MidiEventType.AlphaTabMetronome];
+    }
+    onEvent(instance.midiEventsPlayed, function (e) {
+      if ((!pendingMetronomeEnabled && !pendingCountInEnabled) || !e || !e.events) {
+        return;
+      }
+      for (let i = 0; i < e.events.length; i++) {
+        const midi = e.events[i];
+        if (midi && midi.isMetronome) {
+          scheduleSubdivisionClicks(midi.metronomeDurationInMilliseconds || 0);
+        }
+      }
+    });
   }
 
   function initApi() {
@@ -273,14 +415,35 @@
           ? alphaTab.synth.PlayerState.Playing
           : 1;
       const playing = args && args.state === Playing;
+      if (!playing) {
+        clearSubdivisionClicks();
+      } else {
+        ensureClickAudio();
+      }
       notifyNative("playerState", { playing: !!playing });
     });
 
     onEvent(instance.playerFinished, function () {
+      clearSubdivisionClicks();
       notifyNative("playerState", { playing: false });
     });
 
+    wireMetronomeEvents(instance);
+
     api = instance;
+  }
+
+  function assimilateMixer(mixer) {
+    if (!Array.isArray(mixer)) {
+      return;
+    }
+    pendingMixer = mixer.map(function (entry) {
+      const volume = Math.max(0, Math.min(1, Number(entry && entry.volume)));
+      return {
+        volume: Number.isFinite(volume) ? volume : 1,
+        muted: !!(entry && entry.muted),
+      };
+    });
   }
 
   function assimilateOptions(options) {
@@ -305,6 +468,18 @@
         Number(options.loopEndBar) || pendingLoop.startBar
       );
     }
+    if (options.mixer !== undefined) {
+      assimilateMixer(options.mixer);
+    }
+    if (options.metronomeEnabled !== undefined) {
+      pendingMetronomeEnabled = !!options.metronomeEnabled;
+    }
+    if (options.metronomeDivision !== undefined && options.metronomeDivision !== null) {
+      pendingMetronomeDivision = normalizeDivision(options.metronomeDivision);
+    }
+    if (options.countInEnabled !== undefined) {
+      pendingCountInEnabled = !!options.countInEnabled;
+    }
   }
 
   window.sonarAlphaTab = {
@@ -324,6 +499,7 @@
         setStatus("Loading score…");
         scoreReady = false;
         playerReady = false;
+        clearSubdivisionClicks();
         api.load(base64ToArrayBuffer(base64));
       } catch (e) {
         setStatus(String(e && e.message ? e.message : e), true);
@@ -333,21 +509,25 @@
 
     play: function () {
       if (api) {
+        ensureClickAudio();
         api.play();
       }
     },
     pause: function () {
+      clearSubdivisionClicks();
       if (api) {
         api.pause();
       }
     },
     stop: function () {
+      clearSubdivisionClicks();
       if (api) {
         api.stop();
       }
     },
     playPause: function () {
       if (api) {
+        ensureClickAudio();
         api.playPause();
       }
     },
@@ -368,6 +548,24 @@
       pendingLoop.startBar = Math.max(1, Number(startBar) || 1);
       pendingLoop.endBar = Math.max(pendingLoop.startBar, Number(endBar) || pendingLoop.startBar);
       applyPendingLoop();
+    },
+
+    setMixer: function (tracks) {
+      assimilateMixer(tracks);
+      applyPendingMixer();
+    },
+
+    setMetronome: function (enabled, division) {
+      pendingMetronomeEnabled = !!enabled;
+      if (division !== undefined && division !== null) {
+        pendingMetronomeDivision = normalizeDivision(division);
+      }
+      applyPendingMetronome();
+    },
+
+    setCountIn: function (enabled) {
+      pendingCountInEnabled = !!enabled;
+      applyPendingMetronome();
     },
 
     applySettings: function (options) {

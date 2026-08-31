@@ -79,6 +79,7 @@ class TestViewModels : public QObject {
     void testPracticeAssetControllerFilteredAudioFiles();
     void testGuitarProPreviewControllerLoadsTab();
     void testGuitarProPreviewControllerRejectsNonGp();
+    void testGuitarProPreviewControllerMixerAndMetronome();
 
     void testLibrarySearchExpressionAndOr();
     void testLibrarySearchExpressionRegex();

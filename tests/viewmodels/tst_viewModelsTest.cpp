@@ -1010,6 +1010,82 @@ void TestViewModels::testGuitarProPreviewControllerRejectsNonGp() {
     QVERIFY(!controller.errorMessage().isEmpty());
 }
 
+void TestViewModels::testGuitarProPreviewControllerMixerAndMetronome() {
+    const std::optional<qlonglong> songId = createSong(QStringLiteral("Mixer Song"));
+    QVERIFY(songId.has_value());
+
+    QDir projectRoot(QFileInfo(QString::fromUtf8(__FILE__)).absolutePath());
+    QVERIFY(projectRoot.cdUp());
+    QVERIFY(projectRoot.cdUp());
+    const QString gpPath = projectRoot.filePath(QStringLiteral("testdata/testfile.gp5"));
+    QVERIFY(QFileInfo::exists(gpPath));
+
+    const std::optional<qlonglong> mediaId =
+        createMediaFile(*songId, gpPath, MediaKind::GuitarPro, true);
+    QVERIFY(mediaId.has_value());
+
+    PathResolver resolver(QStringLiteral("/managed/root"));
+    GuitarProPreviewController controller({
+        .mediaRepo = m_mediaFileRepo,
+        .pathResolver = resolver,
+        .errorLog = *m_errorLog,
+    });
+
+    QCOMPARE(controller.metronomeDivision(), 4);
+    QVERIFY(!controller.metronomeEnabled());
+    QVERIFY(!controller.countInEnabled());
+    QVERIFY(controller.mixerTracks().isEmpty());
+
+    controller.setMetronomeDivision(16);
+    QCOMPARE(controller.metronomeDivision(), 16);
+    controller.setMetronomeDivision(7);
+    QCOMPARE(controller.metronomeDivision(), 4);
+    controller.setMetronomeDivision(32);
+    QCOMPARE(controller.metronomeDivision(), 32);
+    controller.setMetronomeEnabled(true);
+    controller.setCountInEnabled(true);
+    QVERIFY(controller.metronomeEnabled());
+    QVERIFY(controller.countInEnabled());
+
+    controller.load(*mediaId);
+    QTRY_VERIFY_WITH_TIMEOUT(controller.loaded(), 5000);
+    QVERIFY(!controller.mixerTracks().isEmpty());
+    QCOMPARE(controller.mixerTracks().size(), controller.trackNames().size());
+
+    const QVariantMap first = controller.mixerTracks().at(0).toMap();
+    QCOMPARE(first.value(QStringLiteral("volume")).toDouble(), 1.0);
+    QVERIFY(!first.value(QStringLiteral("muted")).toBool());
+
+    controller.setTrackVolume(0, 0.5);
+    controller.setTrackMuted(0, true);
+    const QVariantMap muted = controller.mixerTracks().at(0).toMap();
+    QCOMPARE(muted.value(QStringLiteral("volume")).toDouble(), 0.5);
+    QVERIFY(muted.value(QStringLiteral("muted")).toBool());
+
+    // Metronome / count-in survive score load.
+    QVERIFY(controller.metronomeEnabled());
+    QVERIFY(controller.countInEnabled());
+    QCOMPARE(controller.metronomeDivision(), 32);
+
+    const QString applyJs = controller.applyPlayerSettingsJavaScript();
+    QVERIFY(applyJs.contains(QStringLiteral("metronomeEnabled:true")));
+    QVERIFY(applyJs.contains(QStringLiteral("metronomeDivision:32")));
+    QVERIFY(applyJs.contains(QStringLiteral("countInEnabled:true")));
+    QVERIFY(applyJs.contains(QStringLiteral("mixer:[")));
+    QVERIFY(applyJs.contains(QStringLiteral("muted:true")));
+
+    const QString loadJs = controller.loadScoreJavaScript();
+    QVERIFY(loadJs.contains(QStringLiteral("metronomeEnabled:true")));
+    QVERIFY(loadJs.contains(QStringLiteral("countInEnabled:true")));
+    QVERIFY(loadJs.contains(QStringLiteral("mixer:[")));
+
+    controller.clear();
+    QVERIFY(controller.mixerTracks().isEmpty());
+    QVERIFY(!controller.metronomeEnabled());
+    QVERIFY(!controller.countInEnabled());
+    QCOMPARE(controller.metronomeDivision(), 4);
+}
+
 std::optional<qlonglong> TestViewModels::createSong(const QString &title, int baseBpm) {
     Song song;
     song.title = title;

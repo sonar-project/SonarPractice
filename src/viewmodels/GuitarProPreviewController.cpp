@@ -29,6 +29,10 @@ namespace {
         return QLatin1Char('\'') + escaped + QLatin1Char('\'');
     }
 
+    QString jsBool(bool value) {
+        return value ? QStringLiteral("true") : QStringLiteral("false");
+    }
+
 } // namespace
 
 GuitarProPreviewController::GuitarProPreviewController(const Dependencies &dependencies,
@@ -161,6 +165,91 @@ void GuitarProPreviewController::setLoopEndBar(int bar) {
 
 int GuitarProPreviewController::barCount() const { return m_barCount; }
 
+int GuitarProPreviewController::clampMetronomeDivision(int division) {
+    if (division == 8 || division == 16 || division == 32) {
+        return division;
+    }
+    return 4;
+}
+
+bool GuitarProPreviewController::metronomeEnabled() const { return m_metronomeEnabled; }
+
+void GuitarProPreviewController::setMetronomeEnabled(bool enabled) {
+    if (m_metronomeEnabled == enabled) {
+        return;
+    }
+    m_metronomeEnabled = enabled;
+    emit metronomeChanged();
+    emitPlayerCommand(QStringLiteral(
+                          "window.sonarAlphaTab && window.sonarAlphaTab.setMetronome(%1, %2);")
+                          .arg(jsBool(m_metronomeEnabled))
+                          .arg(m_metronomeDivision));
+}
+
+int GuitarProPreviewController::metronomeDivision() const { return m_metronomeDivision; }
+
+void GuitarProPreviewController::setMetronomeDivision(int division) {
+    const int clamped = clampMetronomeDivision(division);
+    if (m_metronomeDivision == clamped) {
+        return;
+    }
+    m_metronomeDivision = clamped;
+    emit metronomeChanged();
+    emitPlayerCommand(QStringLiteral(
+                          "window.sonarAlphaTab && window.sonarAlphaTab.setMetronome(%1, %2);")
+                          .arg(jsBool(m_metronomeEnabled))
+                          .arg(m_metronomeDivision));
+}
+
+bool GuitarProPreviewController::countInEnabled() const { return m_countInEnabled; }
+
+void GuitarProPreviewController::setCountInEnabled(bool enabled) {
+    if (m_countInEnabled == enabled) {
+        return;
+    }
+    m_countInEnabled = enabled;
+    emit countInChanged();
+    emitPlayerCommand(QStringLiteral(
+                          "window.sonarAlphaTab && window.sonarAlphaTab.setCountIn(%1);")
+                          .arg(jsBool(m_countInEnabled)));
+}
+
+QVariantList GuitarProPreviewController::mixerTracks() const { return m_mixerTracks; }
+
+void GuitarProPreviewController::setTrackVolume(int index, double volume) {
+    if (index < 0 || index >= m_mixerTracks.size()) {
+        return;
+    }
+    const double clamped = qBound(0.0, volume, 1.0);
+    QVariantMap entry = m_mixerTracks.at(index).toMap();
+    if (qFuzzyCompare(entry.value(QStringLiteral("volume")).toDouble() + 1.0, clamped + 1.0)
+        && entry.contains(QStringLiteral("volume"))) {
+        return;
+    }
+    entry.insert(QStringLiteral("volume"), clamped);
+    m_mixerTracks[index] = entry;
+    emit mixerTracksChanged();
+    emitPlayerCommand(QStringLiteral(
+                          "window.sonarAlphaTab && window.sonarAlphaTab.setMixer(%1);")
+                          .arg(mixerTracksJavaScriptArray()));
+}
+
+void GuitarProPreviewController::setTrackMuted(int index, bool muted) {
+    if (index < 0 || index >= m_mixerTracks.size()) {
+        return;
+    }
+    QVariantMap entry = m_mixerTracks.at(index).toMap();
+    if (entry.value(QStringLiteral("muted")).toBool() == muted) {
+        return;
+    }
+    entry.insert(QStringLiteral("muted"), muted);
+    m_mixerTracks[index] = entry;
+    emit mixerTracksChanged();
+    emitPlayerCommand(QStringLiteral(
+                          "window.sonarAlphaTab && window.sonarAlphaTab.setMixer(%1);")
+                          .arg(mixerTracksJavaScriptArray()));
+}
+
 void GuitarProPreviewController::setSelectedTrackIndex(int index) {
     if (index < 0 || index >= static_cast<int>(m_preview.tracks.size())) {
         // Allow AlphaTab-only track list after scoreLoaded overwrote names.
@@ -210,37 +299,40 @@ QString GuitarProPreviewController::loadScoreJavaScript() const {
         return {};
     }
     return QStringLiteral(
-               "window.sonarAlphaTab && window.sonarAlphaTab.loadScoreBase64(%1, {"
-               " trackIndex: %2,"
-               " tempoPercent: %3,"
-               " loopEnabled: %4,"
-               " loopStartBar: %5,"
-               " loopEndBar: %6"
-               "});")
-        .arg(jsStringLiteral(m_scoreBase64))
-        .arg(m_selectedTrackIndex)
-        .arg(m_tempoPercent)
-        .arg(m_loopEnabled ? QStringLiteral("true") : QStringLiteral("false"))
-        .arg(m_loopStartBar)
-        .arg(m_loopEndBar);
+               "window.sonarAlphaTab && window.sonarAlphaTab.loadScoreBase64(%1, %2);")
+        .arg(jsStringLiteral(m_scoreBase64), playerSettingsObjectJavaScript());
 }
 
 QString GuitarProPreviewController::applyPlayerSettingsJavaScript() const {
     return QStringLiteral(
                "if (window.sonarAlphaTab) {"
-               " window.sonarAlphaTab.applySettings({"
-               "  trackIndex: %1,"
-               "  tempoPercent: %2,"
-               "  loopEnabled: %3,"
-               "  loopStartBar: %4,"
-               "  loopEndBar: %5"
-               " });"
+               " window.sonarAlphaTab.applySettings(%1);"
+               "}")
+        .arg(playerSettingsObjectJavaScript());
+}
+
+QString GuitarProPreviewController::playerSettingsObjectJavaScript() const {
+    return QStringLiteral(
+               "{"
+               "trackIndex:%1,"
+               "tempoPercent:%2,"
+               "loopEnabled:%3,"
+               "loopStartBar:%4,"
+               "loopEndBar:%5,"
+               "mixer:%6,"
+               "metronomeEnabled:%7,"
+               "metronomeDivision:%8,"
+               "countInEnabled:%9"
                "}")
         .arg(m_selectedTrackIndex)
         .arg(m_tempoPercent)
-        .arg(m_loopEnabled ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(jsBool(m_loopEnabled))
         .arg(m_loopStartBar)
-        .arg(m_loopEndBar);
+        .arg(m_loopEndBar)
+        .arg(mixerTracksJavaScriptArray())
+        .arg(jsBool(m_metronomeEnabled))
+        .arg(m_metronomeDivision)
+        .arg(jsBool(m_countInEnabled));
 }
 
 void GuitarProPreviewController::handlePlayerEvent(const QString &json) {
@@ -271,6 +363,7 @@ void GuitarProPreviewController::handlePlayerEvent(const QString &json) {
                 m_trackNames = trackNames;
                 emit trackNamesChanged();
             }
+            rebuildMixerTracks(trackNames);
         }
         const QString title = payload.value(QStringLiteral("title")).toString();
         if (!title.isEmpty() && m_title != title) {
@@ -454,6 +547,7 @@ void GuitarProPreviewController::applyLoadResult(const LoadResult &result) {
         m_trackNames = names;
         emit trackNamesChanged();
     }
+    rebuildMixerTracks(names.isEmpty() ? m_trackNames : names);
 
     m_selectedTrackIndex = names.isEmpty() ? 0 : defaultIndex;
     emit selectedTrackIndexChanged();
@@ -580,9 +674,61 @@ void GuitarProPreviewController::resetPreviewState() {
     m_loopStartBar = 1;
     m_loopEndBar = 1;
     emit loopChanged();
+    if (m_metronomeEnabled) {
+        m_metronomeEnabled = false;
+        emit metronomeChanged();
+    }
+    if (m_metronomeDivision != 4) {
+        m_metronomeDivision = 4;
+        emit metronomeChanged();
+    }
+    if (m_countInEnabled) {
+        m_countInEnabled = false;
+        emit countInChanged();
+    }
+    resetMixerTracks();
     if (hadLoaded) {
         m_loaded = false;
         emit loadedChanged();
     }
     setErrorMessage({});
+}
+
+void GuitarProPreviewController::rebuildMixerTracks(const QStringList &names) {
+    QVariantList next;
+    next.reserve(names.size());
+    for (int i = 0; i < names.size(); ++i) {
+        QVariantMap entry;
+        entry.insert(QStringLiteral("name"), names.at(i));
+        entry.insert(QStringLiteral("volume"), 1.0);
+        entry.insert(QStringLiteral("muted"), false);
+        next.append(entry);
+    }
+    if (m_mixerTracks == next) {
+        return;
+    }
+    m_mixerTracks = std::move(next);
+    emit mixerTracksChanged();
+}
+
+void GuitarProPreviewController::resetMixerTracks() {
+    if (m_mixerTracks.isEmpty()) {
+        return;
+    }
+    m_mixerTracks.clear();
+    emit mixerTracksChanged();
+}
+
+QString GuitarProPreviewController::mixerTracksJavaScriptArray() const {
+    QStringList parts;
+    parts.reserve(m_mixerTracks.size());
+    for (const QVariant &item : m_mixerTracks) {
+        const QVariantMap entry = item.toMap();
+        const double volume = qBound(0.0, entry.value(QStringLiteral("volume")).toDouble(), 1.0);
+        const bool muted = entry.value(QStringLiteral("muted")).toBool();
+        parts.append(QStringLiteral("{volume:%1,muted:%2}")
+                         .arg(volume, 0, 'f', 4)
+                         .arg(jsBool(muted)));
+    }
+    return QLatin1Char('[') + parts.join(QLatin1Char(',')) + QLatin1Char(']');
 }

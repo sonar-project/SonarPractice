@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QVariantList>
 #include <QtQml/qqmlregistration.h>
 
 #include <atomic>
@@ -51,6 +52,13 @@ class GuitarProPreviewController : public QObject {
     Q_PROPERTY(int loopStartBar READ loopStartBar WRITE setLoopStartBar NOTIFY loopChanged)
     Q_PROPERTY(int loopEndBar READ loopEndBar WRITE setLoopEndBar NOTIFY loopChanged)
     Q_PROPERTY(int barCount READ barCount NOTIFY barCountChanged)
+    Q_PROPERTY(bool metronomeEnabled READ metronomeEnabled WRITE setMetronomeEnabled NOTIFY
+                   metronomeChanged)
+    Q_PROPERTY(int metronomeDivision READ metronomeDivision WRITE setMetronomeDivision NOTIFY
+                   metronomeChanged)
+    Q_PROPERTY(bool countInEnabled READ countInEnabled WRITE setCountInEnabled NOTIFY
+                   countInChanged)
+    Q_PROPERTY(QVariantList mixerTracks READ mixerTracks NOTIFY mixerTracksChanged)
 
   public:
     struct Dependencies {
@@ -93,6 +101,13 @@ class GuitarProPreviewController : public QObject {
     [[nodiscard]] int loopEndBar() const;
     void setLoopEndBar(int bar);
     [[nodiscard]] int barCount() const;
+    [[nodiscard]] bool metronomeEnabled() const;
+    void setMetronomeEnabled(bool enabled);
+    [[nodiscard]] int metronomeDivision() const;
+    void setMetronomeDivision(int division);
+    [[nodiscard]] bool countInEnabled() const;
+    void setCountInEnabled(bool enabled);
+    [[nodiscard]] QVariantList mixerTracks() const;
 
   public slots:
     /** Loads and shows preview for @p mediaFileId (Guitar Pro only). */
@@ -104,6 +119,9 @@ class GuitarProPreviewController : public QObject {
     Q_INVOKABLE void pause();
     Q_INVOKABLE void stop();
     Q_INVOKABLE void playPause();
+
+    Q_INVOKABLE void setTrackVolume(int index, double volume);
+    Q_INVOKABLE void setTrackMuted(int index, bool muted);
 
     /** Called from QML/WebChannel when AlphaTab posts a JSON event. */
     Q_INVOKABLE void handlePlayerEvent(const QString &json);
@@ -131,6 +149,9 @@ class GuitarProPreviewController : public QObject {
     void tempoPercentChanged();
     void loopChanged();
     void barCountChanged();
+    void metronomeChanged();
+    void countInChanged();
+    void mixerTracksChanged();
     /** Ask QML WebEngineView to evaluate @p javaScript. */
     void runPlayerJavaScript(const QString &javaScript);
 
@@ -153,6 +174,11 @@ class GuitarProPreviewController : public QObject {
     void setPlayerReady(bool ready);
     void setBarCount(int count);
     void emitPlayerCommand(const QString &javaScript);
+    void rebuildMixerTracks(const QStringList &names);
+    void resetMixerTracks();
+    [[nodiscard]] QString mixerTracksJavaScriptArray() const;
+    [[nodiscard]] QString playerSettingsObjectJavaScript() const;
+    [[nodiscard]] static int clampMetronomeDivision(int division);
 
     Dependencies m_dependencies;
     std::atomic<int> m_loadGeneration{0};
@@ -179,6 +205,10 @@ class GuitarProPreviewController : public QObject {
     int m_loopStartBar{1};
     int m_loopEndBar{1};
     int m_barCount{0};
+    bool m_metronomeEnabled{false};
+    int m_metronomeDivision{4};
+    bool m_countInEnabled{false};
+    QVariantList m_mixerTracks{};
 };
 
 #endif // GUITARPROPREVIEWCONTROLLER_H
