@@ -102,6 +102,85 @@ GroupBox {
             }
         }
 
+        // Playback tools (transpose affects audio only — tab stays unchanged).
+        Rectangle {
+            Layout.fillWidth: true
+            visible: root.showPlayer && guitarProPreviewController.loaded
+            radius: 8
+            color: Theme.panelBackgroundNested
+            border.color: Theme.border
+            implicitHeight: playerToolsLayout.implicitHeight + 16
+
+            RowLayout {
+                id: playerToolsLayout
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 8
+
+                Label {
+                    text: qsTr("Transpose")
+                    color: Theme.textSecondary
+                    font.weight: Font.DemiBold
+                }
+
+                Button {
+                    text: qsTr("−1")
+                    flat: true
+                    enabled: guitarProPreviewController.transposeSemitones > -12
+                    onClicked: guitarProPreviewController.transposeDown()
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("One semitone lower")
+                }
+
+                DarkSpinBox {
+                    id: transposeSpin
+                    from: -12
+                    to: 12
+                    editable: true
+                    onValueModified: guitarProPreviewController.transposeSemitones = value
+
+                    Binding on value {
+                        when: !transposeSpin.activeFocus
+                        value: guitarProPreviewController.transposeSemitones
+                        restoreMode: Binding.RestoreBindingOrValue
+                    }
+                }
+
+                Label {
+                    text: qsTr("st")
+                    color: Theme.textSecondary
+                    font.pixelSize: 11
+                }
+
+                Button {
+                    text: qsTr("+1")
+                    flat: true
+                    enabled: guitarProPreviewController.transposeSemitones < 12
+                    onClicked: guitarProPreviewController.transposeUp()
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("One semitone higher")
+                }
+
+                Button {
+                    text: qsTr("Reset")
+                    flat: true
+                    visible: guitarProPreviewController.transposeSemitones !== 0
+                    onClicked: guitarProPreviewController.resetTranspose()
+                }
+
+                Label {
+                    text: guitarProPreviewController.tuning.length > 0
+                          ? qsTr("Notated tuning: %1").arg(guitarProPreviewController.tuning)
+                          : ""
+                    color: Theme.textSecondary
+                    font.pixelSize: 11
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                    visible: text.length > 0
+                }
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
             spacing: 8

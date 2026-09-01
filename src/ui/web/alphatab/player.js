@@ -27,6 +27,10 @@
   let pendingMetronomeEnabled = false;
   let pendingMetronomeDivision = 4;
   let pendingCountInEnabled = false;
+  let pendingTransposeSemitones = 0;
+  let appliedTransposeSemitones = 0;
+  const PERCUSSION_CHANNEL = 9;
+  let applyingSettings = false;
 
   /** @type {AudioContext|null} */
   let clickAudioCtx = null;
@@ -303,12 +307,74 @@
     }
   }
 
+  function clampTransposeSemitones(raw) {
+    const n = Math.round(Number(raw) || 0);
+    return Math.max(-12, Math.min(12, n));
+  }
+
+  function isMelodicTrack(track) {
+    if (!track || !track.playbackInfo) {
+      return false;
+    }
+    if (track.isPercussion) {
+      return false;
+    }
+    if (track.playbackInfo.primaryChannel === PERCUSSION_CHANNEL) {
+      return false;
+    }
+    return true;
+  }
+
+  function melodicTracks(tracks) {
+    const result = [];
+    for (let i = 0; i < tracks.length; i++) {
+      if (isMelodicTrack(tracks[i])) {
+        result.push(tracks[i]);
+      }
+    }
+    return result;
+  }
+
+  function applyPendingTranspose() {
+    if (!api || !api.score || !playerReady) {
+      return;
+    }
+    const semitones = clampTransposeSemitones(pendingTransposeSemitones);
+    if (semitones === appliedTransposeSemitones) {
+      return;
+    }
+
+    const player = api.player;
+    if (!player || typeof player.setChannelTranspositionPitch !== "function") {
+      return;
+    }
+
+    const tracks = melodicTracks(api.score.tracks || []);
+    for (let i = 0; i < tracks.length; i++) {
+      const channel = tracks[i].playbackInfo.primaryChannel;
+      if (channel === PERCUSSION_CHANNEL) {
+        continue;
+      }
+      player.setChannelTranspositionPitch(channel, semitones);
+    }
+    appliedTransposeSemitones = semitones;
+  }
+
   function applyAllPendingSettings() {
-    applyTrackVisibility();
-    applyPendingTempo();
-    applyPendingLoop();
-    applyPendingMixer();
-    applyPendingMetronome();
+    if (applyingSettings) {
+      return;
+    }
+    applyingSettings = true;
+    try {
+      applyTrackVisibility();
+      applyPendingTempo();
+      applyPendingLoop();
+      applyPendingMixer();
+      applyPendingMetronome();
+      applyPendingTranspose();
+    } finally {
+      applyingSettings = false;
+    }
   }
 
   function onEvent(emitter, handler) {
@@ -480,6 +546,9 @@
     if (options.countInEnabled !== undefined) {
       pendingCountInEnabled = !!options.countInEnabled;
     }
+    if (options.transposeSemitones !== undefined && options.transposeSemitones !== null) {
+      pendingTransposeSemitones = clampTransposeSemitones(options.transposeSemitones);
+    }
   }
 
   window.sonarAlphaTab = {
@@ -499,6 +568,7 @@
         setStatus("Loading score…");
         scoreReady = false;
         playerReady = false;
+        appliedTransposeSemitones = 0;
         clearSubdivisionClicks();
         api.load(base64ToArrayBuffer(base64));
       } catch (e) {
@@ -566,6 +636,11 @@
     setCountIn: function (enabled) {
       pendingCountInEnabled = !!enabled;
       applyPendingMetronome();
+    },
+
+    setTranspose: function (semitones) {
+      pendingTransposeSemitones = clampTransposeSemitones(semitones);
+      applyPendingTranspose();
     },
 
     applySettings: function (options) {

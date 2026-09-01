@@ -1086,6 +1086,40 @@ void TestViewModels::testGuitarProPreviewControllerMixerAndMetronome() {
     QCOMPARE(controller.metronomeDivision(), 4);
 }
 
+void TestViewModels::testGuitarProPreviewControllerTranspose() {
+    PathResolver resolver(QStringLiteral("/managed/root"));
+    GuitarProPreviewController controller({
+        .mediaRepo = m_mediaFileRepo,
+        .pathResolver = resolver,
+        .errorLog = *m_errorLog,
+    });
+
+    QCOMPARE(controller.transposeSemitones(), 0);
+    controller.transposeUp();
+    QCOMPARE(controller.transposeSemitones(), 1);
+    controller.transposeDown();
+    controller.transposeDown();
+    QCOMPARE(controller.transposeSemitones(), -1);
+    controller.setTransposeSemitones(-3);
+    QCOMPARE(controller.transposeSemitones(), -3);
+    controller.setTransposeSemitones(99);
+    QCOMPARE(controller.transposeSemitones(), 12);
+    controller.setTransposeSemitones(-99);
+    QCOMPARE(controller.transposeSemitones(), -12);
+    controller.resetTranspose();
+    QCOMPARE(controller.transposeSemitones(), 0);
+
+    const QString applyJs = controller.applyPlayerSettingsJavaScript();
+    QVERIFY(applyJs.contains(QStringLiteral("transposeSemitones:0")));
+
+    controller.setTransposeSemitones(-3);
+    const QString transposedJs = controller.applyPlayerSettingsJavaScript();
+    QVERIFY(transposedJs.contains(QStringLiteral("transposeSemitones:-3")));
+
+    controller.clear();
+    QCOMPARE(controller.transposeSemitones(), 0);
+}
+
 std::optional<qlonglong> TestViewModels::createSong(const QString &title, int baseBpm) {
     Song song;
     song.title = title;

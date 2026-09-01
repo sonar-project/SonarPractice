@@ -59,6 +59,9 @@ class GuitarProPreviewController : public QObject {
     Q_PROPERTY(bool countInEnabled READ countInEnabled WRITE setCountInEnabled NOTIFY
                    countInChanged)
     Q_PROPERTY(QVariantList mixerTracks READ mixerTracks NOTIFY mixerTracksChanged)
+    /** Playback transpose in semitones (notation unchanged). */
+    Q_PROPERTY(int transposeSemitones READ transposeSemitones WRITE setTransposeSemitones NOTIFY
+                   transposeChanged)
 
   public:
     struct Dependencies {
@@ -108,6 +111,8 @@ class GuitarProPreviewController : public QObject {
     [[nodiscard]] bool countInEnabled() const;
     void setCountInEnabled(bool enabled);
     [[nodiscard]] QVariantList mixerTracks() const;
+    [[nodiscard]] int transposeSemitones() const;
+    void setTransposeSemitones(int semitones);
 
   public slots:
     /** Loads and shows preview for @p mediaFileId (Guitar Pro only). */
@@ -122,6 +127,9 @@ class GuitarProPreviewController : public QObject {
 
     Q_INVOKABLE void setTrackVolume(int index, double volume);
     Q_INVOKABLE void setTrackMuted(int index, bool muted);
+    Q_INVOKABLE void transposeUp();
+    Q_INVOKABLE void transposeDown();
+    Q_INVOKABLE void resetTranspose();
 
     /** Called from QML/WebChannel when AlphaTab posts a JSON event. */
     Q_INVOKABLE void handlePlayerEvent(const QString &json);
@@ -152,6 +160,7 @@ class GuitarProPreviewController : public QObject {
     void metronomeChanged();
     void countInChanged();
     void mixerTracksChanged();
+    void transposeChanged();
     /** Ask QML WebEngineView to evaluate @p javaScript. */
     void runPlayerJavaScript(const QString &javaScript);
 
@@ -179,6 +188,7 @@ class GuitarProPreviewController : public QObject {
     [[nodiscard]] QString mixerTracksJavaScriptArray() const;
     [[nodiscard]] QString playerSettingsObjectJavaScript() const;
     [[nodiscard]] static int clampMetronomeDivision(int division);
+    [[nodiscard]] static int clampTransposeSemitones(int semitones);
 
     Dependencies m_dependencies;
     std::atomic<int> m_loadGeneration{0};
@@ -209,6 +219,7 @@ class GuitarProPreviewController : public QObject {
     int m_metronomeDivision{4};
     bool m_countInEnabled{false};
     QVariantList m_mixerTracks{};
+    int m_transposeSemitones{0};
 };
 
 #endif // GUITARPROPREVIEWCONTROLLER_H

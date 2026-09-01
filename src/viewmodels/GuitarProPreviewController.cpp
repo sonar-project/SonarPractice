@@ -216,6 +216,36 @@ void GuitarProPreviewController::setCountInEnabled(bool enabled) {
 
 QVariantList GuitarProPreviewController::mixerTracks() const { return m_mixerTracks; }
 
+int GuitarProPreviewController::clampTransposeSemitones(int semitones) {
+    return qBound(-12, semitones, 12);
+}
+
+int GuitarProPreviewController::transposeSemitones() const { return m_transposeSemitones; }
+
+void GuitarProPreviewController::setTransposeSemitones(int semitones) {
+    const int clamped = clampTransposeSemitones(semitones);
+    if (m_transposeSemitones == clamped) {
+        return;
+    }
+    m_transposeSemitones = clamped;
+    emit transposeChanged();
+    emitPlayerCommand(QStringLiteral(
+                          "window.sonarAlphaTab && window.sonarAlphaTab.setTranspose(%1);")
+                          .arg(m_transposeSemitones));
+}
+
+void GuitarProPreviewController::transposeUp() {
+    setTransposeSemitones(m_transposeSemitones + 1);
+}
+
+void GuitarProPreviewController::transposeDown() {
+    setTransposeSemitones(m_transposeSemitones - 1);
+}
+
+void GuitarProPreviewController::resetTranspose() {
+    setTransposeSemitones(0);
+}
+
 void GuitarProPreviewController::setTrackVolume(int index, double volume) {
     if (index < 0 || index >= m_mixerTracks.size()) {
         return;
@@ -322,7 +352,8 @@ QString GuitarProPreviewController::playerSettingsObjectJavaScript() const {
                "mixer:%6,"
                "metronomeEnabled:%7,"
                "metronomeDivision:%8,"
-               "countInEnabled:%9"
+               "countInEnabled:%9,"
+               "transposeSemitones:%10"
                "}")
         .arg(m_selectedTrackIndex)
         .arg(m_tempoPercent)
@@ -332,7 +363,8 @@ QString GuitarProPreviewController::playerSettingsObjectJavaScript() const {
         .arg(mixerTracksJavaScriptArray())
         .arg(jsBool(m_metronomeEnabled))
         .arg(m_metronomeDivision)
-        .arg(jsBool(m_countInEnabled));
+        .arg(jsBool(m_countInEnabled))
+        .arg(m_transposeSemitones, 0, 10);
 }
 
 void GuitarProPreviewController::handlePlayerEvent(const QString &json) {
@@ -687,6 +719,10 @@ void GuitarProPreviewController::resetPreviewState() {
         emit countInChanged();
     }
     resetMixerTracks();
+    if (m_transposeSemitones != 0) {
+        m_transposeSemitones = 0;
+        emit transposeChanged();
+    }
     if (hadLoaded) {
         m_loaded = false;
         emit loadedChanged();

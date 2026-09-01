@@ -80,6 +80,7 @@ class TestViewModels : public QObject {
     void testGuitarProPreviewControllerLoadsTab();
     void testGuitarProPreviewControllerRejectsNonGp();
     void testGuitarProPreviewControllerMixerAndMetronome();
+    void testGuitarProPreviewControllerTranspose();
 
     void testLibrarySearchExpressionAndOr();
     void testLibrarySearchExpressionRegex();
