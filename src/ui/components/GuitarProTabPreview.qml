@@ -11,6 +11,8 @@ GroupBox {
 
     /** When true, fills a dedicated stack page (always visible; Back closes the page). */
     property bool pageMode: false
+    /** Guitar-Pro-style bottom mixer strip (vertical faders). */
+    property bool mixerVisible: false
 
     background: Rectangle {
         radius: 10
@@ -19,6 +21,11 @@ GroupBox {
     }
 
     readonly property bool showPlayer: guitarProPreviewController.usePlayer
+    readonly property bool mixerAvailable: root.showPlayer
+            && guitarProPreviewController.loaded
+            && guitarProPreviewController.mixerTracks.length > 0
+    readonly property url mixerIconSource:
+            "qrc:/qt/qml/com/sonarp/sonarpractice/assets/svg/mixer.svg"
 
     ColumnLayout {
         anchors.fill: parent
@@ -237,92 +244,8 @@ GroupBox {
                     restoreMode: Binding.RestoreBindingOrValue
                 }
             }
-        }
 
-        GroupBox {
-            id: mixerBox
-            Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(160, 28 + mixerList.count * 36)
-            Layout.maximumHeight: 180
-            visible: root.showPlayer && guitarProPreviewController.loaded
-                     && mixerList.count > 0
-            title: qsTr("Mixer")
-            padding: 8
-
-            background: Rectangle {
-                radius: 8
-                color: Theme.panelBackgroundNested
-                border.color: Theme.border
-            }
-
-            label: Label {
-                text: mixerBox.title
-                font.pixelSize: 12
-                font.weight: Font.DemiBold
-                color: Theme.textSecondary
-            }
-
-            ListView {
-                id: mixerList
-                anchors.fill: parent
-                clip: true
-                spacing: 4
-                model: guitarProPreviewController.mixerTracks
-
-                ScrollBar.vertical: ScrollBar {
-                    policy: ScrollBar.AsNeeded
-                }
-
-                delegate: RowLayout {
-                    required property var modelData
-                    required property int index
-
-                    width: mixerList.width
-                    spacing: 8
-
-                    Label {
-                        text: modelData.name || qsTr("Track %1").arg(index + 1)
-                        elide: Text.ElideRight
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: 120
-                        color: Theme.textPrimary
-                    }
-
-                    Button {
-                        text: qsTr("M")
-                        checkable: true
-                        checked: !!modelData.muted
-                        flat: true
-                        Layout.preferredWidth: 36
-                        ToolTip.visible: hovered
-                        ToolTip.text: qsTr("Mute")
-                        onToggled: guitarProPreviewController.setTrackMuted(index, checked)
-                    }
-
-                    Slider {
-                        id: volumeSlider
-                        from: 0
-                        to: 1
-                        stepSize: 0.01
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 80
-                        onMoved: guitarProPreviewController.setTrackVolume(index, value)
-
-                        Binding on value {
-                            when: !volumeSlider.pressed
-                            value: Number(modelData.volume)
-                            restoreMode: Binding.RestoreBindingOrValue
-                        }
-                    }
-
-                    Label {
-                        text: qsTr("%1%").arg(Math.round(volumeSlider.value * 100))
-                        color: Theme.textSecondary
-                        Layout.preferredWidth: 40
-                        horizontalAlignment: Text.AlignRight
-                    }
-                }
-            }
+            Item { Layout.fillWidth: true }
         }
 
         BusyIndicator {
@@ -388,5 +311,158 @@ GroupBox {
                 font.pixelSize: 13
             }
         }
+
+        // Guitar-Pro-style docked mixer: horizontal strip of vertical faders.
+        Rectangle {
+            id: mixerDock
+            Layout.fillWidth: true
+            Layout.preferredHeight: root.mixerVisible && root.mixerAvailable ? 200 : 0
+            visible: Layout.preferredHeight > 0
+            radius: 8
+            color: Theme.panelBackgroundNested
+            border.color: Theme.border
+            clip: true
+
+            Behavior on Layout.preferredHeight {
+                NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+            }
+
+            ListView {
+                id: mixerList
+                anchors.fill: parent
+                anchors.margins: 8
+                orientation: ListView.Horizontal
+                clip: true
+                spacing: 6
+                model: guitarProPreviewController.mixerTracks
+
+                ScrollBar.horizontal: ScrollBar {
+                    policy: ScrollBar.AsNeeded
+                }
+
+                delegate: Item {
+                    id: faderStrip
+                    required property var modelData
+                    required property int index
+
+                    width: 56
+                    height: mixerList.height
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 4
+
+                        Button {
+                            text: qsTr("M")
+                            checkable: true
+                            checked: !!faderStrip.modelData.muted
+                            flat: true
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.preferredWidth: 32
+                            Layout.preferredHeight: 28
+                            font.bold: true
+                            ToolTip.visible: hovered
+                            ToolTip.text: qsTr("Mute")
+                            onToggled: guitarProPreviewController.setTrackMuted(faderStrip.index, checked)
+
+                            background: Rectangle {
+                                radius: 4
+                                color: parent.checked ? Theme.danger : (parent.hovered
+                                        ? Theme.toolbarButtonHover
+                                        : "transparent")
+                                border.color: parent.checked ? Theme.danger : Theme.border
+                            }
+                            contentItem: Label {
+                                text: parent.text
+                                color: parent.checked ? Theme.textOnAccent : Theme.textPrimary
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                font: parent.font
+                            }
+                        }
+
+                        Label {
+                            text: qsTr("%1%").arg(Math.round(volumeFader.value * 100))
+                            color: Theme.textSecondary
+                            font.pixelSize: 10
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.preferredWidth: 40
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+
+                        Slider {
+                            id: volumeFader
+                            orientation: Qt.Vertical
+                            from: 0
+                            to: 1
+                            stepSize: 0.01
+                            Layout.fillHeight: true
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.preferredWidth: 28
+                            onMoved: guitarProPreviewController.setTrackVolume(faderStrip.index, value)
+
+                            Binding on value {
+                                when: !volumeFader.pressed
+                                value: Number(faderStrip.modelData.volume)
+                                restoreMode: Binding.RestoreBindingOrValue
+                            }
+                        }
+
+                        Label {
+                            text: faderStrip.modelData.name
+                                  || qsTr("Track %1").arg(faderStrip.index + 1)
+                            elide: Text.ElideRight
+                            color: Theme.textPrimary
+                            font.pixelSize: 10
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 28
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.Wrap
+                            maximumLineCount: 2
+                        }
+                    }
+                }
+            }
+        }
+
+        // Bottom bar: mixer show/hide (Guitar Pro-style).
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 4
+            visible: root.mixerAvailable
+
+            ToolButton {
+                id: mixerToggle
+                checkable: true
+                checked: root.mixerVisible
+                icon.source: root.mixerIconSource
+                icon.width: 18
+                icon.height: 18
+                icon.color: checked ? Theme.accent : Theme.textPrimary
+                ToolTip.visible: hovered
+                ToolTip.text: checked ? qsTr("Hide mixer") : qsTr("Show mixer")
+                onToggled: root.mixerVisible = checked
+
+                Binding on checked {
+                    value: root.mixerVisible
+                    restoreMode: Binding.RestoreBindingOrValue
+                }
+
+                background: Rectangle {
+                    radius: 6
+                    color: mixerToggle.checked
+                           ? Theme.accentFill
+                           : (mixerToggle.hovered ? Theme.toolbarButtonHover : "transparent")
+                    border.color: mixerToggle.checked ? Theme.borderAccent : Theme.border
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+    }
+
+    onMixerAvailableChanged: {
+        if (!root.mixerAvailable)
+            root.mixerVisible = false
     }
 }

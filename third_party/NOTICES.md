@@ -14,15 +14,15 @@ This file summarizes licenses and linking for dependencies bundled with or requi
 - **Use:** Pitch-stable tempo change for backing tracks (`AudioLib` / `RubberBandPipeline`).
 - **License:** **GNU General Public License (GPL)** (see upstream `COPYING` and file headers). Not LGPL. Commercial/proprietary use requires a [separate licence from Breakfast Quay](https://breakfastquay.com/technology/license.html).
 - **Linking:**
-  - **Linux:** dynamic only (`librubberband.so` via pkg-config; static archives are rejected at configure time).
-  - **Windows:** dynamic only (`librubberband.dll`) build via CMake FetchContent (`single/RubberBandSingle.cpp`, tag `v4.0.0`).
+  - **Linux / Gentoo:** dynamic (`librubberband.so` via pkg-config / `media-libs/rubberband`).
+  - **Windows / when pkg-config is missing:** shared library built via CMake FetchContent (`single/RubberBandSingle.cpp`, tag `v4.0.0`).
 
 ## libgp_parser
 
-- **Upstream:** [sonar-project/libgp_parser](https://github.com/sonar-project/libgp_parser) (FetchContent, release tag pinned in `cmake/Dependencies.cmake`).
+- **Upstream:** [sonar-project/libgp_parser](https://github.com/sonar-project/libgp_parser) (`find_package` when installed; otherwise FetchContent, release tag pinned in `cmake/Dependencies.cmake`).
 - **Use:** Guitar Pro file import.
 - **License:** **GNU Affero General Public License (AGPL) v3** (see upstream `LICENSE`).
-- **Linking:** Static via FetchContent (compiled into the application).
+- **Linking:** System shared library via `find_package`, or static via FetchContent when no system package is available.
 
 ## FFmpeg
 

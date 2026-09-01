@@ -34,9 +34,17 @@ include(FindFFmpeg)
 
 include(FetchContent)
 
-fetchcontent_declare(
-    libgp_parser
-    GIT_REPOSITORY https://github.com/sonar-project/libgp_parser.git
-    GIT_TAG v0.2.0
-)
-fetchcontent_makeavailable(libgp_parser)
+find_package(libgp_parser 0.2 QUIET)
+if(libgp_parser_FOUND)
+    message(STATUS "Using system libgp_parser")
+else()
+    message(STATUS "libgp_parser not found — FetchContent v0.2.1")
+    set(LIBGP_PARSER_BUILD_EXAMPLE OFF CACHE BOOL "Disable libgp_parser Example" FORCE)
+    set(LIBGP_PARSER_BUILD_TESTS OFF CACHE BOOL "Disable libgp_parser tests" FORCE)
+    fetchcontent_declare(
+        libgp_parser
+        GIT_REPOSITORY https://github.com/sonar-project/libgp_parser.git
+        GIT_TAG v0.2.1
+    )
+    fetchcontent_makeavailable(libgp_parser)
+endif()

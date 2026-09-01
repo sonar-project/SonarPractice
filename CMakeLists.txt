@@ -20,9 +20,6 @@ set(BUILD_TESTING OFF CACHE BOOL "Disable Catch2 tests globally" FORCE)
 set(CATCH_BUILD_TESTING OFF CACHE BOOL "Disable Catch2 internal tests" FORCE)
 set(CATCH_INSTALL_DOCS OFF CACHE BOOL "Disable Catch2 docs" FORCE)
 
-set(LIBGP_PARSER_BUILD_EXAMPLE OFF CACHE BOOL "Disable libgp_parser Example" FORCE)
-set(LIBGP_PARSER_BUILD_TESTS OFF CACHE BOOL "Disable libgp_parser tests" FORCE)
-
 add_compile_definitions(APP_VERSION="${PROJECT_VERSION}")
 add_compile_definitions(COMPILER_INFO="${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 string(TIMESTAMP BUILD_DATE "%Y-%m-%d %H:%M:%S")
@@ -152,6 +149,7 @@ qt_add_qml_module(SonarPractice
     assets/svg/heading-1.svg
     assets/svg/heading-2.svg
     assets/svg/heading-3.svg
+    assets/svg/mixer.svg
 
     src/ui/js/MediaKind.js
     src/ui/js/MarkdownFormat.js
