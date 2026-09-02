@@ -27,6 +27,9 @@
   let pendingMetronomeEnabled = false;
   let pendingMetronomeDivision = 4;
   let pendingCountInEnabled = false;
+  /** True while AlphaTab is playing the one-bar count-in sequence. */
+  let countInPhase = false;
+  let countInBeatsPlayed = 0;
   let pendingTransposeSemitones = 0;
   let appliedTransposeSemitones = 0;
   const PERCUSSION_CHANNEL = 9;
@@ -303,15 +306,48 @@
     }
   }
 
+  function countInBeatCount() {
+    try {
+      const bars = api && api.score && api.score.masterBars;
+      if (bars && bars.length > 0) {
+        const n = Number(bars[0].timeSignatureNumerator);
+        if (n > 0) {
+          return n;
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    return 4;
+  }
+
+  function beginCountInPhaseIfNeeded() {
+    if (pendingCountInEnabled) {
+      countInPhase = true;
+      countInBeatsPlayed = 0;
+    } else {
+      countInPhase = false;
+      countInBeatsPlayed = 0;
+    }
+  }
+
+  function endCountInPhase() {
+    countInPhase = false;
+    countInBeatsPlayed = 0;
+  }
+
   function applyPendingMetronome() {
     if (!api) {
       return;
     }
-    // Mute AlphaTab's built-in clicks — we synthesize them so beat 1 can be accented.
+    // Mute AlphaTab's ongoing metronome — we synthesize those clicks (accent on 1).
     api.metronomeVolume = 0;
-    api.countInVolume = 0;
+    // countInVolume must be > 0 so AlphaSynth runs startCountIn() before the score.
+    // Keep it tiny; audible clicks come from playWebClick during countInPhase.
+    api.countInVolume = pendingCountInEnabled ? 0.0001 : 0;
     if (!pendingMetronomeEnabled && !pendingCountInEnabled) {
       clearSubdivisionClicks();
+      endCountInPhase();
     }
   }
 
@@ -554,14 +590,25 @@
       instance.midiEventsPlayedFilter = [MidiEventType.AlphaTabMetronome];
     }
     onEvent(instance.midiEventsPlayed, function (e) {
-      if ((!pendingMetronomeEnabled && !pendingCountInEnabled) || !e || !e.events) {
+      if ((!pendingMetronomeEnabled && !pendingCountInEnabled && !countInPhase) || !e ||
+          !e.events) {
         return;
       }
       for (let i = 0; i < e.events.length; i++) {
         const midi = e.events[i];
-        if (midi && midi.isMetronome) {
-          // AlphaTab uses 0-based beat index within the bar (0 = downbeat / "1").
-          const beatInBar = Number(midi.metronomeNumerator);
+        if (!(midi && midi.isMetronome)) {
+          continue;
+        }
+        // AlphaTab uses 0-based beat index within the bar (0 = downbeat / "1").
+        const beatInBar = Number(midi.metronomeNumerator);
+        if (countInPhase) {
+          playWebClick(beatInBar === 0);
+          scheduleSubdivisionClicks(midi.metronomeDurationInMilliseconds || 0);
+          countInBeatsPlayed += 1;
+          if (countInBeatsPlayed >= countInBeatCount()) {
+            endCountInPhase();
+          }
+        } else if (pendingMetronomeEnabled) {
           playWebClick(beatInBar === 0);
           scheduleSubdivisionClicks(midi.metronomeDurationInMilliseconds || 0);
         }
@@ -777,17 +824,21 @@
     play: function () {
       if (api) {
         ensureClickAudio();
+        applyPendingMetronome();
+        beginCountInPhaseIfNeeded();
         api.play();
       }
     },
     pause: function () {
       clearSubdivisionClicks();
+      endCountInPhase();
       if (api) {
         api.pause();
       }
     },
     stop: function () {
       clearSubdivisionClicks();
+      endCountInPhase();
       if (api) {
         api.stop();
       }
@@ -795,6 +846,18 @@
     playPause: function () {
       if (api) {
         ensureClickAudio();
+        const Playing =
+          alphaTab.synth && alphaTab.synth.PlayerState
+            ? alphaTab.synth.PlayerState.Playing
+            : 1;
+        const starting = api.playerState !== Playing;
+        applyPendingMetronome();
+        if (starting) {
+          beginCountInPhaseIfNeeded();
+        } else {
+          endCountInPhase();
+          clearSubdivisionClicks();
+        }
         api.playPause();
       }
     },
