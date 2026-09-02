@@ -307,9 +307,10 @@
     if (!api) {
       return;
     }
-    api.metronomeVolume = pendingMetronomeEnabled ? 1 : 0;
-    api.countInVolume = pendingCountInEnabled ? 1 : 0;
-    if (!pendingMetronomeEnabled) {
+    // Mute AlphaTab's built-in clicks — we synthesize them so beat 1 can be accented.
+    api.metronomeVolume = 0;
+    api.countInVolume = 0;
+    if (!pendingMetronomeEnabled && !pendingCountInEnabled) {
       clearSubdivisionClicks();
     }
   }
@@ -559,6 +560,9 @@
       for (let i = 0; i < e.events.length; i++) {
         const midi = e.events[i];
         if (midi && midi.isMetronome) {
+          // AlphaTab uses 0-based beat index within the bar (0 = downbeat / "1").
+          const beatInBar = Number(midi.metronomeNumerator);
+          playWebClick(beatInBar === 0);
           scheduleSubdivisionClicks(midi.metronomeDurationInMilliseconds || 0);
         }
       }
