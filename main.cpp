@@ -90,15 +90,29 @@ int main(int argc, char *argv[]) {
 
 #ifdef SONARPRACTICE_HAS_WEBENGINE
     if (!appSettings.usesBuiltInSoundFont()) {
-        soundFontSchemeHandler->setFilePath(appSettings.effectiveSoundFontPath());
+        const QString soundFontPath = appSettings.effectiveSoundFontPath();
+        QElapsedTimer soundFontTimer;
+        soundFontTimer.start();
+        soundFontSchemeHandler->setFilePath(soundFontPath);
+        logStartupCheckpoint(startupTimer, "main: SoundFont preload");
+        qCInfo(lcStartup) << "SoundFont cache"
+                          << soundFontSchemeHandler->cachedByteCount() << "bytes from"
+                          << soundFontPath << "in" << soundFontTimer.elapsed() << "ms";
     }
-    QObject::connect(&appSettings, &AppSettings::settingsChanged, &app, [&appSettings, &soundFontSchemeHandler]() {
-        if (appSettings.usesBuiltInSoundFont()) {
-            soundFontSchemeHandler->clear();
-            return;
-        }
-        soundFontSchemeHandler->setFilePath(appSettings.effectiveSoundFontPath());
-    });
+    // Path changes require a restart to rebuild the cache; do not reload huge banks
+    // on the UI thread while the app is running.
+    QObject::connect(&appSettings, &AppSettings::settingsChanged, &app,
+                     [&appSettings, &soundFontSchemeHandler]() {
+                         if (appSettings.usesBuiltInSoundFont()) {
+                             soundFontSchemeHandler->clear();
+                             return;
+                         }
+                         const QString path = appSettings.effectiveSoundFontPath();
+                         if (!soundFontSchemeHandler->matchesPath(path)) {
+                             // Drop stale cache so the player cannot play the wrong bank.
+                             soundFontSchemeHandler->clear();
+                         }
+                     });
 #endif
 
     ApplicationBootstrap bootstrap(

@@ -31,14 +31,17 @@ Page {
         return (info && info.title && info.title.length > 0) ? info.title : root.songTitle;
     }
 
-    /** Free play: load GP without training loop and open the player page. */
+    /** Free play: load GP without training loop; copy hub bar range into the player. */
     function openGuitarProInternally(mediaId) {
         if (mediaId <= 0)
-            return;
-        guitarProPreviewController.usePlayer = true;
-        guitarProPreviewController.loopEnabled = false;
-        guitarProPreviewController.load(mediaId);
-        root.guitarProPlayerRequested();
+            return
+        const gp = guitarProPreviewController
+        gp.usePlayer = true
+        gp.loopStartBar = practiceTracker.startBar
+        gp.loopEndBar = Math.max(practiceTracker.startBar, practiceTracker.endBar)
+        gp.loopEnabled = false
+        gp.load(mediaId)
+        root.guitarProPlayerRequested()
     }
 
     background: Rectangle {

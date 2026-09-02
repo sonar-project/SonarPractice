@@ -52,6 +52,8 @@ class GuitarProPreviewController : public QObject {
     Q_PROPERTY(QString playerPageUrl READ playerPageUrl CONSTANT)
     Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
     Q_PROPERTY(bool playerReady READ playerReady NOTIFY playerReadyChanged)
+    /** True once a usable SoundFont is loaded — Play is gated on this for custom fonts. */
+    Q_PROPERTY(bool soundFontReady READ soundFontReady NOTIFY soundFontReadyChanged)
     Q_PROPERTY(int tempoPercent READ tempoPercent WRITE setTempoPercent NOTIFY tempoPercentChanged)
     Q_PROPERTY(bool loopEnabled READ loopEnabled WRITE setLoopEnabled NOTIFY loopChanged)
     Q_PROPERTY(int loopStartBar READ loopStartBar WRITE setLoopStartBar NOTIFY loopChanged)
@@ -104,6 +106,7 @@ class GuitarProPreviewController : public QObject {
     [[nodiscard]] QString playerPageUrl() const;
     [[nodiscard]] bool playing() const;
     [[nodiscard]] bool playerReady() const;
+    [[nodiscard]] bool soundFontReady() const;
     [[nodiscard]] int tempoPercent() const;
     void setTempoPercent(int tempoPercent);
     [[nodiscard]] bool loopEnabled() const;
@@ -144,6 +147,8 @@ class GuitarProPreviewController : public QObject {
     Q_INVOKABLE void handlePlayerEvent(const QString &json);
     /** JavaScript snippet to (re)load the current score into AlphaTab. */
     Q_INVOKABLE QString loadScoreJavaScript() const;
+    /** Retry SoundFont load when the player page becomes visible again. */
+    Q_INVOKABLE void onPlayerSurfaceActivated();
     /** JavaScript snippet applying track/tempo/loop to a ready player. */
     Q_INVOKABLE QString applyPlayerSettingsJavaScript() const;
     /** JavaScript snippet loading the configured SoundFont into AlphaTab. */
@@ -165,6 +170,7 @@ class GuitarProPreviewController : public QObject {
     void scoreBase64Changed();
     void playingChanged();
     void playerReadyChanged();
+    void soundFontReadyChanged();
     void tempoPercentChanged();
     void loopChanged();
     void barCountChanged();
@@ -194,11 +200,14 @@ class GuitarProPreviewController : public QObject {
     void resetPreviewState();
     void setPlaying(bool playing);
     void setPlayerReady(bool ready);
+    void setSoundFontReady(bool ready);
     void setBarCount(int count);
     void emitPlayerCommand(const QString &javaScript);
     void syncSoundFontToPlayer();
     void emitSoundFontBytesLoad();
     void ensureCustomSoundFontLoaded();
+    void ensurePlaybackSoundFont();
+    void flushPendingSoundFontReload();
     void scheduleScoreLoad();
     [[nodiscard]] QString currentSoundFontKey() const;
     void rebuildMixerTracks(const QStringList &names);
@@ -230,6 +239,7 @@ class GuitarProPreviewController : public QObject {
     QString m_scoreBase64{};
     bool m_playing{false};
     bool m_playerReady{false};
+    bool m_soundFontReady{false};
     int m_tempoPercent{100};
     bool m_loopEnabled{false};
     int m_loopStartBar{1};
@@ -243,6 +253,7 @@ class GuitarProPreviewController : public QObject {
     bool m_bridgeReady{false};
     bool m_pendingScoreAfterSoundFont{false};
     bool m_soundFontLoadInFlight{false};
+    bool m_pendingSoundFontReload{false};
     QString m_loadedSoundFontKey{};
     bool m_soundFontCustomAbandoned{false};
 };

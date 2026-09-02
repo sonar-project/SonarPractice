@@ -189,12 +189,23 @@ GroupBox {
             Button {
                 text: guitarProPreviewController.playing ? qsTr("Pause") : qsTr("Play")
                 highlighted: true
+                enabled: guitarProPreviewController.playing
+                         || guitarProPreviewController.soundFontReady
                 onClicked: guitarProPreviewController.playPause()
             }
 
             Button {
                 text: qsTr("Stop")
+                enabled: guitarProPreviewController.playing
+                         || guitarProPreviewController.soundFontReady
                 onClicked: guitarProPreviewController.stop()
+            }
+
+            Label {
+                visible: !guitarProPreviewController.soundFontReady
+                         && !guitarProPreviewController.playing
+                text: qsTr("Loading soundfont…")
+                color: Theme.textSecondary
             }
 
             Label {

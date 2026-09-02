@@ -23,6 +23,7 @@
 #include <QJsonArray>
 #include <QMetaObject>
 #include <QThread>
+#include <QTimer>
 #include <utility>
 
 namespace {
@@ -53,11 +54,35 @@ GuitarProPreviewController::GuitarProPreviewController(const Dependencies &depen
     connect(&m_dependencies.appSettings, &AppSettings::settingsChanged, this, [this]() {
         m_loadedSoundFontKey.clear();
         m_soundFontCustomAbandoned = false;
+        m_soundFontLoadInFlight = false;
+        setSoundFontReady(false);
+        pause();
         if (!m_bridgeReady) {
             return;
         }
         emitPlayerCommand(applyPlayerSettingsJavaScript());
-        ensureCustomSoundFontLoaded();
+
+        if (m_dependencies.appSettings.usesBuiltInSoundFont()) {
+            m_pendingSoundFontReload = true;
+            QTimer::singleShot(0, this, [this]() { flushPendingSoundFontReload(); });
+            return;
+        }
+
+        // Custom banks are served from the startup cache. A path change clears that
+        // cache until the next launch — ask the user to restart instead of live-loading.
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+        const QString path = m_dependencies.appSettings.effectiveSoundFontPath();
+        if (m_dependencies.soundFontSchemeHandler != nullptr
+            && m_dependencies.soundFontSchemeHandler->matchesPath(path)) {
+            m_pendingSoundFontReload = true;
+            QTimer::singleShot(0, this, [this]() { flushPendingSoundFontReload(); });
+            return;
+        }
+#endif
+        m_pendingSoundFontReload = false;
+        const QString display =
+            tr("Please restart SonarPractice to load the new SoundFont into memory.");
+        setErrorMessage(display);
     });
 }
 
@@ -123,6 +148,8 @@ QString GuitarProPreviewController::playerPageUrl() const {
 bool GuitarProPreviewController::playing() const { return m_playing; }
 
 bool GuitarProPreviewController::playerReady() const { return m_playerReady; }
+
+bool GuitarProPreviewController::soundFontReady() const { return m_soundFontReady; }
 
 int GuitarProPreviewController::tempoPercent() const { return m_tempoPercent; }
 
@@ -324,6 +351,9 @@ void GuitarProPreviewController::clear() {
 }
 
 void GuitarProPreviewController::play() {
+    if (!m_soundFontReady) {
+        return;
+    }
     emitPlayerCommand(QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.play();"));
 }
 
@@ -337,7 +367,47 @@ void GuitarProPreviewController::stop() {
 }
 
 void GuitarProPreviewController::playPause() {
+    if (!m_soundFontReady && !m_playing) {
+        return;
+    }
     emitPlayerCommand(QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.playPause();"));
+}
+
+void GuitarProPreviewController::onPlayerSurfaceActivated() {
+    if (!usePlayer() || !m_bridgeReady) {
+        return;
+    }
+
+    // Settings may have changed while Config covered this page; WebEngine often
+    // stalls large script queues when the view is not on top — retry now.
+    const QString key = currentSoundFontKey();
+    if (m_pendingSoundFontReload || key != m_loadedSoundFontKey || !m_soundFontReady) {
+        m_soundFontLoadInFlight = false;
+        m_pendingSoundFontReload = true;
+        setSoundFontReady(false);
+        flushPendingSoundFontReload();
+    }
+}
+
+void GuitarProPreviewController::flushPendingSoundFontReload() {
+    if (!m_pendingSoundFontReload || !usePlayer() || !m_bridgeReady) {
+        return;
+    }
+
+    const QString key = currentSoundFontKey();
+    if (!key.isEmpty() && key == m_loadedSoundFontKey && m_soundFontReady) {
+        m_pendingSoundFontReload = false;
+        return;
+    }
+
+    if (m_soundFontLoadInFlight) {
+        return;
+    }
+
+    syncSoundFontToPlayer();
+    if (m_soundFontLoadInFlight || m_soundFontReady) {
+        m_pendingSoundFontReload = false;
+    }
 }
 
 QString GuitarProPreviewController::loadScoreJavaScript() const {
@@ -408,8 +478,35 @@ void GuitarProPreviewController::ensureCustomSoundFontLoaded() {
         return;
     }
 
-    emitPlayerCommand(
-        QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.ensureInitialized();"));
+    syncSoundFontToPlayer();
+}
+
+void GuitarProPreviewController::ensurePlaybackSoundFont() {
+    if (!usePlayer() || m_soundFontReady) {
+        return;
+    }
+
+    // Built-in: AlphaTab loads sonivox via initApi when the score is pushed. Unlock once
+    // the player reports ready so Play is not stuck if soundFontLoaded is missed.
+    if (m_dependencies.appSettings.usesBuiltInSoundFont()) {
+        if (m_playerReady) {
+            m_loadedSoundFontKey = QStringLiteral("__builtin__");
+            m_soundFontLoadInFlight = false;
+            setSoundFontReady(true);
+        }
+        return;
+    }
+
+    if (m_soundFontCustomAbandoned) {
+        // Fallback built-in load is in progress (or finished without an event).
+        if (m_playerReady) {
+            m_loadedSoundFontKey = QStringLiteral("__builtin__");
+            m_soundFontLoadInFlight = false;
+            setSoundFontReady(true);
+        }
+        return;
+    }
+
     syncSoundFontToPlayer();
 }
 
@@ -423,18 +520,8 @@ void GuitarProPreviewController::scheduleScoreLoad() {
         return;
     }
 
-    if (m_soundFontLoadInFlight) {
-        m_pendingScoreAfterSoundFont = true;
-        return;
-    }
-
-    if (!m_dependencies.appSettings.usesBuiltInSoundFont() && !m_soundFontCustomAbandoned &&
-        currentSoundFontKey() != m_loadedSoundFontKey) {
-        m_pendingScoreAfterSoundFont = true;
-        ensureCustomSoundFontLoaded();
-        return;
-    }
-
+    // Always load the score immediately so notation appears. Custom SoundFonts load in
+    // parallel; Play stays gated on soundFontReady.
     m_pendingScoreAfterSoundFont = false;
     emitPlayerCommand(loadScoreJavaScript());
 }
@@ -459,7 +546,31 @@ void GuitarProPreviewController::syncSoundFontToPlayer() {
         return;
     }
 
+    // Custom fonts are preloaded at app start and fetched via sp-soundfont://.
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+    const QString path = m_dependencies.appSettings.effectiveSoundFontPath();
+    if (m_dependencies.soundFontSchemeHandler == nullptr
+        || !m_dependencies.soundFontSchemeHandler->matchesPath(path)) {
+        const QString display =
+            tr("Custom SoundFont is not in memory. Please restart SonarPractice "
+               "after choosing a SoundFont in Settings.");
+        setErrorMessage(display);
+        m_dependencies.errorLog.logError(QStringLiteral("GuitarProPreview.soundFont"), display);
+        m_soundFontCustomAbandoned = true;
+        m_soundFontLoadInFlight = true;
+        emitPlayerCommand(loadSoundFontJavaScript());
+        return;
+    }
+
+    const QString customUrl = SoundFontSchemeHandler::loadUrl();
+    m_soundFontLoadInFlight = true;
+    emitPlayerCommand(
+        QStringLiteral("window.sonarAlphaTab && "
+                       "window.sonarAlphaTab.loadCustomSoundFontFromUrl(%1);")
+            .arg(jsStringLiteral(customUrl)));
+#else
     emitSoundFontBytesLoad();
+#endif
 }
 
 void GuitarProPreviewController::emitSoundFontBytesLoad() {
@@ -494,9 +605,24 @@ void GuitarProPreviewController::emitSoundFontBytesLoad() {
         return;
     }
 
+    // Fallback path only (no scheme handler). Keep a modest size limit.
+    constexpr qint64 kMaxTransferBytes = 64LL * 1024LL * 1024LL;
+    if (data.size() > kMaxTransferBytes) {
+        const QString display = tr(
+            "SoundFont is too large for the fallback loader (%1 MB). "
+            "Please restart SonarPractice after selecting the SoundFont in Settings.")
+                                    .arg(data.size() / (1024 * 1024));
+        setErrorMessage(display);
+        m_dependencies.errorLog.logError(QStringLiteral("GuitarProPreview.soundFont"), display);
+        m_soundFontCustomAbandoned = true;
+        m_soundFontLoadInFlight = true;
+        emitPlayerCommand(loadSoundFontJavaScript());
+        return;
+    }
+
     m_soundFontLoadInFlight = true;
 
-    constexpr int kChunkSize = 384 * 1024;
+    constexpr int kChunkSize = 256 * 1024;
     QStringList scripts;
     scripts.reserve((data.size() + kChunkSize - 1) / kChunkSize + 2);
     scripts.append(QStringLiteral(
@@ -556,7 +682,9 @@ void GuitarProPreviewController::handlePlayerEvent(const QString &json) {
         m_loadedSoundFontKey.clear();
         m_soundFontCustomAbandoned = false;
         m_soundFontLoadInFlight = false;
-        ensureCustomSoundFontLoaded();
+        setSoundFontReady(false);
+        // Score first (notation). Custom SoundFont is started after scoreLoaded —
+        // loading SF then immediately calling api.load() cancels the in-flight font.
         scheduleScoreLoad();
         return;
     }
@@ -594,24 +722,35 @@ void GuitarProPreviewController::handlePlayerEvent(const QString &json) {
             emit loopChanged();
         }
         emitPlayerCommand(applyPlayerSettingsJavaScript());
+        ensurePlaybackSoundFont();
         return;
     }
 
     if (event == QLatin1String("playerReady")) {
         setPlayerReady(true);
         emitPlayerCommand(applyPlayerSettingsJavaScript());
+        ensurePlaybackSoundFont();
         return;
     }
 
     if (event == QLatin1String("soundFontLoaded")) {
-        m_soundFontLoadInFlight = false;
-        if (payload.value(QStringLiteral("builtIn")).toBool()) {
+        const bool builtIn = payload.value(QStringLiteral("builtIn")).toBool();
+        if (builtIn) {
+            // Ignore only while a custom load is still in flight (AlphaTab may emit an
+            // empty/builtin event). If nothing is in flight, unlock anyway so Play cannot
+            // stay disabled forever.
+            if (!m_dependencies.appSettings.usesBuiltInSoundFont() &&
+                !m_soundFontCustomAbandoned && m_soundFontLoadInFlight) {
+                return;
+            }
             m_loadedSoundFontKey = QStringLiteral("__builtin__");
         } else {
             m_loadedSoundFontKey = currentSoundFontKey();
             m_soundFontCustomAbandoned = false;
         }
+        m_soundFontLoadInFlight = false;
         setErrorMessage({});
+        setSoundFontReady(true);
         if (m_pendingScoreAfterSoundFont && !m_scoreBase64.isEmpty()) {
             m_pendingScoreAfterSoundFont = false;
             emitPlayerCommand(loadScoreJavaScript());
@@ -627,8 +766,18 @@ void GuitarProPreviewController::handlePlayerEvent(const QString &json) {
         setErrorMessage(display);
         m_dependencies.errorLog.logError(QStringLiteral("GuitarProPreview.soundFont"), display);
         if (!m_dependencies.appSettings.usesBuiltInSoundFont()) {
-            m_loadedSoundFontKey = QStringLiteral("__builtin__");
+            // JS falls back to built-in; unlock on soundFontLoaded or playerReady.
             m_soundFontCustomAbandoned = true;
+            m_loadedSoundFontKey.clear();
+            ensurePlaybackSoundFont();
+            return;
+        }
+        // Built-in failed: unlock Play so the UI is not stuck (audio may be silent).
+        m_loadedSoundFontKey = QStringLiteral("__builtin__");
+        setSoundFontReady(true);
+        if (m_pendingScoreAfterSoundFont && !m_scoreBase64.isEmpty()) {
+            m_pendingScoreAfterSoundFont = false;
+            emitPlayerCommand(loadScoreJavaScript());
         }
         return;
     }
@@ -674,6 +823,7 @@ void GuitarProPreviewController::load(qlonglong mediaFileId) {
     setVisible(true);
     setLoading(true);
     setPlayerReady(false);
+    setSoundFontReady(false);
     setPlaying(false);
     m_soundFontLoadInFlight = false;
     setErrorMessage({});
@@ -860,6 +1010,14 @@ void GuitarProPreviewController::setPlayerReady(bool ready) {
     emit playerReadyChanged();
 }
 
+void GuitarProPreviewController::setSoundFontReady(bool ready) {
+    if (m_soundFontReady == ready) {
+        return;
+    }
+    m_soundFontReady = ready;
+    emit soundFontReadyChanged();
+}
+
 void GuitarProPreviewController::setBarCount(int count) {
     const int clamped = qMax(0, count);
     if (m_barCount == clamped) {
@@ -935,6 +1093,7 @@ void GuitarProPreviewController::resetPreviewState() {
     m_loadedSoundFontKey.clear();
     m_soundFontLoadInFlight = false;
     m_soundFontCustomAbandoned = false;
+    setSoundFontReady(false);
     if (hadLoaded) {
         m_loaded = false;
         emit loadedChanged();

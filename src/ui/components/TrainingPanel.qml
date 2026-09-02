@@ -87,10 +87,17 @@ GroupBox {
     }
 
     function requestInternalPlayer() {
+        if (root.guitarProMediaId <= 0)
+            return
+
+        // Apply hub bars/tempo/track before load so the first score push includes them.
+        root.applyInternalPlayerSession()
+
         if (!root.ensureScoreLoaded())
             return
 
         if (guitarProPreviewController.loaded) {
+            // Re-apply after load defaults may have overwritten track/loop.
             root.applyInternalPlayerSession()
             root.internalPlayerRequested()
             return

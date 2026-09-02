@@ -38,6 +38,8 @@ Page {
         onStopSessionRequested: root.stopSessionRequested()
     }
 
+    StackView.onActivated: guitarProPreviewController.onPlayerSurfaceActivated()
+
     GuitarProTabPreview {
         anchors.fill: parent
         anchors.margins: 12

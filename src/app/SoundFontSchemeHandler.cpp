@@ -17,9 +17,10 @@ namespace {
 
 void SoundFontSchemeHandler::registerScheme() {
     QWebEngineUrlScheme scheme(kSchemeName);
-    scheme.setFlags(QWebEngineUrlScheme::SecureScheme | QWebEngineUrlScheme::LocalScheme
-                    | QWebEngineUrlScheme::LocalAccessAllowed
-                    | QWebEngineUrlScheme::CorsEnabled);
+    // Do not mark LocalScheme: the player page is served from qrc and cannot fetch
+    // LocalScheme resources. FetchApiAllowed is required for fetch()/XHR (Qt 6.6+).
+    scheme.setFlags(QWebEngineUrlScheme::SecureScheme | QWebEngineUrlScheme::CorsEnabled
+                    | QWebEngineUrlScheme::FetchApiAllowed);
     QWebEngineUrlScheme::registerScheme(scheme);
 }
 
@@ -48,7 +49,15 @@ void SoundFontSchemeHandler::clear() {
     m_cachedData.clear();
 }
 
+QString SoundFontSchemeHandler::filePath() const { return m_filePath; }
+
 bool SoundFontSchemeHandler::hasCachedData() const { return !m_cachedData.isEmpty(); }
+
+qsizetype SoundFontSchemeHandler::cachedByteCount() const { return m_cachedData.size(); }
+
+bool SoundFontSchemeHandler::matchesPath(const QString &path) const {
+    return !path.isEmpty() && path == m_filePath && !m_cachedData.isEmpty();
+}
 
 void SoundFontSchemeHandler::requestStarted(QWebEngineUrlRequestJob *request) {
     if (!request) {
@@ -60,6 +69,7 @@ void SoundFontSchemeHandler::requestStarted(QWebEngineUrlRequestJob *request) {
         return;
     }
 
+    // Share the cache buffer; do not deep-copy large SoundFonts (~100MB+).
     auto *buffer = new QBuffer();
     buffer->setData(m_cachedData);
     buffer->open(QIODevice::ReadOnly);

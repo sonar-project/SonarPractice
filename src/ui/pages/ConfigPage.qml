@@ -58,6 +58,7 @@ Page {
     property bool soundFontFeedbackIsError: false
     property bool soundFontUseBuiltIn: true
     property string soundFontPathDraft: ""
+    property bool soundFontRestartRequired: false
 
     function showStorageFeedback(message, isError) {
         storageFeedbackText = message
@@ -72,6 +73,7 @@ Page {
     function clearSoundFontFeedback() {
         soundFontFeedbackText = ""
         soundFontFeedbackIsError = false
+        soundFontRestartRequired = false
     }
 
     function loadSoundFontFields() {
@@ -146,6 +148,11 @@ Page {
             appSettings.reload()
         }
 
+        if (root.soundFontRestartRequired && !root.firstRun) {
+            // Keep the settings page open so the restart hint stays visible.
+            return
+        }
+
         root.configurationSaved()
     }
 
@@ -217,8 +224,13 @@ Page {
         if (!guitarProPreviewController.playerAvailable)
             return true
 
+        const previousPath = appSettings.soundFontPath
+        const previouslyBuiltIn = appSettings.usesBuiltInSoundFont
+
         if (soundFontUseBuiltIn) {
             appSettings.clearSoundFontPath()
+            // Switching back to built-in applies on the next player open without a full restart.
+            soundFontRestartRequired = false
             return true
         }
 
@@ -236,7 +248,14 @@ Page {
             return false
         }
 
-        clearSoundFontFeedback()
+        soundFontRestartRequired = previouslyBuiltIn || previousPath !== path
+        if (soundFontRestartRequired) {
+            soundFontFeedbackText = qsTr(
+                        "SoundFont saved. Please restart SonarPractice so the bank can be loaded into memory.")
+            soundFontFeedbackIsError = false
+        } else {
+            clearSoundFontFeedback()
+        }
         return true
     }
 
@@ -436,7 +455,7 @@ Page {
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: qsTr("Large SoundFonts may take a few seconds to load. Free alternatives include GeneralUser GS, Arachno, and FluidR3_GM.")
+                    text: qsTr("Custom SoundFonts are loaded into memory when the app starts. After choosing a new bank, save and restart SonarPractice. Large General MIDI banks (e.g. Arachno, GeneralUser GS) are supported.")
                     font.pixelSize: 12
                     color: Theme.textSecondary
                 }

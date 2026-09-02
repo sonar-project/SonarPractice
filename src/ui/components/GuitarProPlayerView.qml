@@ -10,6 +10,7 @@ Item {
     id: root
 
     property var scriptQueue: []
+    property int scriptEpoch: 0
 
     function themeJavaScript() {
         return "window.sonarAlphaTab && window.sonarAlphaTab.setTheme("
@@ -21,16 +22,26 @@ Item {
     }
 
     function runScriptQueue(scripts) {
+        scriptEpoch += 1
+        const epoch = scriptEpoch
         scriptQueue = scripts.slice(0)
-        runNextQueuedScript()
+        runNextQueuedScript(epoch)
     }
 
-    function runNextQueuedScript() {
+    function runNextQueuedScript(epoch) {
+        if (epoch !== root.scriptEpoch)
+            return
         if (scriptQueue.length === 0)
             return
         const js = scriptQueue.shift()
-        webView.runJavaScript(themeJavaScript() + js, function () {
-            runNextQueuedScript()
+        // SoundFont byte chunks are large; skip theme prepend to keep transfer fast.
+        const full = (js && js.indexOf("SoundFontBytes") !== -1)
+                     ? js
+                     : (themeJavaScript() + js)
+        webView.runJavaScript(full, function () {
+            if (epoch !== root.scriptEpoch)
+                return
+            runNextQueuedScript(epoch)
         })
     }
 

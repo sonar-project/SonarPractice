@@ -443,6 +443,8 @@
   }
 
   function loadBuiltinSoundFont() {
+    useCustomSoundFont = false;
+    initApi();
     if (!api) {
       return;
     }
@@ -452,14 +454,54 @@
     }
   }
 
+  function loadCustomSoundFontFromUrl(url) {
+    useCustomSoundFont = true;
+    initApi();
+    if (!api) {
+      return;
+    }
+    const href = String(url || "");
+    if (!href) {
+      notifySoundFontFailed("SoundFont URL is empty", true);
+      return;
+    }
+    loadingSoundFontKey = CUSTOM_SOUND_FONT_KEY;
+    setStatus("Loading soundfont…");
+    // Fetch from the Qt scheme handler (bank preloaded in C++ at app start).
+    fetch(href)
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("SoundFont HTTP " + response.status);
+        }
+        return response.arrayBuffer();
+      })
+      .then(function (bytes) {
+        if (!api) {
+          throw new Error("Player is not initialized");
+        }
+        if (!bytes || bytes.byteLength === 0) {
+          throw new Error("SoundFont file is empty");
+        }
+        if (typeof api.resetSoundFonts === "function") {
+          api.resetSoundFonts();
+        }
+        if (!api.loadSoundFont(bytes, false)) {
+          throw new Error("Unsupported SoundFont format");
+        }
+      })
+      .catch(function (e) {
+        notifySoundFontFailed(eventMessage(e, "SoundFont load failed"), true);
+      });
+  }
+
   function beginSoundFontBytesLoad() {
+    useCustomSoundFont = true;
     initApi();
     if (!api) {
       return;
     }
     soundFontBytesBuffers = [];
     loadingSoundFontKey = CUSTOM_SOUND_FONT_KEY;
-    useCustomSoundFont = true;
   }
 
   function appendSoundFontBytesChunk(base64) {
@@ -493,10 +535,8 @@
         bytes.set(new Uint8Array(parts[i]), offset);
         offset += parts[i].byteLength;
       }
-      if (isBuiltInSoundFontKey(activeSoundFontKey)) {
-        if (typeof api.resetSoundFonts === "function") {
-          api.resetSoundFonts();
-        }
+      if (typeof api.resetSoundFonts === "function") {
+        api.resetSoundFonts();
       }
       if (!api.loadSoundFont(bytes, false)) {
         throw new Error("Unsupported SoundFont format");
@@ -537,6 +577,21 @@
 
     applyPageTheme(darkTheme);
 
+    const playerOptions = {
+      playerMode: alphaTab.PlayerMode.EnabledSynthesizer,
+      enablePlayer: true,
+      enableCursor: true,
+      enableAnimatedBeatCursor: true,
+      enableElementHighlighting: true,
+      scrollMode: alphaTab.ScrollMode.Continuous,
+      scrollElement: scrollEl,
+    };
+    // Omit built-in when a custom font will be loaded (loadScore sets useCustomSoundFont
+    // before initApi) so Play is not unlocked early by sonivox.
+    if (!useCustomSoundFont) {
+      playerOptions.soundFont = BUILTIN_SOUND_FONT;
+    }
+
     const instance = new alphaTab.AlphaTabApi(hostEl, {
       core: {
         engine: "html5",
@@ -551,16 +606,7 @@
       notation: {
         rhythmMode: alphaTab.TabRhythmMode.ShowWithBeams,
       },
-      player: {
-        playerMode: alphaTab.PlayerMode.EnabledSynthesizer,
-        enablePlayer: true,
-        enableCursor: true,
-        enableAnimatedBeatCursor: true,
-        enableElementHighlighting: true,
-        soundFont: BUILTIN_SOUND_FONT,
-        scrollMode: alphaTab.ScrollMode.Continuous,
-        scrollElement: scrollEl,
-      },
+      player: playerOptions,
     });
 
     // AlphaTab 1.8 exposes soundFontLoaded + error, not soundFontLoadFailed on the API.
@@ -798,10 +844,11 @@
     },
 
     loadBuiltInSoundFont: function () {
-      useCustomSoundFont = false;
       activeSoundFontKey = null;
       loadBuiltinSoundFont();
     },
+
+    loadCustomSoundFontFromUrl: loadCustomSoundFontFromUrl,
 
     beginSoundFontBytesLoad: beginSoundFontBytesLoad,
     appendSoundFontBytesChunk: appendSoundFontBytesChunk,
