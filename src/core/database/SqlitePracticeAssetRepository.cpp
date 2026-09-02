@@ -122,3 +122,32 @@ qlonglong SqlitePracticeAssetRepository::lastPrimaryMediaIdForSong(qlonglong son
     }
     return 0;
 }
+
+qlonglong SqlitePracticeAssetRepository::lastPracticeAssetIdForSong(qlonglong songId) {
+    if (songId <= 0 || !RepositoryUtils::ensureOpen(m_connection)) {
+        return 0;
+    }
+
+    QSqlQuery sel(RepositoryUtils::database(m_connection));
+    sel.prepare(QStringLiteral(
+        "SELECT pa.id "
+        "FROM practice_journal pj "
+        "JOIN practice_assets pa ON pa.id = pj.asset_id "
+        "WHERE pa.song_id = :song_id "
+        "AND (pa.guitar_pro_id IS NOT NULL OR pa.audio_id IS NOT NULL OR "
+        "     pa.video_id IS NOT NULL OR pa.image_id IS NOT NULL OR pa.document_id IS NOT NULL) "
+        "ORDER BY pj.practice_date DESC, pj.id DESC "
+        "LIMIT 1"));
+    sel.bindValue(QStringLiteral(":song_id"), songId);
+
+    if (!sel.exec()) {
+        qCritical() << "[SqlitePracticeAssetRepository] lastPracticeAssetIdForSong failed:"
+                    << sel.lastError().text();
+        return 0;
+    }
+
+    if (sel.next()) {
+        return sel.value(0).toLongLong();
+    }
+    return 0;
+}

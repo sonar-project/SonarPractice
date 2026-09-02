@@ -11,6 +11,7 @@ class SqlitePracticeAssetRepository final : public IPracticeAssetRepository {
     [[nodiscard]] std::optional<PracticeAsset> getById(qlonglong id) override;
     [[nodiscard]] std::optional<qlonglong> upsert(const PracticeAsset &asset) override;
     [[nodiscard]] qlonglong lastPrimaryMediaIdForSong(qlonglong songId) override;
+    [[nodiscard]] qlonglong lastPracticeAssetIdForSong(qlonglong songId) override;
 
   private:
     static PracticeAsset assetFromQuery(class QSqlQuery &query);

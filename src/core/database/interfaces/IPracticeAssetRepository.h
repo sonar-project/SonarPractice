@@ -27,6 +27,11 @@ class IPracticeAssetRepository {
      */
     [[nodiscard]] virtual qlonglong lastPrimaryMediaIdForSong(qlonglong songId) = 0;
 
+    /**
+     * Returns the practice_assets.id from the most recent journal entry for a song.
+     */
+    [[nodiscard]] virtual qlonglong lastPracticeAssetIdForSong(qlonglong songId) = 0;
+
   protected:
     IPracticeAssetRepository() = default;
 };

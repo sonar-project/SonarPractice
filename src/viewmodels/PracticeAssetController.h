@@ -19,6 +19,8 @@ class PracticeAssetController : public QObject {
                                      QObject *parent = nullptr);
 
     Q_INVOKABLE qlonglong lastMediaFileIdForSong(qlonglong songId);
+    /** Most recent practice_assets.id used for this song (from journal), or 0. */
+    Q_INVOKABLE qlonglong lastPracticeAssetIdForSong(qlonglong songId);
     Q_INVOKABLE qlonglong mediaFileIdForAsset(qlonglong assetId);
 
     Q_INVOKABLE QVariantMap assetById(qlonglong assetId) const;

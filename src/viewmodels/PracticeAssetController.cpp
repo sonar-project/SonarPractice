@@ -19,6 +19,10 @@ qlonglong PracticeAssetController::lastMediaFileIdForSong(qlonglong songId) {
     return m_assetRepo.lastPrimaryMediaIdForSong(songId);
 }
 
+qlonglong PracticeAssetController::lastPracticeAssetIdForSong(qlonglong songId) {
+    return m_assetRepo.lastPracticeAssetIdForSong(songId);
+}
+
 qlonglong PracticeAssetController::mediaFileIdForAsset(qlonglong assetId) {
     const auto asset = m_assetRepo.getById(assetId);
     if (!asset.has_value()) {

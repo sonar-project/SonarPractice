@@ -272,38 +272,86 @@ GroupBox {
         Qt.callLater(function () {
             root._refreshAllKindRowCaches();
 
-            const assetId = root.requestedActivePracticeAssetId > 0 ? root.requestedActivePracticeAssetId : practiceAssetController.lastMediaFileIdForSong(root.songId);
+            // Prefer explicit request (reminder / dashboard session), then last practiced asset.
+            let assetId = root.requestedActivePracticeAssetId > 0
+                          ? root.requestedActivePracticeAssetId
+                          : practiceAssetController.lastPracticeAssetIdForSong(root.songId);
 
             if (assetId > 0) {
                 const asset = practiceAssetController.assetById(assetId);
                 if (asset && Object.keys(asset).length > 0) {
-                    root._pendingAsset = {
-                        guitarProId: asset.guitarProId ?? 0,
-                        audioId: asset.audioId ?? 0,
-                        videoId: asset.videoId ?? 0,
-                        imageId: asset.imageId ?? 0,
-                        documentId: asset.documentId ?? 0
-                    };
-                    root._syncGuitarProMediaIdFromPending();
-                    _restoreComboForMediaId(MediaKind.GuitarPro, asset.guitarProId ?? 0);
-                    _restoreComboForMediaId(MediaKind.Audio, asset.audioId ?? 0);
-                    _restoreComboForMediaId(MediaKind.Video, asset.videoId ?? 0);
-                    _restoreComboForMediaId(MediaKind.Image, asset.imageId ?? 0);
-                    _restoreComboForMediaId(MediaKind.Document, asset.documentId ?? 0);
-                    const primaryMediaId = practiceAssetController.mediaFileIdForAsset(assetId);
-                    if (primaryMediaId > 0) {
-                        Qt.callLater(function () {
-                            root._activateRadioForMediaId(primaryMediaId);
-                        });
-                    }
-                    root._updateKindLabels();
+                    root._applyAssetSelection(asset, assetId);
                     return;
                 }
+            }
+
+            // No asset yet: preselect a media file (last practiced primary, else first available).
+            let mediaId = practiceAssetController.lastMediaFileIdForSong(root.songId);
+            if (mediaId <= 0)
+                mediaId = root._firstAvailableMediaId();
+            if (mediaId > 0) {
+                root._applyMediaFileSelection(mediaId);
+                return;
             }
 
             root._clearPracticeMaterial();
             root._updateKindLabels();
         });
+    }
+
+    function _applyAssetSelection(asset, assetId) {
+        root._pendingAsset = {
+            guitarProId: asset.guitarProId ?? 0,
+            audioId: asset.audioId ?? 0,
+            videoId: asset.videoId ?? 0,
+            imageId: asset.imageId ?? 0,
+            documentId: asset.documentId ?? 0
+        };
+        root._syncGuitarProMediaIdFromPending();
+        _restoreComboForMediaId(MediaKind.GuitarPro, asset.guitarProId ?? 0);
+        _restoreComboForMediaId(MediaKind.Audio, asset.audioId ?? 0);
+        _restoreComboForMediaId(MediaKind.Video, asset.videoId ?? 0);
+        _restoreComboForMediaId(MediaKind.Image, asset.imageId ?? 0);
+        _restoreComboForMediaId(MediaKind.Document, asset.documentId ?? 0);
+        const primaryMediaId = practiceAssetController.mediaFileIdForAsset(assetId);
+        if (primaryMediaId > 0) {
+            Qt.callLater(function () {
+                root._activateRadioForMediaId(primaryMediaId);
+            });
+        }
+        root._updateKindLabels();
+    }
+
+    /** Preselect a single media file in its kind combo and mark it active. */
+    function _applyMediaFileSelection(mediaId) {
+        if (mediaId <= 0)
+            return;
+        for (const kind of root.kindOrder) {
+            const kindRow = root._kindRowCache[kind];
+            if (!kindRow)
+                continue;
+            const idx = kindRow.filteredFiles.findIndex(f => f.mediaId === mediaId);
+            if (idx < 0)
+                continue;
+            kindRow.kindCombo.currentIndex = idx + 1;
+            root._setPendingKindSlot(kind, mediaId);
+            Qt.callLater(function () {
+                root._activateRadioForMediaId(mediaId);
+            });
+            root._updateKindLabels();
+            return;
+        }
+        root._clearPracticeMaterial();
+        root._updateKindLabels();
+    }
+
+    function _firstAvailableMediaId() {
+        for (const kind of root.kindOrder) {
+            const files = mediaFileModel.filesForKind(kind);
+            if (files && files.length > 0)
+                return files[0].mediaId;
+        }
+        return 0;
     }
 
     function _restoreComboForMediaId(kind, mediaId) {
@@ -325,30 +373,8 @@ GroupBox {
 
     onRequestedActiveMediaIdChanged: root.restoreLastSelection()
     onRequestedActivePracticeAssetIdChanged: {
-        if (root.requestedActivePracticeAssetId > 0) {
-            const asset = practiceAssetController.assetById(root.requestedActivePracticeAssetId);
-            if (asset && Object.keys(asset).length > 0) {
-                root._pendingAsset = {
-                    guitarProId: asset.guitarProId ?? 0,
-                    audioId: asset.audioId ?? 0,
-                    videoId: asset.videoId ?? 0,
-                    imageId: asset.imageId ?? 0,
-                    documentId: asset.documentId ?? 0
-                };
-                root._syncGuitarProMediaIdFromPending();
-                _restoreComboForMediaId(MediaKind.GuitarPro, asset.guitarProId ?? 0);
-                _restoreComboForMediaId(MediaKind.Audio, asset.audioId ?? 0);
-                _restoreComboForMediaId(MediaKind.Video, asset.videoId ?? 0);
-                _restoreComboForMediaId(MediaKind.Image, asset.imageId ?? 0);
-                _restoreComboForMediaId(MediaKind.Document, asset.documentId ?? 0);
-                const primaryMediaId = practiceAssetController.mediaFileIdForAsset(root.requestedActivePracticeAssetId);
-                if (primaryMediaId > 0) {
-                    Qt.callLater(function () {
-                        root._activateRadioForMediaId(primaryMediaId);
-                    });
-                }
-            }
-        }
+        if (root.requestedActivePracticeAssetId > 0)
+            root.restoreLastSelection();
     }
 
     onSongIdChanged: root.restoreLastSelection()
