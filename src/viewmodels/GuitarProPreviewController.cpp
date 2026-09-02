@@ -80,9 +80,9 @@ GuitarProPreviewController::GuitarProPreviewController(const Dependencies &depen
         }
 #endif
         m_pendingSoundFontReload = false;
-        const QString display =
-            tr("Please restart SonarPractice to load the new SoundFont into memory.");
-        setErrorMessage(display);
+        // const QString display =
+        //     tr("Please restart SonarPractice to load the new SoundFont into memory.");
+        // setErrorMessage(display);
     });
 }
 

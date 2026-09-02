@@ -455,7 +455,7 @@ Page {
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: qsTr("Custom SoundFonts are loaded into memory when the app starts. After choosing a new bank, save and restart SonarPractice. Large General MIDI banks (e.g. Arachno, GeneralUser GS) are supported.")
+                    text: qsTr("Custom SoundFonts are experimental. If you don't hear any sound, please restart SonarPractice.")
                     font.pixelSize: 12
                     color: Theme.textSecondary
                 }
