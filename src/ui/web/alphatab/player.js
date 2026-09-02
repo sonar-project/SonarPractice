@@ -30,6 +30,11 @@
   /** True while AlphaTab is playing the one-bar count-in sequence. */
   let countInPhase = false;
   let countInBeatsPlayed = 0;
+  /** Live score tempo (BPM); updated from playerPositionChanged when available. */
+  let liveBpm = 120;
+  /** Independent metronome clock (avoids AlphaTab event-rate / duration quirks). */
+  let metroTimerId = null;
+  let metroClickIndex = 0;
   let pendingTransposeSemitones = 0;
   let appliedTransposeSemitones = 0;
   const PERCUSSION_CHANNEL = 9;
@@ -214,18 +219,85 @@
     return 4;
   }
 
-  function clicksPerBeat(division) {
-    const d = normalizeDivision(division);
-    if (d === 8) {
-      return 2;
+  function clicksPerQuarter(division) {
+    return Math.max(1, normalizeDivision(division) / 4);
+  }
+
+  function resolveBpm() {
+    if (liveBpm > 0) {
+      return liveBpm;
     }
-    if (d === 16) {
-      return 4;
+    try {
+      if (api && api.score) {
+        const t = Number(api.score.tempo);
+        if (t > 0) {
+          return t;
+        }
+      }
+    } catch (e) {
+      /* ignore */
     }
-    if (d === 32) {
-      return 8;
+    return 120;
+  }
+
+  function metronomeIntervalMs() {
+    const speed = api && api.playbackSpeed > 0 ? Number(api.playbackSpeed) : 1;
+    const quarterWallMs = 60000 / resolveBpm() / speed;
+    return quarterWallMs / clicksPerQuarter(pendingMetronomeDivision);
+  }
+
+  function metronomeClicksPerBar() {
+    return countInBeatCount() * clicksPerQuarter(pendingMetronomeDivision);
+  }
+
+  function stopMetronomeClock() {
+    if (metroTimerId !== null) {
+      clearTimeout(metroTimerId);
+      metroTimerId = null;
     }
-    return 1;
+  }
+
+  function isPlayerPlaying() {
+    if (!api) {
+      return false;
+    }
+    const Playing =
+      alphaTab.synth && alphaTab.synth.PlayerState
+        ? alphaTab.synth.PlayerState.Playing
+        : 1;
+    return api.playerState === Playing;
+  }
+
+  function scheduleNextMetronomeClockTick() {
+    stopMetronomeClock();
+    if (!pendingMetronomeEnabled || countInPhase || !isPlayerPlaying()) {
+      return;
+    }
+    const interval = Math.max(25, metronomeIntervalMs());
+    metroTimerId = setTimeout(function () {
+      metroTimerId = null;
+      if (!pendingMetronomeEnabled || countInPhase || !isPlayerPlaying()) {
+        return;
+      }
+      const perBar = metronomeClicksPerBar();
+      playWebClick(perBar > 0 && metroClickIndex % perBar === 0);
+      metroClickIndex += 1;
+      scheduleNextMetronomeClockTick();
+    }, interval);
+  }
+
+  function startMetronomeClock(resetIndex) {
+    if (resetIndex) {
+      metroClickIndex = 0;
+    }
+    stopMetronomeClock();
+    if (!pendingMetronomeEnabled || countInPhase || !isPlayerPlaying()) {
+      return;
+    }
+    const perBar = metronomeClicksPerBar();
+    playWebClick(perBar > 0 && metroClickIndex % perBar === 0);
+    metroClickIndex += 1;
+    scheduleNextMetronomeClockTick();
   }
 
   function ensureClickAudio() {
@@ -269,17 +341,18 @@
     osc.stop(now + 0.045);
   }
 
-  function scheduleSubdivisionClicks(beatDurationMs) {
+  function scheduleCountInSubdivisionClicks(beatDurationMs) {
     clearSubdivisionClicks();
-    if (!pendingMetronomeEnabled && !pendingCountInEnabled) {
+    if (!countInPhase) {
       return;
     }
-    const perBeat = clicksPerBeat(pendingMetronomeDivision);
+    const perBeat = clicksPerQuarter(pendingMetronomeDivision);
     if (perBeat <= 1 || !(beatDurationMs > 0)) {
       return;
     }
-    const speed = api && api.playbackSpeed > 0 ? api.playbackSpeed : 1;
-    const stepMs = beatDurationMs / perBeat / speed;
+    // Count-in event duration is musical beat length; convert to wall clock once.
+    const speed = api && api.playbackSpeed > 0 ? Number(api.playbackSpeed) : 1;
+    const stepMs = beatDurationMs / speed / perBeat;
     for (let i = 1; i < perBeat; i++) {
       const id = setTimeout(function () {
         playWebClick(false);
@@ -336,18 +409,31 @@
     countInBeatsPlayed = 0;
   }
 
+  function finishCountInAndMaybeStartMetronome() {
+    endCountInPhase();
+    if (pendingMetronomeEnabled && isPlayerPlaying()) {
+      startMetronomeClock(true);
+    }
+  }
+
   function applyPendingMetronome() {
     if (!api) {
       return;
     }
-    // Mute AlphaTab's ongoing metronome — we synthesize those clicks (accent on 1).
+    // Mute AlphaTab's ongoing metronome — we synthesize clicks (accent on 1).
     api.metronomeVolume = 0;
     // countInVolume must be > 0 so AlphaSynth runs startCountIn() before the score.
-    // Keep it tiny; audible clicks come from playWebClick during countInPhase.
     api.countInVolume = pendingCountInEnabled ? 0.0001 : 0;
+    if (!pendingMetronomeEnabled) {
+      stopMetronomeClock();
+    }
     if (!pendingMetronomeEnabled && !pendingCountInEnabled) {
       clearSubdivisionClicks();
       endCountInPhase();
+      return;
+    }
+    if (pendingMetronomeEnabled && isPlayerPlaying() && !countInPhase) {
+      startMetronomeClock(false);
     }
   }
 
@@ -603,15 +689,24 @@
         const beatInBar = Number(midi.metronomeNumerator);
         if (countInPhase) {
           playWebClick(beatInBar === 0);
-          scheduleSubdivisionClicks(midi.metronomeDurationInMilliseconds || 0);
+          scheduleCountInSubdivisionClicks(midi.metronomeDurationInMilliseconds || 0);
           countInBeatsPlayed += 1;
           if (countInBeatsPlayed >= countInBeatCount()) {
-            endCountInPhase();
+            finishCountInAndMaybeStartMetronome();
           }
-        } else if (pendingMetronomeEnabled) {
-          playWebClick(beatInBar === 0);
-          scheduleSubdivisionClicks(midi.metronomeDurationInMilliseconds || 0);
+        } else if (pendingMetronomeEnabled && beatInBar === 0) {
+          // Resync accent to bar starts; the BPM clock drives the actual click rate.
+          metroClickIndex = 0;
         }
+      }
+    });
+    onEvent(instance.playerPositionChanged, function (pos) {
+      if (!pos) {
+        return;
+      }
+      const bpm = Number(pos.originalTempo || pos.currentTempo || 0);
+      if (bpm > 0) {
+        liveBpm = bpm;
       }
     });
   }
@@ -693,6 +788,14 @@
       scoreReady = true;
       // Colors only — do not api.render() here (async render races renderTracks).
       applyNotationTheme(darkTheme, false);
+      try {
+        const tempo = Number(instance.score && instance.score.tempo);
+        if (tempo > 0) {
+          liveBpm = tempo;
+        }
+      } catch (e) {
+        /* ignore */
+      }
       applyAllPendingSettings();
       const names = (instance.score.tracks || []).map(function (t, i) {
         return t.name || ("Track " + (i + 1));
@@ -719,14 +822,19 @@
           : 1;
       const playing = args && args.state === Playing;
       if (!playing) {
+        stopMetronomeClock();
         clearSubdivisionClicks();
       } else {
         ensureClickAudio();
+        if (pendingMetronomeEnabled && !countInPhase) {
+          startMetronomeClock(true);
+        }
       }
       notifyNative("playerState", { playing: !!playing });
     });
 
     onEvent(instance.playerFinished, function () {
+      stopMetronomeClock();
       clearSubdivisionClicks();
       notifyNative("playerState", { playing: false });
     });
@@ -830,6 +938,7 @@
       }
     },
     pause: function () {
+      stopMetronomeClock();
       clearSubdivisionClicks();
       endCountInPhase();
       if (api) {
@@ -837,6 +946,7 @@
       }
     },
     stop: function () {
+      stopMetronomeClock();
       clearSubdivisionClicks();
       endCountInPhase();
       if (api) {
@@ -855,6 +965,7 @@
         if (starting) {
           beginCountInPhaseIfNeeded();
         } else {
+          stopMetronomeClock();
           endCountInPhase();
           clearSubdivisionClicks();
         }
@@ -865,6 +976,9 @@
     setTempoPercent: function (percent) {
       pendingTempoPercent = Math.max(25, Math.min(200, Number(percent) || 100));
       applyPendingTempo();
+      if (pendingMetronomeEnabled && isPlayerPlaying() && !countInPhase) {
+        startMetronomeClock(false);
+      }
     },
 
     setTrackIndex: function (index) {
