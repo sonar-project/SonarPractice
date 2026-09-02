@@ -47,12 +47,15 @@ namespace {
     }
 
     void ensureDefaultAdminUser(SqliteUserRepository &userRepo) {
-        const std::optional<User> existing = userRepo.getUser(1);
+        std::optional<User> existing = userRepo.getUser(1);
         if (!existing.has_value()) {
             User admin;
             admin.name = QStringLiteral("admin");
             admin.role = QStringLiteral("admin");
-            userRepo.createUser(admin);
+            if (auto userId = userRepo.createUser(admin); !userId) {
+                qCritical("dont create user admin");
+            }
+
             return;
         }
 
@@ -60,7 +63,9 @@ namespace {
             User admin = *existing;
             admin.name = QStringLiteral("admin");
             admin.role = QStringLiteral("admin");
-            userRepo.updateUser(admin);
+            if (auto userId = userRepo.updateUser(admin); !userId) {
+                qCritical("dont create user admin");
+            }
         }
     }
 
