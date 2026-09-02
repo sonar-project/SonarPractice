@@ -218,7 +218,7 @@ void LibraryLinkModel::applyFilter() {
     m_rows.clear();
 
     m_rows.reserve(m_allRows.size());
-    for (const LibraryRow &row : m_allRows) {
+    for (const LibraryRow &row : std::as_const(m_allRows)) {
         if (matchesFilter(row)) {
             m_rows.append(row);
         }
@@ -303,7 +303,7 @@ QVariantList LibraryLinkModel::visibleUnlinkedSongIds() {
     QVariantList songIds;
     songIds.reserve(m_rows.size());
 
-    for (const LibraryRow &row : m_rows) {
+    for (const LibraryRow &row : std::as_const(m_rows)) {
         if (!row.isLinked) {
             songIds.append(row.songId);
         }
@@ -470,7 +470,7 @@ int LibraryLinkModel::visibleUnlinkedCount() {
     ensureFilterCurrent();
 
     int count = 0;
-    for (const LibraryRow &row : m_rows) {
+    for (const LibraryRow &row : std::as_const(m_rows)) {
         if (!row.isLinked) {
             ++count;
         }
