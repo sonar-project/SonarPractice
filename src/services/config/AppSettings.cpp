@@ -475,7 +475,7 @@ void AppSettings::clearSoundFontPath() {
 bool AppSettings::usesBuiltInSoundFont() const { return effectiveSoundFontPath().isEmpty(); }
 
 QString AppSettings::effectiveSoundFontPath() const {
-    const QString configured = soundFontPath();
+    QString configured = soundFontPath();
     if (configured.isEmpty() || !isValidSoundFontExtension(configured)) {
         return {};
     }
