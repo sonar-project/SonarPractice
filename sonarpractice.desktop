@@ -1,6 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=SonarPractice
-Exec=/usr/bin/SonarPractice
-Icon=/usr/share/icons/hicolor/scalable/apps/sonarpractice.svg
+Comment=Practice session manager for musicians
+Exec=SonarPractice
+Icon=sonarpractice
 Terminal=false
+Categories=AudioVideo;Audio;Education;
+StartupNotify=true

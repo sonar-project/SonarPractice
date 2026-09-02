@@ -1,0 +1,128 @@
+name: Linux DEB
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+
+env:
+  # Prefer release assets for this tag; source fallback uses main until packaging is tagged.
+  LIBGP_PARSER_TAG: v0.2.1
+  LIBGP_PARSER_GIT_REF: main
+  LIBGP_PARSER_REPO: sonar-project/libgp_parser
+
+jobs:
+  deb:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ["25.10", "26.04"]
+    container:
+      image: ubuntu:${{ matrix.release }}
+
+    steps:
+      - name: Install bootstrap tools
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq git ca-certificates curl
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: bash scripts/ci/set_version.sh "${GITHUB_REF_NAME}"
+
+      - name: Install build dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq \
+            build-essential \
+            cmake \
+            ninja-build \
+            pkg-config \
+            dpkg-dev \
+            file \
+            libpugixml-dev \
+            librubberband-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libgl1-mesa-dev \
+            libvulkan-dev \
+            libxkbcommon-dev \
+            libpulse-dev \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-multimedia-dev \
+            qt6-svg-dev \
+            qt6-tools-dev \
+            qt6-tools-dev-tools \
+            qt6-l10n-tools \
+            qt6-webengine-dev \
+            qml6-module-qtquick \
+            qml6-module-qtquick-controls \
+            qml6-module-qtquick-layouts \
+            qml6-module-qtquick-dialogs \
+            qml6-module-qtquick-templates \
+            qml6-module-qtquick-window \
+            qml6-module-qtqml \
+            qml6-module-qtqml-workerscript \
+            qml6-module-qtcore \
+            qml6-module-qtwebengine
+
+      - name: Install libgp_parser package
+        env:
+          UBUNTU_RELEASE: ${{ matrix.release }}
+        run: bash scripts/ci/install_libgp_parser_deb.sh
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DBUILD_TESTING=OFF
+
+      - name: Build
+        run: cmake --build build --target SonarPractice
+
+      - name: Package
+        run: |
+          cd build
+          cpack -G DEB
+          suffix="ubuntu$(echo '${{ matrix.release }}' | tr -d '.')"
+          mkdir -p ../dist
+          for deb in *.deb; do
+            base="${deb%.deb}"
+            mv "$deb" "../dist/${base}_${suffix}.deb"
+          done
+          ls -la ../dist
+
+      - name: Smoke-install package
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get install -y ./dist/*.deb
+          command -v SonarPractice
+          test -f /usr/share/applications/sonarpractice.desktop
+          test -f /usr/share/icons/hicolor/scalable/apps/sonarpractice.svg
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SonarPractice-ubuntu${{ matrix.release }}-deb
+          path: dist/*.deb
+          if-no-files-found: error
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.deb
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

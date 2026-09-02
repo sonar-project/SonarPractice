@@ -213,10 +213,59 @@ target_link_libraries(SonarPractice
     ServicesLib
 )
 
+include(GNUInstallDirs)
+
 install(TARGETS SonarPractice
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+if(UNIX AND NOT APPLE)
+    install(FILES sonarpractice.desktop
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+    )
+
+    install(FILES assets/svg/icon.svg
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+        RENAME sonarpractice.svg
+    )
+
+    set(CPACK_PACKAGE_NAME "sonarpractice")
+    set(CPACK_PACKAGE_VENDOR "sonar-project")
+    set(CPACK_PACKAGE_CONTACT "sonar-project https://github.com/sonar-project/SonarPractice")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+        "Practice session manager linking Guitar Pro, audio, and notes")
+    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+    set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/sonar-project/SonarPractice")
+    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+    set(CPACK_GENERATOR "DEB")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "sonar-project")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "sound")
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+    # QML modules / Qt plugins are not discovered by dpkg-shlibdeps; list them explicitly.
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS
+        "qml6-module-qtquick,\
+qml6-module-qtquick-controls,\
+qml6-module-qtquick-layouts,\
+qml6-module-qtquick-dialogs,\
+qml6-module-qtquick-templates,\
+qml6-module-qtquick-window,\
+qml6-module-qtqml,\
+qml6-module-qtqml-workerscript,\
+qml6-module-qtcore,\
+libqt6sql6-sqlite,\
+qt6-qpa-plugins"
+    )
+    if(SONARPRACTICE_HAS_WEBENGINE)
+        string(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS ",qml6-module-qtwebengine")
+    endif()
+    # Prefer packaged libgp_parser when linked from the system package.
+    if(libgp_parser_FOUND)
+        string(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS ",libgp-parser0")
+    endif()
+    include(CPack)
+endif()
 
 add_subdirectory(tests)
