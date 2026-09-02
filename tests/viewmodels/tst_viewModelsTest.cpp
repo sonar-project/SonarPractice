@@ -16,6 +16,7 @@
 #include "PracticeConstants.h"
 #include "PracticeSessionController.h"
 #include "PracticeTrackerController.h"
+#include "AppSettings.h"
 #include "GuitarProPreviewController.h"
 #include "Reminder.h"
 #include "ReminderCondition.h"
@@ -28,6 +29,7 @@
 #include "User.h"
 
 #include <QDateTime>
+#include <QFile>
 #include <QFileInfo>
 #include <QLocale>
 #include <QSignalSpy>
@@ -35,12 +37,22 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QTest>
+#include <QTemporaryDir>
+#include <QTemporaryFile>
 #include <QTime>
+#include <QUrl>
 
 void TestViewModels::initTestCase() {
     QVERIFY(m_errorLogStorage.isValid());
     m_errorLog = std::make_unique<ApplicationErrorLog>(
         m_errorLogStorage.filePath(QStringLiteral("errors.log")));
+
+    QTemporaryFile tempSettings;
+    QVERIFY(tempSettings.open());
+    m_appSettingsPath = tempSettings.fileName();
+    tempSettings.close();
+    QFile::remove(m_appSettingsPath);
+    m_appSettings = std::make_unique<AppSettings>(m_appSettingsPath);
 }
 
 void TestViewModels::init() {
@@ -966,6 +978,7 @@ void TestViewModels::testGuitarProPreviewControllerLoadsTab() {
         .mediaRepo = m_mediaFileRepo,
         .pathResolver = resolver,
         .errorLog = *m_errorLog,
+        .appSettings = *m_appSettings,
     });
 
     QSignalSpy loadedSpy(&controller, &GuitarProPreviewController::loadedChanged);
@@ -1002,6 +1015,7 @@ void TestViewModels::testGuitarProPreviewControllerRejectsNonGp() {
         .mediaRepo = m_mediaFileRepo,
         .pathResolver = resolver,
         .errorLog = *m_errorLog,
+        .appSettings = *m_appSettings,
     });
 
     controller.load(*mediaId);
@@ -1029,6 +1043,7 @@ void TestViewModels::testGuitarProPreviewControllerMixerAndMetronome() {
         .mediaRepo = m_mediaFileRepo,
         .pathResolver = resolver,
         .errorLog = *m_errorLog,
+        .appSettings = *m_appSettings,
     });
 
     QCOMPARE(controller.metronomeDivision(), 4);
@@ -1092,6 +1107,7 @@ void TestViewModels::testGuitarProPreviewControllerTranspose() {
         .mediaRepo = m_mediaFileRepo,
         .pathResolver = resolver,
         .errorLog = *m_errorLog,
+        .appSettings = *m_appSettings,
     });
 
     QCOMPARE(controller.transposeSemitones(), 0);
@@ -1118,6 +1134,49 @@ void TestViewModels::testGuitarProPreviewControllerTranspose() {
 
     controller.clear();
     QCOMPARE(controller.transposeSemitones(), 0);
+}
+
+void TestViewModels::testGuitarProPreviewControllerLoadSoundFontJavaScript() {
+    PathResolver resolver(QStringLiteral("/managed/root"));
+    GuitarProPreviewController controller({
+        .mediaRepo = m_mediaFileRepo,
+        .pathResolver = resolver,
+        .errorLog = *m_errorLog,
+        .appSettings = *m_appSettings,
+    });
+
+    QVERIFY(controller.loadSoundFontJavaScript().contains(QStringLiteral("loadBuiltInSoundFont")));
+
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+    const QString soundFontPath = tempDir.filePath(QStringLiteral("custom.sf2"));
+    QFile file(soundFontPath);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write("SF2");
+    file.close();
+
+    m_appSettings->setSoundFontPath(soundFontPath);
+    QVERIFY(!m_appSettings->usesBuiltInSoundFont());
+    QCOMPARE(m_appSettings->effectiveSoundFontPath(), soundFontPath);
+
+    QSignalSpy jsSpy(&controller, &GuitarProPreviewController::runPlayerJavaScript);
+    QSignalSpy seqSpy(&controller, &GuitarProPreviewController::runPlayerJavaScriptSequence);
+    controller.handlePlayerEvent(QStringLiteral(R"({"event":"bridgeReady","payload":{}})"));
+    QVERIFY(jsSpy.count() >= 1);
+    bool foundCustomSoundFont = false;
+    for (int i = 0; i < seqSpy.count(); ++i) {
+        const QStringList scripts = seqSpy.at(i).at(0).toStringList();
+        for (const QString &script : scripts) {
+            if (script.contains(QStringLiteral("beginSoundFontBytesLoad"))) {
+                foundCustomSoundFont = true;
+                break;
+            }
+        }
+        if (foundCustomSoundFont) {
+            break;
+        }
+    }
+    QVERIFY(foundCustomSoundFont);
 }
 
 std::optional<qlonglong> TestViewModels::createSong(const QString &title, int baseBpm) {

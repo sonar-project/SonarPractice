@@ -26,6 +26,10 @@ class TestAppSettings : public QObject {
     void testUiLanguageRoundtrip();
     void testUiLanguageEmptyWhenUnset();
     void testLegacyUiLanguageMigration();
+    void testSoundFontPathDefaultsToBuiltIn();
+    void testSoundFontPathRoundtrip();
+    void testInvalidSoundFontExtensionRejected();
+    void testUsesBuiltInWhenSoundFontFileMissing();
 
   private:
     QString m_settingsPath;

@@ -39,6 +39,10 @@
 #include "ApplicationErrorLog.h"
 #include "SettingsConfigProvider.h"
 
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+class SoundFontSchemeHandler;
+#endif
+
 #include <QObject>
 #include <QString>
 #include <memory>
@@ -71,7 +75,11 @@ class ApplicationBootstrap : public QObject {
      * \param appSettings The application settings to be used.
      * \param parent      The parent QObject.
      */
-    explicit ApplicationBootstrap(AppSettings &appSettings, QObject *parent = nullptr);
+    explicit ApplicationBootstrap(AppSettings &appSettings,
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+                                  SoundFontSchemeHandler *soundFontSchemeHandler = nullptr,
+#endif
+                                  QObject *parent = nullptr);
 
     // Non-copyable, non-movable – owns unique resources
     ApplicationBootstrap(const ApplicationBootstrap &) = delete;
@@ -225,6 +233,9 @@ class ApplicationBootstrap : public QObject {
     std::unique_ptr<PracticeAssetController> m_practiceAssetController;
     std::unique_ptr<AudioConfigController> m_audioConfigController;
     std::unique_ptr<GuitarProPreviewController> m_guitarProPreviewController;
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+    SoundFontSchemeHandler *m_soundFontSchemeHandler{nullptr};
+#endif
 };
 
 #endif // APPLICATIONBOOTSTRAP_H

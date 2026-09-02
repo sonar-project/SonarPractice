@@ -31,6 +31,13 @@
   let appliedTransposeSemitones = 0;
   const PERCUSSION_CHANNEL = 9;
   let applyingSettings = false;
+  const BUILTIN_SOUND_FONT = "./soundfont/sonivox.sf3";
+  const CUSTOM_SOUND_FONT_KEY = "__custom__";
+  let useCustomSoundFont = false;
+  let activeSoundFontKey = null;
+  let loadingSoundFontKey = null;
+  /** @type {ArrayBuffer[]|null} */
+  let soundFontBytesBuffers = null;
 
   /** @type {AudioContext|null} */
   let clickAudioCtx = null;
@@ -383,6 +390,122 @@
     }
   }
 
+  function eventMessage(e, fallback) {
+    if (!e) {
+      return fallback;
+    }
+    if (typeof e === "string") {
+      return e;
+    }
+    if (e.message && String(e.message).length > 0) {
+      return String(e.message);
+    }
+    if (e.error && e.error.message) {
+      return String(e.error.message);
+    }
+    const text = String(e);
+    if (text.length > 0 && text !== "[object Object]") {
+      return text;
+    }
+    return fallback;
+  }
+
+  function isBuiltInSoundFontKey(key) {
+    return key === BUILTIN_SOUND_FONT;
+  }
+
+  function notifySoundFontLoaded() {
+    setStatus("");
+    if (scoreReady && playerReady) {
+      applyAllPendingSettings();
+    }
+    notifyNative("soundFontLoaded", {
+      builtIn: isBuiltInSoundFontKey(activeSoundFontKey),
+    });
+  }
+
+  function notifySoundFontFailed(message, fallbackToBuiltin) {
+    loadingSoundFontKey = null;
+    if (fallbackToBuiltin) {
+      useCustomSoundFont = false;
+      if (!isBuiltInSoundFontKey(activeSoundFontKey)) {
+        activeSoundFontKey = null;
+      }
+      notifyNative("soundFontLoadFailed", {
+        message: message + " — using built-in soundfont",
+      });
+      loadBuiltinSoundFont();
+      return;
+    }
+    activeSoundFontKey = null;
+    setStatus(message, true);
+    notifyNative("soundFontLoadFailed", { message: message });
+  }
+
+  function loadBuiltinSoundFont() {
+    if (!api) {
+      return;
+    }
+    loadingSoundFontKey = BUILTIN_SOUND_FONT;
+    if (!api.loadSoundFont(BUILTIN_SOUND_FONT, false)) {
+      notifySoundFontFailed("Built-in SoundFont could not be loaded", false);
+    }
+  }
+
+  function beginSoundFontBytesLoad() {
+    initApi();
+    if (!api) {
+      return;
+    }
+    soundFontBytesBuffers = [];
+    loadingSoundFontKey = CUSTOM_SOUND_FONT_KEY;
+    useCustomSoundFont = true;
+  }
+
+  function appendSoundFontBytesChunk(base64) {
+    if (!soundFontBytesBuffers) {
+      return;
+    }
+    soundFontBytesBuffers.push(base64ToArrayBuffer(base64));
+  }
+
+  function finishSoundFontBytesLoad() {
+    if (!soundFontBytesBuffers) {
+      notifySoundFontFailed("SoundFont bytes were not received", true);
+      return;
+    }
+    const parts = soundFontBytesBuffers;
+    soundFontBytesBuffers = null;
+    try {
+      if (!api) {
+        throw new Error("Player is not initialized");
+      }
+      let totalLength = 0;
+      for (let i = 0; i < parts.length; i++) {
+        totalLength += parts[i].byteLength;
+      }
+      if (totalLength === 0) {
+        throw new Error("SoundFont file is empty");
+      }
+      const bytes = new Uint8Array(totalLength);
+      let offset = 0;
+      for (let i = 0; i < parts.length; i++) {
+        bytes.set(new Uint8Array(parts[i]), offset);
+        offset += parts[i].byteLength;
+      }
+      if (isBuiltInSoundFontKey(activeSoundFontKey)) {
+        if (typeof api.resetSoundFonts === "function") {
+          api.resetSoundFonts();
+        }
+      }
+      if (!api.loadSoundFont(bytes, false)) {
+        throw new Error("Unsupported SoundFont format");
+      }
+    } catch (e) {
+      notifySoundFontFailed(eventMessage(e, "SoundFont load failed"), true);
+    }
+  }
+
   function wireMetronomeEvents(instance) {
     const MidiEventType =
       alphaTab.midi && alphaTab.midi.MidiEventType ? alphaTab.midi.MidiEventType : null;
@@ -434,7 +557,7 @@
         enableCursor: true,
         enableAnimatedBeatCursor: true,
         enableElementHighlighting: true,
-        soundFont: "./soundfont/sonivox.sf3",
+        soundFont: BUILTIN_SOUND_FONT,
         scrollMode: alphaTab.ScrollMode.Continuous,
         scrollElement: scrollEl,
       },
@@ -442,14 +565,31 @@
 
     // AlphaTab 1.8 exposes soundFontLoaded + error, not soundFontLoadFailed on the API.
     onEvent(instance.error, function (e) {
-      const message = (e && e.message) ? e.message : String(e || "AlphaTab error");
+      const message = eventMessage(e, "AlphaTab error");
+      if (message === "Error") {
+        return;
+      }
       setStatus(message, true);
       notifyNative("error", { message: message });
     });
     onEvent(instance.soundFontLoadFailed, function (e) {
-      const message = (e && e.message) ? e.message : "SoundFont load failed";
-      setStatus(message, true);
-      notifyNative("error", { message: message });
+      if (loadingSoundFontKey && isBuiltInSoundFontKey(loadingSoundFontKey)) {
+        notifySoundFontFailed(eventMessage(e, "SoundFont load failed"), false);
+        return;
+      }
+      notifySoundFontFailed(
+        eventMessage(e, "SoundFont load failed") + " — using built-in soundfont",
+        true
+      );
+    });
+    onEvent(instance.soundFontLoaded, function () {
+      if (loadingSoundFontKey) {
+        activeSoundFontKey = loadingSoundFontKey;
+        loadingSoundFontKey = null;
+      } else {
+        activeSoundFontKey = BUILTIN_SOUND_FONT;
+      }
+      notifySoundFontLoaded();
     });
 
     onEvent(instance.scoreLoaded, function () {
@@ -549,6 +689,9 @@
     if (options.transposeSemitones !== undefined && options.transposeSemitones !== null) {
       pendingTransposeSemitones = clampTransposeSemitones(options.transposeSemitones);
     }
+    if (options.soundFontUseCustom !== undefined) {
+      useCustomSoundFont = !!options.soundFontUseCustom;
+    }
   }
 
   window.sonarAlphaTab = {
@@ -575,6 +718,10 @@
         setStatus(String(e && e.message ? e.message : e), true);
         notifyNative("error", { message: String(e) });
       }
+    },
+
+    ensureInitialized: function () {
+      initApi();
     },
 
     play: function () {
@@ -649,6 +796,16 @@
         applyAllPendingSettings();
       }
     },
+
+    loadBuiltInSoundFont: function () {
+      useCustomSoundFont = false;
+      activeSoundFontKey = null;
+      loadBuiltinSoundFont();
+    },
+
+    beginSoundFontBytesLoad: beginSoundFontBytesLoad,
+    appendSoundFontBytesChunk: appendSoundFontBytesChunk,
+    finishSoundFontBytesLoad: finishSoundFontBytesLoad,
 
     isReady: function () {
       return !!(scoreReady && playerReady);

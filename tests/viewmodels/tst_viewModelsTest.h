@@ -7,6 +7,7 @@
 #include <optional>
 
 #include "ApplicationErrorLog.h"
+#include "AppSettings.h"
 #include "ILauncher.h"
 #include "MediaFile.h"
 #include "PracticeAssetController.h"
@@ -81,6 +82,7 @@ class TestViewModels : public QObject {
     void testGuitarProPreviewControllerRejectsNonGp();
     void testGuitarProPreviewControllerMixerAndMetronome();
     void testGuitarProPreviewControllerTranspose();
+    void testGuitarProPreviewControllerLoadSoundFontJavaScript();
 
     void testLibrarySearchExpressionAndOr();
     void testLibrarySearchExpressionRegex();
@@ -113,6 +115,8 @@ class TestViewModels : public QObject {
     std::unique_ptr<PracticeAssetController> m_practiceAssetController;
     QTemporaryDir m_errorLogStorage;
     std::unique_ptr<ApplicationErrorLog> m_errorLog;
+    QString m_appSettingsPath;
+    std::unique_ptr<AppSettings> m_appSettings;
     MockLauncher m_launcher;
 };
 

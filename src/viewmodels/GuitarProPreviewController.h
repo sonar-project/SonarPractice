@@ -13,8 +13,13 @@
 #include <vector>
 
 class ApplicationErrorLog;
+class AppSettings;
 class IMediaFileRepository;
 class IPathResolver;
+
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+class SoundFontSchemeHandler;
+#endif
 
 /**
  * @brief QML view model for Guitar Pro preview (ASCII) and AlphaTab player bridge.
@@ -68,6 +73,10 @@ class GuitarProPreviewController : public QObject {
         IMediaFileRepository &mediaRepo;
         IPathResolver &pathResolver;
         ApplicationErrorLog &errorLog;
+        AppSettings &appSettings;
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+        SoundFontSchemeHandler *soundFontSchemeHandler = nullptr;
+#endif
     };
 
     explicit GuitarProPreviewController(const Dependencies &dependencies,
@@ -137,6 +146,8 @@ class GuitarProPreviewController : public QObject {
     Q_INVOKABLE QString loadScoreJavaScript() const;
     /** JavaScript snippet applying track/tempo/loop to a ready player. */
     Q_INVOKABLE QString applyPlayerSettingsJavaScript() const;
+    /** JavaScript snippet loading the configured SoundFont into AlphaTab. */
+    Q_INVOKABLE QString loadSoundFontJavaScript() const;
 
   signals:
     void loadingChanged();
@@ -163,6 +174,8 @@ class GuitarProPreviewController : public QObject {
     void transposeChanged();
     /** Ask QML WebEngineView to evaluate @p javaScript. */
     void runPlayerJavaScript(const QString &javaScript);
+    /** Run scripts sequentially in the WebEngine view (used for large SoundFont chunks). */
+    void runPlayerJavaScriptSequence(const QStringList &javaScriptCommands);
 
   private:
     struct LoadResult {
@@ -183,10 +196,17 @@ class GuitarProPreviewController : public QObject {
     void setPlayerReady(bool ready);
     void setBarCount(int count);
     void emitPlayerCommand(const QString &javaScript);
+    void syncSoundFontToPlayer();
+    void emitSoundFontBytesLoad();
+    void ensureCustomSoundFontLoaded();
+    void scheduleScoreLoad();
+    [[nodiscard]] QString currentSoundFontKey() const;
     void rebuildMixerTracks(const QStringList &names);
     void resetMixerTracks();
     [[nodiscard]] QString mixerTracksJavaScriptArray() const;
     [[nodiscard]] QString playerSettingsObjectJavaScript() const;
+    [[nodiscard]] QString configuredSoundFontUrl() const;
+    [[nodiscard]] QString configuredCustomSoundFontUrl() const;
     [[nodiscard]] static int clampMetronomeDivision(int division);
     [[nodiscard]] static int clampTransposeSemitones(int semitones);
 
@@ -220,6 +240,11 @@ class GuitarProPreviewController : public QObject {
     bool m_countInEnabled{false};
     QVariantList m_mixerTracks{};
     int m_transposeSemitones{0};
+    bool m_bridgeReady{false};
+    bool m_pendingScoreAfterSoundFont{false};
+    bool m_soundFontLoadInFlight{false};
+    QString m_loadedSoundFontKey{};
+    bool m_soundFontCustomAbandoned{false};
 };
 
 #endif // GUITARPROPREVIEWCONTROLLER_H

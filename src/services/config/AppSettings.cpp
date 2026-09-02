@@ -1,6 +1,7 @@
 #include "AppSettings.h"
 
 #include <QCoreApplication>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -433,6 +434,55 @@ void AppSettings::setUiLanguage(const QString &localeCode) {
     m_settings.setValue(Keys::UiLanguage, localeCode.trimmed());
     m_settings.sync();
     emit settingsChanged();
+}
+
+bool AppSettings::isValidSoundFontExtension(const QString &path) {
+    const QString suffix = QFileInfo(path.trimmed()).suffix().toLower();
+    return suffix == QStringLiteral("sf2") || suffix == QStringLiteral("sf3");
+}
+
+QString AppSettings::soundFontFileDialogFilter() {
+    return QStringLiteral("%1 (*.sf2 *.sf3)")
+        .arg(QCoreApplication::translate("AppSettings", "SoundFont files"));
+}
+
+QString AppSettings::soundFontPath() const {
+    return m_settings.value(Keys::SoundFontPath).toString().trimmed();
+}
+
+void AppSettings::setSoundFontPath(const QString &path) {
+    const QString trimmed = path.trimmed();
+    if (!trimmed.isEmpty() && !isValidSoundFontExtension(trimmed)) {
+        return;
+    }
+    if (soundFontPath() == trimmed) {
+        return;
+    }
+    m_settings.setValue(Keys::SoundFontPath, trimmed);
+    m_settings.sync();
+    emit settingsChanged();
+}
+
+void AppSettings::clearSoundFontPath() {
+    if (soundFontPath().isEmpty()) {
+        return;
+    }
+    m_settings.remove(Keys::SoundFontPath);
+    m_settings.sync();
+    emit settingsChanged();
+}
+
+bool AppSettings::usesBuiltInSoundFont() const { return effectiveSoundFontPath().isEmpty(); }
+
+QString AppSettings::effectiveSoundFontPath() const {
+    const QString configured = soundFontPath();
+    if (configured.isEmpty() || !isValidSoundFontExtension(configured)) {
+        return {};
+    }
+    if (!QFileInfo::exists(configured)) {
+        return {};
+    }
+    return configured;
 }
 
 /**

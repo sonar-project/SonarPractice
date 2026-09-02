@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 
 import "../components"
 
@@ -53,6 +54,10 @@ Page {
 
     property string storageFeedbackText: ""
     property bool storageFeedbackIsError: false
+    property string soundFontFeedbackText: ""
+    property bool soundFontFeedbackIsError: false
+    property bool soundFontUseBuiltIn: true
+    property string soundFontPathDraft: ""
 
     function showStorageFeedback(message, isError) {
         storageFeedbackText = message
@@ -62,6 +67,43 @@ Page {
     function clearStorageFeedback() {
         storageFeedbackText = ""
         storageFeedbackIsError = false
+    }
+
+    function clearSoundFontFeedback() {
+        soundFontFeedbackText = ""
+        soundFontFeedbackIsError = false
+    }
+
+    function loadSoundFontFields() {
+        soundFontUseBuiltIn = appSettings.usesBuiltInSoundFont
+        soundFontPathDraft = appSettings.soundFontPath
+        soundFontPathField.text = appSettings.soundFontPath
+        builtInSoundFontOption.checked = soundFontUseBuiltIn
+        customSoundFontOption.checked = !soundFontUseBuiltIn
+        clearSoundFontFeedback()
+    }
+
+    function openSoundFontDialog() {
+        soundFontUseBuiltIn = false
+        builtInSoundFontOption.checked = false
+        customSoundFontOption.checked = true
+        soundFontDialog.open()
+    }
+
+    function resetSoundFontToDefault() {
+        soundFontUseBuiltIn = true
+        soundFontPathDraft = ""
+        soundFontPathField.text = ""
+        builtInSoundFontOption.checked = true
+        customSoundFontOption.checked = false
+        clearSoundFontFeedback()
+    }
+
+    function urlToLocalPath(url) {
+        const stringForm = url.toString()
+        if (stringForm.startsWith("file://"))
+            return decodeURIComponent(stringForm.slice(7))
+        return stringForm
     }
 
     function saveConfiguration() {
@@ -93,6 +135,8 @@ Page {
 
         appSettings.applyExtensionCategoriesFromUi(categories)
         persistSelectedLanguage()
+        if (!persistSoundFontSettings())
+            return
         appSettings.saveConfiguration()
 
         if (root.firstRun) {
@@ -115,6 +159,7 @@ Page {
         loadExtensionFields()
         reloadLanguageModel()
         languageCombo.syncIndexFromLanguage()
+        loadSoundFontFields()
     }
 
     function openStorageFolderDialog() {
@@ -168,12 +213,61 @@ Page {
         translationManager.applySavedLanguage()
     }
 
+    function persistSoundFontSettings() {
+        if (!guitarProPreviewController.playerAvailable)
+            return true
+
+        if (soundFontUseBuiltIn) {
+            appSettings.clearSoundFontPath()
+            return true
+        }
+
+        const path = soundFontPathField.text.trim()
+        if (path.length === 0) {
+            soundFontFeedbackText = qsTr("Please choose a SoundFont file.")
+            soundFontFeedbackIsError = true
+            return false
+        }
+
+        appSettings.soundFontPath = path
+        if (appSettings.soundFontPath !== path) {
+            soundFontFeedbackText = qsTr("Only .sf2 and .sf3 SoundFont files are supported.")
+            soundFontFeedbackIsError = true
+            return false
+        }
+
+        clearSoundFontFeedback()
+        return true
+    }
+
     ListModel {
         id: languageListModel
     }
 
     ListModel {
         id: extensionModel
+    }
+
+    FileDialog {
+        id: soundFontDialog
+        title: qsTr("Choose SoundFont")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [appSettings.soundFontFileDialogFilter(), qsTr("All files (*)")]
+        onAccepted: {
+            const path = root.urlToLocalPath(selectedFile)
+            if (path.length > 0) {
+                root.soundFontPathDraft = path
+                soundFontPathField.text = path
+                root.soundFontUseBuiltIn = false
+                builtInSoundFontOption.checked = false
+                customSoundFontOption.checked = true
+                root.clearSoundFontFeedback()
+            }
+        }
+    }
+
+    ButtonGroup {
+        id: soundFontGroup
     }
 
     ColumnLayout {
@@ -267,6 +361,93 @@ Page {
                         appSettings.uiLanguage = code
                         translationManager.applySavedLanguage()
                     }
+                }
+            }
+        }
+
+        GroupBox {
+            Layout.fillWidth: true
+            visible: guitarProPreviewController.playerAvailable
+            title: qsTr("Guitar Pro SoundFont")
+
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 8
+
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    text: qsTr("Choose the instrument bank used for Guitar Pro playback. A complete General MIDI SoundFont (.sf2 or .sf3) is recommended.")
+                    font.pixelSize: 12
+                    color: Theme.textSecondary
+                }
+
+                RadioButton {
+                    id: builtInSoundFontOption
+                    text: qsTr("Built-in (sonivox.sf3)")
+                    ButtonGroup.group: soundFontGroup
+                    checked: root.soundFontUseBuiltIn
+                    onToggled: if (checked) {
+                        root.soundFontUseBuiltIn = true
+                        root.clearSoundFontFeedback()
+                    }
+                }
+
+                RadioButton {
+                    id: customSoundFontOption
+                    text: qsTr("Custom file…")
+                    ButtonGroup.group: soundFontGroup
+                    checked: !root.soundFontUseBuiltIn
+                    onToggled: if (checked)
+                        root.soundFontUseBuiltIn = false
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: !root.soundFontUseBuiltIn
+
+                    DarkTextField {
+                        id: soundFontPathField
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("Path to .sf2 or .sf3 file")
+                        onTextEdited: {
+                            root.soundFontPathDraft = text
+                            root.clearSoundFontFeedback()
+                        }
+                    }
+
+                    Button {
+                        text: qsTr("Browse…")
+                        onClicked: root.openSoundFontDialog()
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: !root.soundFontUseBuiltIn
+
+                    Button {
+                        text: qsTr("Reset to default")
+                        flat: true
+                        onClicked: root.resetSoundFontToDefault()
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    text: qsTr("Large SoundFonts may take a few seconds to load. Free alternatives include GeneralUser GS, Arachno, and FluidR3_GM.")
+                    font.pixelSize: 12
+                    color: Theme.textSecondary
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    visible: root.soundFontFeedbackText.length > 0
+                    wrapMode: Text.WordWrap
+                    text: root.soundFontFeedbackText
+                    font.pixelSize: 12
+                    color: root.soundFontFeedbackIsError ? Theme.error : Theme.success
                 }
             }
         }

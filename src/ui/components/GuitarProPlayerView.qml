@@ -9,6 +9,8 @@ import QtWebEngine
 Item {
     id: root
 
+    property var scriptQueue: []
+
     function themeJavaScript() {
         return "window.sonarAlphaTab && window.sonarAlphaTab.setTheme("
                 + (Theme.isDark ? "true" : "false") + ");"
@@ -16,6 +18,20 @@ Item {
 
     function runScript(javaScript) {
         webView.runJavaScript(themeJavaScript() + (javaScript || ""))
+    }
+
+    function runScriptQueue(scripts) {
+        scriptQueue = scripts.slice(0)
+        runNextQueuedScript()
+    }
+
+    function runNextQueuedScript() {
+        if (scriptQueue.length === 0)
+            return
+        const js = scriptQueue.shift()
+        webView.runJavaScript(themeJavaScript() + js, function () {
+            runNextQueuedScript()
+        })
     }
 
     WebEngineView {
@@ -33,19 +49,15 @@ Item {
                 guitarProPreviewController.handlePlayerEvent(message.substring(6))
             }
         }
-
-        onLoadingChanged: function (request) {
-            if (request.status === WebEngineView.LoadSucceededStatus) {
-                const js = guitarProPreviewController.loadScoreJavaScript()
-                root.runScript(js && js.length > 0 ? js : "")
-            }
-        }
     }
 
     Connections {
         target: guitarProPreviewController
         function onRunPlayerJavaScript(javaScript) {
             root.runScript(javaScript)
+        }
+        function onRunPlayerJavaScriptSequence(javaScriptCommands) {
+            root.runScriptQueue(javaScriptCommands)
         }
     }
 

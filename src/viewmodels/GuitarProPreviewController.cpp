@@ -6,12 +6,19 @@
 #include "GuitarProPreviewController.h"
 
 #include "ApplicationErrorLog.h"
+#include "AppSettings.h"
 #include "IPathResolver.h"
 #include "MediaFile.h"
 #include "interfaces/IMediaFileRepository.h"
 
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+#include "SoundFontSchemeHandler.h"
+#endif
+
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
+#include <QUrl>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QMetaObject>
@@ -43,6 +50,15 @@ GuitarProPreviewController::GuitarProPreviewController(const Dependencies &depen
 #else
     m_usePlayer = false;
 #endif
+    connect(&m_dependencies.appSettings, &AppSettings::settingsChanged, this, [this]() {
+        m_loadedSoundFontKey.clear();
+        m_soundFontCustomAbandoned = false;
+        if (!m_bridgeReady) {
+            return;
+        }
+        emitPlayerCommand(applyPlayerSettingsJavaScript());
+        ensureCustomSoundFontLoaded();
+    });
 }
 
 bool GuitarProPreviewController::loading() const { return m_loading; }
@@ -93,7 +109,7 @@ void GuitarProPreviewController::setUsePlayer(bool usePlayer) {
     m_usePlayer = next;
     emit usePlayerChanged();
     if (m_usePlayer && !m_scoreBase64.isEmpty()) {
-        emitPlayerCommand(loadScoreJavaScript());
+        scheduleScoreLoad();
     }
 }
 
@@ -341,6 +357,162 @@ QString GuitarProPreviewController::applyPlayerSettingsJavaScript() const {
         .arg(playerSettingsObjectJavaScript());
 }
 
+QString GuitarProPreviewController::loadSoundFontJavaScript() const {
+    return QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.loadBuiltInSoundFont();");
+}
+
+QString GuitarProPreviewController::currentSoundFontKey() const {
+    if (m_dependencies.appSettings.usesBuiltInSoundFont()) {
+        return QStringLiteral("__builtin__");
+    }
+    return m_dependencies.appSettings.effectiveSoundFontPath();
+}
+
+QString GuitarProPreviewController::configuredSoundFontUrl() const {
+    return QStringLiteral("./soundfont/sonivox.sf3");
+}
+
+QString GuitarProPreviewController::configuredCustomSoundFontUrl() const {
+    if (m_dependencies.appSettings.usesBuiltInSoundFont()) {
+        return {};
+    }
+
+    const QString path = m_dependencies.appSettings.effectiveSoundFontPath();
+    if (path.isEmpty()) {
+        return {};
+    }
+
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+    if (m_dependencies.soundFontSchemeHandler != nullptr) {
+        m_dependencies.soundFontSchemeHandler->setFilePath(path);
+        if (!m_dependencies.soundFontSchemeHandler->hasCachedData()) {
+            return {};
+        }
+        return SoundFontSchemeHandler::loadUrl();
+    }
+#endif
+
+    return QUrl::fromLocalFile(path).toString(QUrl::FullyEncoded);
+}
+
+void GuitarProPreviewController::ensureCustomSoundFontLoaded() {
+    if (!usePlayer() || !m_bridgeReady || m_soundFontLoadInFlight) {
+        return;
+    }
+    if (m_dependencies.appSettings.usesBuiltInSoundFont() || m_soundFontCustomAbandoned) {
+        return;
+    }
+
+    const QString key = currentSoundFontKey();
+    if (key.isEmpty() || key == m_loadedSoundFontKey) {
+        return;
+    }
+
+    emitPlayerCommand(
+        QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.ensureInitialized();"));
+    syncSoundFontToPlayer();
+}
+
+void GuitarProPreviewController::scheduleScoreLoad() {
+    if (!usePlayer() || m_scoreBase64.isEmpty()) {
+        return;
+    }
+
+    if (!m_bridgeReady) {
+        m_pendingScoreAfterSoundFont = true;
+        return;
+    }
+
+    if (m_soundFontLoadInFlight) {
+        m_pendingScoreAfterSoundFont = true;
+        return;
+    }
+
+    if (!m_dependencies.appSettings.usesBuiltInSoundFont() && !m_soundFontCustomAbandoned &&
+        currentSoundFontKey() != m_loadedSoundFontKey) {
+        m_pendingScoreAfterSoundFont = true;
+        ensureCustomSoundFontLoaded();
+        return;
+    }
+
+    m_pendingScoreAfterSoundFont = false;
+    emitPlayerCommand(loadScoreJavaScript());
+}
+
+void GuitarProPreviewController::syncSoundFontToPlayer() {
+    if (!usePlayer() || m_soundFontLoadInFlight) {
+        return;
+    }
+
+    const QString key = currentSoundFontKey();
+    if (key.isEmpty() || key == m_loadedSoundFontKey) {
+        return;
+    }
+
+    if (!m_dependencies.appSettings.usesBuiltInSoundFont() && m_soundFontCustomAbandoned) {
+        return;
+    }
+
+    if (key == QLatin1String("__builtin__")) {
+        m_soundFontLoadInFlight = true;
+        emitPlayerCommand(loadSoundFontJavaScript());
+        return;
+    }
+
+    emitSoundFontBytesLoad();
+}
+
+void GuitarProPreviewController::emitSoundFontBytesLoad() {
+    const QString path = m_dependencies.appSettings.effectiveSoundFontPath();
+    const QFileInfo fileInfo(path);
+    if (!fileInfo.exists() || !fileInfo.isFile() || fileInfo.size() <= 0) {
+        const QString display = tr("Could not open SoundFont file: %1").arg(path);
+        setErrorMessage(display);
+        m_dependencies.errorLog.logError(QStringLiteral("GuitarProPreview.soundFont"), display);
+        m_soundFontLoadInFlight = true;
+        emitPlayerCommand(loadSoundFontJavaScript());
+        return;
+    }
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        const QString display = tr("Could not open SoundFont file: %1").arg(path);
+        setErrorMessage(display);
+        m_dependencies.errorLog.logError(QStringLiteral("GuitarProPreview.soundFont"), display);
+        m_soundFontLoadInFlight = true;
+        emitPlayerCommand(loadSoundFontJavaScript());
+        return;
+    }
+
+    const QByteArray data = file.readAll();
+    if (data.isEmpty()) {
+        const QString display = tr("SoundFont file is empty: %1").arg(path);
+        setErrorMessage(display);
+        m_dependencies.errorLog.logError(QStringLiteral("GuitarProPreview.soundFont"), display);
+        m_soundFontLoadInFlight = true;
+        emitPlayerCommand(loadSoundFontJavaScript());
+        return;
+    }
+
+    m_soundFontLoadInFlight = true;
+
+    constexpr int kChunkSize = 384 * 1024;
+    QStringList scripts;
+    scripts.reserve((data.size() + kChunkSize - 1) / kChunkSize + 2);
+    scripts.append(QStringLiteral(
+        "window.sonarAlphaTab && window.sonarAlphaTab.beginSoundFontBytesLoad();"));
+    for (int offset = 0; offset < data.size(); offset += kChunkSize) {
+        const QByteArray chunk = data.mid(offset, kChunkSize);
+        scripts.append(QStringLiteral(
+                           "window.sonarAlphaTab && "
+                           "window.sonarAlphaTab.appendSoundFontBytesChunk(%1);")
+                           .arg(jsStringLiteral(QString::fromLatin1(chunk.toBase64()))));
+    }
+    scripts.append(QStringLiteral(
+        "window.sonarAlphaTab && window.sonarAlphaTab.finishSoundFontBytesLoad();"));
+    emit runPlayerJavaScriptSequence(scripts);
+}
+
 QString GuitarProPreviewController::playerSettingsObjectJavaScript() const {
     return QStringLiteral(
                "{"
@@ -353,7 +525,8 @@ QString GuitarProPreviewController::playerSettingsObjectJavaScript() const {
                "metronomeEnabled:%7,"
                "metronomeDivision:%8,"
                "countInEnabled:%9,"
-               "transposeSemitones:%10"
+               "transposeSemitones:%10,"
+               "soundFontUseCustom:%11"
                "}")
         .arg(m_selectedTrackIndex)
         .arg(m_tempoPercent)
@@ -364,7 +537,9 @@ QString GuitarProPreviewController::playerSettingsObjectJavaScript() const {
         .arg(jsBool(m_metronomeEnabled))
         .arg(m_metronomeDivision)
         .arg(jsBool(m_countInEnabled))
-        .arg(m_transposeSemitones, 0, 10);
+        .arg(m_transposeSemitones, 0, 10)
+        .arg(jsBool(!m_dependencies.appSettings.usesBuiltInSoundFont()
+                    && !m_dependencies.appSettings.effectiveSoundFontPath().isEmpty()));
 }
 
 void GuitarProPreviewController::handlePlayerEvent(const QString &json) {
@@ -377,9 +552,12 @@ void GuitarProPreviewController::handlePlayerEvent(const QString &json) {
     const QJsonObject payload = root.value(QStringLiteral("payload")).toObject();
 
     if (event == QLatin1String("bridgeReady")) {
-        if (!m_scoreBase64.isEmpty()) {
-            emitPlayerCommand(loadScoreJavaScript());
-        }
+        m_bridgeReady = true;
+        m_loadedSoundFontKey.clear();
+        m_soundFontCustomAbandoned = false;
+        m_soundFontLoadInFlight = false;
+        ensureCustomSoundFontLoaded();
+        scheduleScoreLoad();
         return;
     }
 
@@ -425,6 +603,36 @@ void GuitarProPreviewController::handlePlayerEvent(const QString &json) {
         return;
     }
 
+    if (event == QLatin1String("soundFontLoaded")) {
+        m_soundFontLoadInFlight = false;
+        if (payload.value(QStringLiteral("builtIn")).toBool()) {
+            m_loadedSoundFontKey = QStringLiteral("__builtin__");
+        } else {
+            m_loadedSoundFontKey = currentSoundFontKey();
+            m_soundFontCustomAbandoned = false;
+        }
+        setErrorMessage({});
+        if (m_pendingScoreAfterSoundFont && !m_scoreBase64.isEmpty()) {
+            m_pendingScoreAfterSoundFont = false;
+            emitPlayerCommand(loadScoreJavaScript());
+        }
+        return;
+    }
+
+    if (event == QLatin1String("soundFontLoadFailed")) {
+        m_soundFontLoadInFlight = false;
+        const QString message = payload.value(QStringLiteral("message")).toString();
+        const QString display =
+            message.isEmpty() ? tr("SoundFont could not be loaded") : message;
+        setErrorMessage(display);
+        m_dependencies.errorLog.logError(QStringLiteral("GuitarProPreview.soundFont"), display);
+        if (!m_dependencies.appSettings.usesBuiltInSoundFont()) {
+            m_loadedSoundFontKey = QStringLiteral("__builtin__");
+            m_soundFontCustomAbandoned = true;
+        }
+        return;
+    }
+
     if (event == QLatin1String("playerState")) {
         setPlaying(payload.value(QStringLiteral("playing")).toBool());
         return;
@@ -467,6 +675,7 @@ void GuitarProPreviewController::load(qlonglong mediaFileId) {
     setLoading(true);
     setPlayerReady(false);
     setPlaying(false);
+    m_soundFontLoadInFlight = false;
     setErrorMessage({});
     if (m_mediaFileId != mediaFileId) {
         m_mediaFileId = mediaFileId;
@@ -597,7 +806,7 @@ void GuitarProPreviewController::applyLoadResult(const LoadResult &result) {
     }
 
     if (usePlayer() && !m_scoreBase64.isEmpty()) {
-        emitPlayerCommand(loadScoreJavaScript());
+        scheduleScoreLoad();
     }
 }
 
@@ -723,6 +932,9 @@ void GuitarProPreviewController::resetPreviewState() {
         m_transposeSemitones = 0;
         emit transposeChanged();
     }
+    m_loadedSoundFontKey.clear();
+    m_soundFontLoadInFlight = false;
+    m_soundFontCustomAbandoned = false;
     if (hadLoaded) {
         m_loaded = false;
         emit loadedChanged();

@@ -33,6 +33,9 @@ class AppSettings : public QObject {
     Q_PROPERTY(QStringList allowedExtensions READ allowedExtensions NOTIFY settingsChanged)
     Q_PROPERTY(QStringList fileDialogNameFilters READ fileDialogNameFilters NOTIFY settingsChanged)
     Q_PROPERTY(QString uiLanguage READ uiLanguage WRITE setUiLanguage NOTIFY settingsChanged)
+    Q_PROPERTY(QString soundFontPath READ soundFontPath WRITE setSoundFontPath NOTIFY
+                   settingsChanged)
+    Q_PROPERTY(bool usesBuiltInSoundFont READ usesBuiltInSoundFont NOTIFY settingsChanged)
     Q_PROPERTY(QUrl settingsFileLocation READ settingsFileLocation CONSTANT)
 
   public:
@@ -42,6 +45,7 @@ class AppSettings : public QObject {
         static constexpr auto ExtensionCategoryPrefix = "import/extensions/";
         static constexpr auto UiLanguage = "localization/uiLanguage";
         static constexpr auto LegacyUiLanguage = "general/uiLanguage";
+        static constexpr auto SoundFontPath = "player/soundFontPath";
     };
 
     explicit AppSettings(QObject *parent = nullptr);
@@ -69,6 +73,15 @@ class AppSettings : public QObject {
 
     [[nodiscard]] QString uiLanguage() const;
     void setUiLanguage(const QString &languageCode);
+
+    [[nodiscard]] QString soundFontPath() const;
+    void setSoundFontPath(const QString &path);
+    Q_INVOKABLE void clearSoundFontPath();
+    [[nodiscard]] bool usesBuiltInSoundFont() const;
+    [[nodiscard]] QString effectiveSoundFontPath() const;
+    [[nodiscard]] static bool isValidSoundFontExtension(const QString &path);
+    Q_INVOKABLE [[nodiscard]] static QString soundFontFileDialogFilter();
+
     [[nodiscard]] QUrl settingsFileLocation() const;
 
     [[nodiscard]] MediaKind mediaKindForExtension(const QString &extension) const;

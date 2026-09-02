@@ -11,9 +11,12 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <qcoreapplication.h>
+#include <memory>
 
 #ifdef SONARPRACTICE_HAS_WEBENGINE
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
+#include "SoundFontSchemeHandler.h"
+#include <QWebEngineProfile>
 #endif
 
 #include "AppSettings.h"
@@ -65,10 +68,17 @@ int main(int argc, char *argv[]) {
 
 #ifdef SONARPRACTICE_HAS_WEBENGINE
     // Must run before QCoreApplication / QApplication construction.
+    SoundFontSchemeHandler::registerScheme();
     QtWebEngineQuick::initialize();
 #endif
 
     QApplication app(argc, argv);
+
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+    auto soundFontSchemeHandler = std::make_unique<SoundFontSchemeHandler>(&app);
+    QWebEngineProfile::defaultProfile()->installUrlSchemeHandler(
+        QByteArrayLiteral("sp-soundfont"), soundFontSchemeHandler.get());
+#endif
 
     QApplication::setWindowIcon(
         QIcon(QStringLiteral(":/qt/qml/com/sonarp/sonarpractice/assets/svg/icon.svg")));
@@ -78,7 +88,27 @@ int main(int argc, char *argv[]) {
     AppSettings appSettings;
     logStartupCheckpoint(startupTimer, "main: AppSettings");
 
-    ApplicationBootstrap bootstrap(appSettings);
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+    if (!appSettings.usesBuiltInSoundFont()) {
+        soundFontSchemeHandler->setFilePath(appSettings.effectiveSoundFontPath());
+    }
+    QObject::connect(&appSettings, &AppSettings::settingsChanged, &app, [&appSettings, &soundFontSchemeHandler]() {
+        if (appSettings.usesBuiltInSoundFont()) {
+            soundFontSchemeHandler->clear();
+            return;
+        }
+        soundFontSchemeHandler->setFilePath(appSettings.effectiveSoundFontPath());
+    });
+#endif
+
+    ApplicationBootstrap bootstrap(
+        appSettings,
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+        soundFontSchemeHandler.get()
+#else
+        nullptr
+#endif
+    );
     StartupController startupController(appSettings, bootstrap);
 
     const QStringList startupPaths = collectStartupPaths(QCoreApplication::arguments().mid(1));

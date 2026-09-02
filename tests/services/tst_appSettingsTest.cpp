@@ -191,4 +191,45 @@ void TestAppSettings::testLegacyUiLanguageMigration() {
     QVERIFY(!raw.contains(QStringLiteral("general/uiLanguage")));
 }
 
+void TestAppSettings::testSoundFontPathDefaultsToBuiltIn() {
+    AppSettings settings(m_settingsPath);
+    QVERIFY(settings.soundFontPath().isEmpty());
+    QVERIFY(settings.usesBuiltInSoundFont());
+    QVERIFY(settings.effectiveSoundFontPath().isEmpty());
+}
+
+void TestAppSettings::testSoundFontPathRoundtrip() {
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+    const QString soundFontPath = tempDir.filePath(QStringLiteral("GeneralUser.sf2"));
+    QFile file(soundFontPath);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write("SF2");
+    file.close();
+
+    AppSettings settings(m_settingsPath);
+    settings.setSoundFontPath(soundFontPath);
+    settings.saveConfiguration();
+
+    AppSettings reloaded(m_settingsPath);
+    QCOMPARE(reloaded.soundFontPath(), soundFontPath);
+    QCOMPARE(reloaded.effectiveSoundFontPath(), soundFontPath);
+    QVERIFY(!reloaded.usesBuiltInSoundFont());
+}
+
+void TestAppSettings::testInvalidSoundFontExtensionRejected() {
+    AppSettings settings(m_settingsPath);
+    settings.setSoundFontPath(QStringLiteral("/tmp/sample.wav"));
+    QVERIFY(settings.soundFontPath().isEmpty());
+    QVERIFY(settings.usesBuiltInSoundFont());
+}
+
+void TestAppSettings::testUsesBuiltInWhenSoundFontFileMissing() {
+    AppSettings settings(m_settingsPath);
+    settings.setSoundFontPath(QStringLiteral("/tmp/does-not-exist.sf2"));
+    QCOMPARE(settings.soundFontPath(), QStringLiteral("/tmp/does-not-exist.sf2"));
+    QVERIFY(settings.usesBuiltInSoundFont());
+    QVERIFY(settings.effectiveSoundFontPath().isEmpty());
+}
+
 QTEST_MAIN(TestAppSettings)

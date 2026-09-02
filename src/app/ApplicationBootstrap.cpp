@@ -70,8 +70,17 @@ namespace {
 // Construction
 // -----------------------------------------------------------------------------
 
-ApplicationBootstrap::ApplicationBootstrap(AppSettings &appSettings, QObject *parent)
-    : QObject(parent), m_appSettings(appSettings) {
+ApplicationBootstrap::ApplicationBootstrap(AppSettings &appSettings,
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+                                           SoundFontSchemeHandler *soundFontSchemeHandler,
+#endif
+                                           QObject *parent)
+    : QObject(parent), m_appSettings(appSettings)
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+      ,
+      m_soundFontSchemeHandler(soundFontSchemeHandler)
+#endif
+{
     qRegisterMetaType<CatalogViewCachePtr>();
 }
 
@@ -198,6 +207,10 @@ bool ApplicationBootstrap::openCoreDatabase() {
             .mediaRepo = *m_mediaFileRepo,
             .pathResolver = *m_pathResolver,
             .errorLog = *m_errorLog,
+            .appSettings = m_appSettings,
+#ifdef SONARPRACTICE_HAS_WEBENGINE
+            .soundFontSchemeHandler = m_soundFontSchemeHandler,
+#endif
         });
 
     wireServices();

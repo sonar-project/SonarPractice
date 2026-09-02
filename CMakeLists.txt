@@ -161,9 +161,20 @@ qt_add_qml_module(SonarPractice
 )
 
 if(SONARPRACTICE_HAS_WEBENGINE)
+    target_sources(SonarPractice PRIVATE
+        src/app/SoundFontSchemeHandler.cpp
+        src/app/SoundFontSchemeHandler.h
+    )
+    target_sources(ViewModelsLib PRIVATE
+        src/app/SoundFontSchemeHandler.cpp
+        src/app/SoundFontSchemeHandler.h
+    )
     target_compile_definitions(SonarPractice PRIVATE SONARPRACTICE_HAS_WEBENGINE)
     target_compile_definitions(ViewModelsLib PUBLIC SONARPRACTICE_HAS_WEBENGINE)
-    target_link_libraries(SonarPractice PRIVATE Qt6::WebEngineQuick)
+    target_include_directories(SonarPractice PRIVATE ${CMAKE_SOURCE_DIR}/src/app)
+    target_include_directories(ViewModelsLib PUBLIC ${CMAKE_SOURCE_DIR}/src/app)
+    target_link_libraries(ViewModelsLib PUBLIC Qt6::WebEngineCore)
+    target_link_libraries(SonarPractice PRIVATE Qt6::WebEngineQuick Qt6::WebEngineCore)
 endif()
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
