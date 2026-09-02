@@ -673,8 +673,7 @@ GroupBox {
                                         && !(kindRow.isInternalAudio
                                              && kindRow.isAudioEntryPlaying(kindRow.selectedEntry()))
                                 focusPolicy: Qt.TabFocus
-                                visible: kindRow.isGuitarPro
-                                         || (kindRow.isInternalAudio && !kindRow.isInternalVideo)
+                                visible: kindRow.isGuitarPro || kindRow.isInternalAudio
 
                                 onClicked: {
                                     if (selectionGuard.running) {
