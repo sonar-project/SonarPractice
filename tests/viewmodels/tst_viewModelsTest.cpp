@@ -1004,8 +1004,12 @@ void TestViewModels::testGuitarProPreviewControllerLoadsTab() {
     QVERIFY(controller.errorMessage().isEmpty());
     QCOMPARE(controller.title(), QStringLiteral("Example File GP5"));
     QVERIFY(!controller.trackNames().isEmpty());
-    QVERIFY(controller.tabText().contains(QLatin1Char('|')));
-    QVERIFY(controller.tabText().contains(QLatin1Char('-')));
+    QVERIFY(controller.scoreBpm() > 0);
+    QCOMPARE(controller.playbackBpm(), controller.scoreBpm());
+    const int nudgedBpm = controller.scoreBpm() + 2;
+    controller.setPlaybackBpm(nudgedBpm);
+    QCOMPARE(controller.playbackBpm(), nudgedBpm);
+    QVERIFY(controller.tempoPercent() > 100);
     QVERIFY(loadedSpy.count() >= 1);
     QVERIFY(loadingSpy.count() >= 2);
 

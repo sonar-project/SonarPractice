@@ -213,19 +213,34 @@ GroupBox {
                 color: Theme.textSecondary
             }
 
-            Slider {
-                from: 50
-                to: 150
-                stepSize: 5
-                value: guitarProPreviewController.tempoPercent
-                Layout.preferredWidth: 140
-                onMoved: guitarProPreviewController.tempoPercent = Math.round(value)
+            DarkSpinBox {
+                id: tempoBpmSpin
+                from: guitarProPreviewController.minPlaybackBpm
+                to: guitarProPreviewController.maxPlaybackBpm
+                stepSize: 2
+                editable: true
+                Layout.preferredWidth: 110
+                onValueModified: guitarProPreviewController.playbackBpm = value
+
+                Binding on value {
+                    value: guitarProPreviewController.playbackBpm
+                    restoreMode: Binding.RestoreBindingOrValue
+                }
             }
 
             Label {
-                text: qsTr("%1%").arg(guitarProPreviewController.tempoPercent)
+                text: qsTr("BPM")
                 color: Theme.textSecondary
-                Layout.preferredWidth: 40
+            }
+
+            Label {
+                text: {
+                    const score = guitarProPreviewController.scoreBpm
+                    if (score > 0)
+                        return qsTr("(%1% of %2)").arg(guitarProPreviewController.tempoPercent).arg(score)
+                    return qsTr("(%1%)").arg(guitarProPreviewController.tempoPercent)
+                }
+                color: Theme.textHint
             }
 
             CheckBox {

@@ -55,6 +55,12 @@ class GuitarProPreviewController : public QObject {
     /** True once a usable SoundFont is loaded — Play is gated on this for custom fonts. */
     Q_PROPERTY(bool soundFontReady READ soundFontReady NOTIFY soundFontReadyChanged)
     Q_PROPERTY(int tempoPercent READ tempoPercent WRITE setTempoPercent NOTIFY tempoPercentChanged)
+    /** Written score tempo in BPM (0 if unknown). */
+    Q_PROPERTY(int scoreBpm READ scoreBpm NOTIFY scoreBpmChanged)
+    /** Effective playback tempo (score BPM × percent). */
+    Q_PROPERTY(int playbackBpm READ playbackBpm WRITE setPlaybackBpm NOTIFY playbackBpmChanged)
+    Q_PROPERTY(int minPlaybackBpm READ minPlaybackBpm NOTIFY scoreBpmChanged)
+    Q_PROPERTY(int maxPlaybackBpm READ maxPlaybackBpm NOTIFY scoreBpmChanged)
     Q_PROPERTY(bool loopEnabled READ loopEnabled WRITE setLoopEnabled NOTIFY loopChanged)
     Q_PROPERTY(int loopStartBar READ loopStartBar WRITE setLoopStartBar NOTIFY loopChanged)
     Q_PROPERTY(int loopEndBar READ loopEndBar WRITE setLoopEndBar NOTIFY loopChanged)
@@ -109,6 +115,11 @@ class GuitarProPreviewController : public QObject {
     [[nodiscard]] bool soundFontReady() const;
     [[nodiscard]] int tempoPercent() const;
     void setTempoPercent(int tempoPercent);
+    [[nodiscard]] int scoreBpm() const;
+    [[nodiscard]] int playbackBpm() const;
+    void setPlaybackBpm(int bpm);
+    [[nodiscard]] int minPlaybackBpm() const;
+    [[nodiscard]] int maxPlaybackBpm() const;
     [[nodiscard]] bool loopEnabled() const;
     void setLoopEnabled(bool enabled);
     [[nodiscard]] int loopStartBar() const;
@@ -172,6 +183,8 @@ class GuitarProPreviewController : public QObject {
     void playerReadyChanged();
     void soundFontReadyChanged();
     void tempoPercentChanged();
+    void scoreBpmChanged();
+    void playbackBpmChanged();
     void loopChanged();
     void barCountChanged();
     void metronomeChanged();
@@ -218,6 +231,7 @@ class GuitarProPreviewController : public QObject {
     [[nodiscard]] QString configuredCustomSoundFontUrl() const;
     [[nodiscard]] static int clampMetronomeDivision(int division);
     [[nodiscard]] static int clampTransposeSemitones(int semitones);
+    [[nodiscard]] int effectiveScoreBpm() const;
 
     Dependencies m_dependencies;
     std::atomic<int> m_loadGeneration{0};

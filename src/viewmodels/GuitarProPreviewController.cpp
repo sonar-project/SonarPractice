@@ -153,6 +153,29 @@ bool GuitarProPreviewController::soundFontReady() const { return m_soundFontRead
 
 int GuitarProPreviewController::tempoPercent() const { return m_tempoPercent; }
 
+int GuitarProPreviewController::effectiveScoreBpm() const {
+    return m_preview.bpm > 0 ? m_preview.bpm : 120;
+}
+
+int GuitarProPreviewController::scoreBpm() const { return m_preview.bpm; }
+
+int GuitarProPreviewController::playbackBpm() const {
+    return qMax(1, qRound(effectiveScoreBpm() * m_tempoPercent / 100.0));
+}
+
+int GuitarProPreviewController::minPlaybackBpm() const {
+    return qMax(1, qRound(effectiveScoreBpm() * 25 / 100.0));
+}
+
+int GuitarProPreviewController::maxPlaybackBpm() const {
+    return qMax(minPlaybackBpm(), qRound(effectiveScoreBpm() * 200 / 100.0));
+}
+
+void GuitarProPreviewController::setPlaybackBpm(int bpm) {
+    const int base = effectiveScoreBpm();
+    setTempoPercent(qRound(static_cast<double>(qMax(1, bpm)) * 100.0 / static_cast<double>(base)));
+}
+
 void GuitarProPreviewController::setTempoPercent(int tempoPercent) {
     const int clamped = qBound(25, tempoPercent, 200);
     if (m_tempoPercent == clamped) {
@@ -160,6 +183,7 @@ void GuitarProPreviewController::setTempoPercent(int tempoPercent) {
     }
     m_tempoPercent = clamped;
     emit tempoPercentChanged();
+    emit playbackBpmChanged();
     emitPlayerCommand(QStringLiteral("window.sonarAlphaTab && window.sonarAlphaTab.setTempoPercent(%1);")
                           .arg(m_tempoPercent));
 }
@@ -893,9 +917,15 @@ void GuitarProPreviewController::applyLoadResult(const LoadResult &result) {
         return;
     }
 
+    const int previousScoreBpm = m_preview.bpm;
+    const int previousPlaybackBpm = playbackBpm();
     m_preview = result.preview;
     m_mediaFileId = result.mediaFileId;
     emit mediaFileIdChanged();
+    if (previousScoreBpm != m_preview.bpm)
+        emit scoreBpmChanged();
+    if (previousPlaybackBpm != playbackBpm())
+        emit playbackBpmChanged();
 
     if (m_preview.barCount > 0) {
         setBarCount(m_preview.barCount);
@@ -1036,9 +1066,15 @@ void GuitarProPreviewController::emitPlayerCommand(const QString &javaScript) {
 
 void GuitarProPreviewController::resetPreviewState() {
     const bool hadLoaded = m_loaded;
+    const int previousScoreBpm = m_preview.bpm;
+    const int previousPlaybackBpm = playbackBpm();
     m_preview = {};
     m_mediaFileId = 0;
     emit mediaFileIdChanged();
+    if (previousScoreBpm != 0)
+        emit scoreBpmChanged();
+    if (previousPlaybackBpm != playbackBpm())
+        emit playbackBpmChanged();
 
     if (!m_scoreBase64.isEmpty()) {
         m_scoreBase64.clear();
