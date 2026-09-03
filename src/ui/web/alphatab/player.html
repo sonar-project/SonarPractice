@@ -57,6 +57,11 @@
       background: var(--sp-cursor-beat);
       width: 3px;
     }
+    /* Count-in: keep cursor pinned; disable AlphaTab's animated beat slide. */
+    html.sp-count-in .at-cursor-bar,
+    html.sp-count-in .at-cursor-beat {
+      transition: none !important;
+    }
     .at-selection div {
       position: absolute;
       background: var(--sp-cursor-bar);
