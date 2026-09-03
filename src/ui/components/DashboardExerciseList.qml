@@ -75,19 +75,14 @@ ColumnLayout {
 
             SongCard {
                 anchors.fill: parent
-                songId: cardHost.songId
                 title: cardHost.title
                 baseBpm: cardHost.baseBpm
                 artistName: cardHost.artistName
                 tuningName: cardHost.tuningName
-                tuningId: cardHost.tuningId
                 displayTitle: cardHost.displayTitle
                 isLinkedGroup: cardHost.isLinkedGroup
                 linkedMediaCount: cardHost.linkedMediaCount
-                linkGroupId: cardHost.linkGroupId
                 isContainerMember: cardHost.isContainerMember
-                hubSongId: cardHost.hubSongId
-                mediaId: cardHost.mediaId
                 assetSummary: cardHost.assetSummary
 
                 onActivated: root.songActivated(

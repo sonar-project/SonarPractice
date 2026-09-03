@@ -6,7 +6,7 @@ TestCase {
 
     function init() {
         appSettings.storageStrategy = "link"
-        appSettings.resetExtensionCategoriesToDefaults()
+        appSettings.applyExtensionCategoriesFromUi(appSettings.defaultExtensionCategoriesForUi())
         appSettings.saveConfiguration()
         appSettings.reload()
     }

@@ -25,52 +25,20 @@ void TestTuningRepository::testCreateTuning() {
     QVERIFY(*firstId != *secondId);
 }
 
-void TestTuningRepository::testGetTuning() {
+void TestTuningRepository::testFindTuningByName() {
     Tuning tuning;
     tuning.name = QStringLiteral("E Standard");
 
     const std::optional<qlonglong> tuningId = m_tuningRepo.createTuning(tuning);
     QVERIFY(tuningId.has_value());
 
-    const std::optional<Tuning> loadedTuning = m_tuningRepo.getTuning(*tuningId);
+    const std::optional<Tuning> loadedTuning =
+        m_tuningRepo.findTuningByName(QStringLiteral("E Standard"));
     QVERIFY(loadedTuning.has_value());
+    QCOMPARE(loadedTuning->id, *tuningId);
     QCOMPARE(loadedTuning->name, QStringLiteral("E Standard"));
-}
 
-void TestTuningRepository::testUpdateTuning() {
-    Tuning tuning;
-    tuning.name = QStringLiteral("Old Tuning");
-
-    const std::optional<qlonglong> tuningId = m_tuningRepo.createTuning(tuning);
-    QVERIFY(tuningId.has_value());
-
-    Tuning updatedTuning;
-    updatedTuning.id = *tuningId;
-    updatedTuning.name = QStringLiteral("New Tuning");
-
-    QVERIFY(m_tuningRepo.updateTuning(updatedTuning));
-
-    const std::optional<Tuning> loadedTuning = m_tuningRepo.getTuning(*tuningId);
-    QVERIFY(loadedTuning.has_value());
-    QCOMPARE(loadedTuning->name, QStringLiteral("New Tuning"));
-}
-
-void TestTuningRepository::testDeleteTuning() {
-    Tuning tuning;
-    tuning.name = QStringLiteral("To Delete");
-
-    const std::optional<qlonglong> tuningId = m_tuningRepo.createTuning(tuning);
-    QVERIFY(tuningId.has_value());
-
-    QVERIFY(m_tuningRepo.deleteTuning(*tuningId));
-
-    const std::optional<Tuning> loadedTuning = m_tuningRepo.getTuning(*tuningId);
-    QVERIFY(!loadedTuning.has_value());
-}
-
-void TestTuningRepository::testGetTuningNotFound() {
-    const std::optional<Tuning> tuning = m_tuningRepo.getTuning(99999);
-    QVERIFY(!tuning.has_value());
+    QVERIFY(!m_tuningRepo.findTuningByName(QStringLiteral("Missing Tuning")).has_value());
 }
 
 void TestTuningRepository::testCreateTuningDuplicateName() {

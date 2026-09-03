@@ -17,9 +17,6 @@ class IReminderConditionRepository {
     IReminderConditionRepository &operator=(IReminderConditionRepository &&) = delete;
 
     virtual std::optional<qlonglong> createCondition(const ReminderCondition &condition) = 0;
-    virtual std::optional<ReminderCondition> getCondition(qlonglong id) = 0;
-    virtual bool updateCondition(const ReminderCondition &condition) = 0;
-    virtual bool deleteCondition(qlonglong id) = 0;
     virtual bool deleteConditionsForReminder(qlonglong reminderId) = 0;
     virtual QList<ReminderCondition> listForReminder(qlonglong reminderId) = 0;
 

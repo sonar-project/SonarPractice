@@ -26,7 +26,6 @@ class IPracticeJournalRepository {
     virtual QList<JournalEntry> listForAssetAndDate(qlonglong assetId, const QDate &date) = 0;
     virtual QList<JournalEntry> listForSongAndDate(qlonglong songId, const QDate &date) = 0;
     virtual QList<JournalDayEntry> listDayEntriesWithSong(const QDate &date) = 0;
-    virtual QList<QDate> distinctPracticeDatesInMonth(int year, int month) = 0;
     virtual std::optional<JournalEntry> lastEntryForAsset(qlonglong assetId) = 0;
 
   protected:

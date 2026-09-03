@@ -494,28 +494,6 @@ QUrl AppSettings::settingsFileLocation() const {
 }
 
 /**
- * @brief Sets the extensions for a specific category.
- * @param[in] categoryKey The category key to update.
- * @param[in] extensions List of extensions to associate with the category.
- * @note Overwrites any existing extensions for the category.
- */
-void AppSettings::setExtensionCategory(const QString &categoryKey, const QStringList &extensions) {
-    const QString key = QString::fromLatin1(Keys::ExtensionCategoryPrefix) + categoryKey.trimmed();
-    m_settings.setValue(key, joinExtensions(extensions));
-}
-
-/**
- * @brief Resets all extension categories to their default values.
- * Overwrites any user-modified extension categories with defaults.
- */
-void AppSettings::resetExtensionCategoriesToDefaults() {
-    for (const ImportExtensionCategory &category : defaultExtensionCategories()) {
-        const QString key = QString::fromLatin1(Keys::ExtensionCategoryPrefix) + category.key;
-        m_settings.setValue(key, joinExtensions(category.extensions));
-    }
-}
-
-/**
  * @brief Saves the current configuration to disk.
  * Syncs settings to storage and reloads the internal state.
  */

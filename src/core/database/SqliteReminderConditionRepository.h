@@ -9,9 +9,6 @@ class SqliteReminderConditionRepository : public IReminderConditionRepository {
     explicit SqliteReminderConditionRepository(IDatabaseConnection &connection);
 
     [[nodiscard]] std::optional<qlonglong> createCondition(const ReminderCondition &condition) override;
-    [[nodiscard]] std::optional<ReminderCondition> getCondition(qlonglong id) override;
-    [[nodiscard]] bool updateCondition(const ReminderCondition &condition) override;
-    [[nodiscard]] bool deleteCondition(qlonglong id) override;
     [[nodiscard]] bool deleteConditionsForReminder(qlonglong reminderId) override;
     [[nodiscard]] QList<ReminderCondition> listForReminder(qlonglong reminderId) override;
 

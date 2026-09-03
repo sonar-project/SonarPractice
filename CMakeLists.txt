@@ -102,7 +102,6 @@ qt_add_qml_module(SonarPractice
     src/ui/Theme.qml
 
     src/ui/components/AboutDialog.qml
-    src/ui/components/AssetTile.qml
     src/ui/components/AudioWaveformView.qml
     src/ui/components/AudioProcessingOverlay.qml
     src/ui/components/AudioPresetIcon.qml
@@ -132,7 +131,6 @@ qt_add_qml_module(SonarPractice
     src/ui/pages/ConfigPage.qml
     src/ui/pages/DashboardPage.qml
     src/ui/pages/GuitarProPlayerPage.qml
-    src/ui/pages/ImportSheet.qml
     src/ui/pages/LibraryPage.qml
     src/ui/pages/PracticeHubPage.qml
     RESOURCES
@@ -156,10 +154,6 @@ qt_add_qml_module(SonarPractice
     src/ui/js/MediaKind.js
     src/ui/js/MarkdownFormat.js
     ${SONARPRACTICE_ALPHATAB_RESOURCES}
-    sonarpractice.desktop
-    RESOURCES assets/app.rc.in
-    RESOURCES build_installer.bat
-    RESOURCES setup_script.iss
 )
 
 if(SONARPRACTICE_HAS_WEBENGINE)

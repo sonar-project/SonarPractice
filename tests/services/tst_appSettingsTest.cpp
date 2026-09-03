@@ -118,7 +118,12 @@ void TestAppSettings::testStorageStrategyRoundtrip() {
 
 void TestAppSettings::testCustomExtensionsOverrideDefaults() {
     AppSettings settings(m_settingsPath);
-    settings.setExtensionCategory(QStringLiteral("audio"), {QStringLiteral("opus")});
+    QVariantList categories;
+    QVariantMap audio;
+    audio.insert(QStringLiteral("key"), QStringLiteral("audio"));
+    audio.insert(QStringLiteral("extensions"), QStringLiteral("opus"));
+    categories.append(audio);
+    settings.applyExtensionCategoriesFromUi(categories);
     settings.saveConfiguration();
 
     const QStringList extensions = settings.allowedExtensions();
@@ -128,8 +133,14 @@ void TestAppSettings::testCustomExtensionsOverrideDefaults() {
 
 void TestAppSettings::testResetExtensionCategoriesToDefaults() {
     AppSettings settings(m_settingsPath);
-    settings.setExtensionCategory(QStringLiteral("audio"), {QStringLiteral("opus")});
-    settings.resetExtensionCategoriesToDefaults();
+    QVariantList custom;
+    QVariantMap audio;
+    audio.insert(QStringLiteral("key"), QStringLiteral("audio"));
+    audio.insert(QStringLiteral("extensions"), QStringLiteral("opus"));
+    custom.append(audio);
+    settings.applyExtensionCategoriesFromUi(custom);
+
+    settings.applyExtensionCategoriesFromUi(settings.defaultExtensionCategoriesForUi());
     settings.saveConfiguration();
 
     const QStringList extensions = settings.allowedExtensions();

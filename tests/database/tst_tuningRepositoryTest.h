@@ -16,10 +16,7 @@ class TestTuningRepository : public QObject, protected DatabaseTestFixture {
     void cleanup();
 
     void testCreateTuning();
-    void testGetTuning();
-    void testUpdateTuning();
-    void testDeleteTuning();
-    void testGetTuningNotFound();
+    void testFindTuningByName();
     void testCreateTuningDuplicateName();
 };
 

@@ -100,7 +100,6 @@ bool MockPracticeTracker::startTimer() {
 
 bool MockPracticeTracker::stopAndSave() {
     if (!m_timerRunning || m_endBar < m_startBar) {
-        emit saveFailed(QStringLiteral("Invalid range"));
         return false;
     }
     m_timerRunning = false;
@@ -119,7 +118,8 @@ void MockPracticeTracker::cancelTimer() {
     emit timerTick();
 }
 
-void MockPracticeTracker::loadTrainingDefaults(int fallbackBpm) {
+void MockPracticeTracker::loadTrainingDefaults(int fallbackBpm, qlonglong reminderId) {
+    Q_UNUSED(reminderId);
     if (fallbackBpm > 0) {
         m_targetBpm = fallbackBpm;
         emit paramsChanged();

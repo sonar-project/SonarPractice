@@ -8,19 +8,14 @@ import "../js/MediaKind.js" as MediaKind
 Pane {
     id: root
 
-    property int songId: 0
     property string title: ""
     property int baseBpm: 0
     property string artistName: ""
     property string tuningName: ""
-    property int tuningId: 0
     property string displayTitle: ""
     property bool isLinkedGroup: false
     property int linkedMediaCount: 0
-    property int linkGroupId: 0
     property bool isContainerMember: false
-    property int hubSongId: 0
-    property int mediaId: 0
     property var assetSummary: []
 
     property bool isFavorite: false

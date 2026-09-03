@@ -36,9 +36,6 @@ class PracticeSessionController : public QObject {
     /** Validates practice media and launches externally. */
     bool startPractice(qlonglong mediaFileId);
 
-  signals:
-    void launchFailed(const QString &message);
-
   private:
     bool launchMediaFile(qlonglong mediaFileId, const QString &context);
     bool reportFailure(const QString &context, const QString &message);

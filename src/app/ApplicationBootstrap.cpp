@@ -183,7 +183,7 @@ bool ApplicationBootstrap::openCoreDatabase() {
 
     // PracticeAssetController must be created before ReminderController
     m_practiceAssetController =
-        std::make_unique<PracticeAssetController>(*m_practiceAssetRepo, *m_mediaFileRepo, nullptr);
+        std::make_unique<PracticeAssetController>(*m_practiceAssetRepo, nullptr);
 
     m_practiceSession =
         std::make_unique<PracticeSessionController>(PracticeSessionController::Dependencies{

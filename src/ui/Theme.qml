@@ -16,15 +16,11 @@ Settings {
     }
 
     readonly property color windowBackground: isDark ? "#16161f" : "#f3f4f8"
-    readonly property color windowBackgroundDeep: isDark ? "#0d0d14" : "#e8e9ed"
     readonly property color toolbarBackground: isDark ? "#1e1e2e" : "#ffffff"
     readonly property color panelBackground: isDark ? "#1a1a28" : "#ffffff"
     readonly property color panelBackgroundNested: isDark ? "#252536" : "#eef0f4"
     readonly property color cardBackground: isDark ? "#252536" : "#ffffff"
     readonly property color cardBackgroundPressed: isDark ? "#2a2a3d" : "#e4e6ec"
-    readonly property color assetTileBackground: isDark ? "#2a2a3d" : "#eef0f4"
-    readonly property color dropZoneBackground: isDark ? "#252536" : "#f5f6fa"
-    readonly property color dropZoneDragBackground: isDark ? "#2a2a3d" : "#ebe8ff"
     readonly property color editorBackground: isDark ? "#16161f" : "#ffffff"
     readonly property color tableRowEven: isDark ? "#16161f" : "#f8f9fb"
     readonly property color tableRowOdd: isDark ? "#1e1e2e" : "#ffffff"
@@ -42,7 +38,6 @@ Settings {
 
     readonly property color textPrimary: isDark ? "#eceff1" : "#1a1a2e"
     readonly property color textHeading: isDark ? "#f5f5f5" : "#12121f"
-    readonly property color textTitle: isDark ? "#ffffff" : "#12121f"
     readonly property color textToolbar: isDark ? "#e0e0e0" : "#424242"
     readonly property color textSecondary: isDark ? "#78909c" : "#5f6b7a"
     readonly property color textTertiary: isDark ? "#9e9e9e" : "#757575"
@@ -67,7 +62,6 @@ Settings {
     readonly property color regionMarkerEnd: isDark ? "#ef5350" : "#c62828"
     readonly property color regionMarkerFill: isDark ? "#3366bb6a" : "#332e7d32"
 
-    readonly property color overlay: isDark ? "#99000000" : "#66000000"
     readonly property color toolbarButtonHover: isDark ? "#2a2a3a" : "#e8eaf0"
     readonly property color toolbarButtonPressed: isDark ? "#3d3d5c" : "#d8dbe3"
     readonly property color calendarSelected: isDark ? "#7c4dff" : "#651fff"

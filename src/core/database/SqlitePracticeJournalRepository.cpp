@@ -241,41 +241,6 @@ QList<JournalDayEntry> SqlitePracticeJournalRepository::listDayEntriesWithSong(c
     return entries;
 }
 
-QList<QDate> SqlitePracticeJournalRepository::distinctPracticeDatesInMonth(int year, int month) {
-    QList<QDate> dates;
-
-    if (year < 1 || month < 1 || month > 12 || !RepositoryUtils::ensureOpen(m_connection)) {
-        return dates;
-    }
-
-    const QDate monthStart(year, month, 1);
-    const QDate monthEnd = monthStart.addMonths(1).addDays(-1);
-
-    QSqlQuery query(RepositoryUtils::database(m_connection));
-    query.prepare(QStringLiteral(
-        "SELECT DISTINCT date(practice_date) AS practice_day "
-        "FROM practice_journal "
-        "WHERE date(practice_date) BETWEEN date(:start_date) AND date(:end_date) "
-        "ORDER BY practice_day"));
-    query.bindValue(QStringLiteral(":start_date"), monthStart.toString(Qt::ISODate));
-    query.bindValue(QStringLiteral(":end_date"), monthEnd.toString(Qt::ISODate));
-
-    if (!query.exec()) {
-        qCritical() << "[SqlitePracticeJournalRepository] distinctPracticeDatesInMonth failed:"
-                    << query.lastError().text();
-        return dates;
-    }
-
-    while (query.next()) {
-        const QDate day = QDate::fromString(query.value(0).toString(), Qt::ISODate);
-        if (day.isValid()) {
-            dates.append(day);
-        }
-    }
-
-    return dates;
-}
-
 /**
  * @brief Retrieves the most recent practice entry for a specific asset.
  * @param assetId The ID of the practice asset.

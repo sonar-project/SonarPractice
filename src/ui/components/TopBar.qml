@@ -6,7 +6,6 @@ ToolBar {
     id: root
 
     required property string title
-    property string subtitle: ""
     property bool showBack: false
     property bool showThemeToggle: true
     property bool sessionLocked: false

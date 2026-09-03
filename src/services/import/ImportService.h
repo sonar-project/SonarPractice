@@ -47,9 +47,6 @@ class ImportService : public QObject, public IImportService {
     ImportResult importFile(const QString &absolutePath,
                             StorageStrategy strategy = StorageStrategy::Link) override;
 
-    void importDirectory(const QString &directoryPath,
-                         StorageStrategy strategy = StorageStrategy::Link) override;
-
     Q_INVOKABLE void importPaths(const QStringList &paths,
                                  StorageStrategy strategy = StorageStrategy::Link);
 
@@ -62,7 +59,6 @@ class ImportService : public QObject, public IImportService {
     [[nodiscard]] int lastFailedCount() const;
 
   public slots:
-    void clearStatusMessage();
     void cancelImport() override;
 
   private slots:
@@ -76,10 +72,7 @@ class ImportService : public QObject, public IImportService {
     void statusMessageChanged();
     void progressChanged();
     void lastSummaryChanged();
-    void importProgress(int current, int total, const QString &currentFile);
-    void fileImported(const ImportResult &result);
     void importFinished(const ImportSummary &summary);
-    void errorOccurred(const QString &message);
 
   private:
     void startBatchImport(const QList<ImportFileEntry> &files, StorageStrategy strategy);

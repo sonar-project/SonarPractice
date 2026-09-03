@@ -271,17 +271,6 @@ const QList<SongListRowData> &CatalogViewCache::songSecondaryRows() const {
 
 const QList<LibraryLinkRowData> &CatalogViewCache::libraryRows() const { return m_libraryRows; }
 
-int CatalogViewCache::folderCountFor(const QString &folderPath, bool includeSubfolders) const {
-    const QHash<QString, int> &counts =
-        includeSubfolders ? m_folderCountRecursive : m_folderCountDirect;
-
-    if (folderPath.isEmpty()) {
-        return counts.value(QString(), static_cast<int>(m_libraryRows.size()));
-    }
-
-    return counts.value(folderPath, 0);
-}
-
 const QHash<QString, int> &CatalogViewCache::folderCountDirect() const {
     return m_folderCountDirect;
 }

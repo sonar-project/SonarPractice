@@ -353,19 +353,6 @@ QVariantList LibraryLinkModel::orderSongIdsForLinking(const QVariantList &songId
     return ordered;
 }
 
-QString LibraryLinkModel::defaultLinkTitle() const {
-    QString trimmed = m_searchText.trimmed();
-    if (trimmed.isEmpty()) {
-        return {};
-    }
-
-    if (trimmed.contains(QStringLiteral("&&")) || trimmed.contains(QStringLiteral("||"))) {
-        return {};
-    }
-
-    return trimmed;
-}
-
 QString LibraryLinkModel::titleForSong(qlonglong songId) const {
     if (const LibraryRow *row = rowForSong(songId)) {
         return row->title;

@@ -67,8 +67,6 @@ class LibraryLinkModel : public QAbstractListModel {
     [[nodiscard]] int visibleUnlinkedCount();
     [[nodiscard]] bool loaded() const;
 
-    /// Returns the trimmed search text when it is a single plain term (no && or ||).
-    Q_INVOKABLE QString defaultLinkTitle() const;
     Q_INVOKABLE QString titleForSong(qlonglong songId) const;
     Q_INVOKABLE bool isSongLinked(qlonglong songId) const;
     Q_INVOKABLE QStringList distinctFolderPaths() const;

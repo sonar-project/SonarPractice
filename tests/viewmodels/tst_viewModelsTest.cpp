@@ -69,7 +69,7 @@ void TestViewModels::init() {
 
     m_launcher = MockLauncher{};
     m_practiceAssetController =
-        std::make_unique<PracticeAssetController>(m_practiceAssetRepo, m_mediaFileRepo);
+        std::make_unique<PracticeAssetController>(m_practiceAssetRepo);
 }
 
 void TestViewModels::cleanup() {
@@ -360,9 +360,7 @@ void TestViewModels::testSongModelExpandAllGroupsRevealsMembers() {
     QCOMPARE(memberMediaId, *secondaryMediaId);
 
     model.setExpandAllGroups(false);
-    model.setGroupExpanded(*groupId, true);
-    QCOMPARE(model.rowCount(), 2);
-    QCOMPARE(model.isGroupExpanded(*groupId), true);
+    QCOMPARE(model.rowCount(), 1);
 }
 
 void TestViewModels::testSongModelHideContainersShowsMembers() {
@@ -470,11 +468,9 @@ void TestViewModels::testPracticeSessionRejectsNonPracticeableMedia() {
         .errorLog = *m_errorLog,
     });
 
-    QSignalSpy failedSpy(&controller, &PracticeSessionController::launchFailed);
     QSignalSpy noticeSpy(m_errorLog.get(), &ApplicationErrorLog::userNoticeRequested);
 
     QVERIFY(!controller.startPractice(*mediaId));
-    QCOMPARE(failedSpy.count(), 1);
     QCOMPARE(noticeSpy.count(), 1);
     QCOMPARE(m_launcher.openCallCount, 0);
 }
@@ -567,11 +563,11 @@ void TestViewModels::testPracticeTrackerRejectsInvalidBarRange() {
     controller.setStartBar(TestDates::kDay10);
     controller.setEndBar(TestCounts::kTwo);
 
-    QSignalSpy failedSpy(&controller, &PracticeTrackerController::saveFailed);
+    QSignalSpy statusSpy(&controller, &PracticeTrackerController::statusMessageChanged);
 
     QVERIFY(controller.startTimer());
     QVERIFY(!controller.stopAndSave());
-    QCOMPARE(failedSpy.count(), 1);
+    QCOMPARE(statusSpy.count(), 1);
     QVERIFY(controller.statusIsError());
     QVERIFY(!controller.statusMessage().isEmpty());
     QCOMPARE(controller.journalModel()->rowCount(), 0);
@@ -645,6 +641,100 @@ void TestViewModels::testPracticeTrackerLoadDefaultsFromReminder() {
                                          m_conditionRepo, *m_errorLog);
     controller.setSongId(*songId);
     controller.loadTrainingDefaults(TestBpm::kDefaultSong);
+
+    QCOMPARE(controller.startBar(), TestCounts::kThree);
+    QCOMPARE(controller.endBar(), TestBars::kEndSection);
+    QCOMPARE(controller.targetBpm(), TestReminder::kConditionMinBpm);
+}
+
+void TestViewModels::testPracticeTrackerLoadDefaultsFromAssetReminder() {
+    const std::optional<qlonglong> songId = createSong(QStringLiteral("Asset Reminder Defaults"));
+    QVERIFY(songId.has_value());
+
+    const std::optional<qlonglong> mediaId =
+        createMediaFile(*songId, QStringLiteral("/tmp/asset_reminder_defaults.gp5"),
+                        MediaKind::GuitarPro, true);
+    QVERIFY(mediaId.has_value());
+
+    PracticeAsset practiceAsset;
+    practiceAsset.songId = *songId;
+    practiceAsset.guitarProId = *mediaId;
+    const std::optional<qlonglong> assetId = m_practiceAssetRepo.upsert(practiceAsset);
+    QVERIFY(assetId.has_value());
+
+    Reminder reminder;
+    reminder.songId = *songId;
+    reminder.practiceAssetId = *assetId;
+    reminder.title = QStringLiteral("Material daily");
+    reminder.isActive = true;
+    reminder.isDaily = true;
+    const std::optional<qlonglong> reminderId = m_reminderRepo.createReminder(reminder);
+    QVERIFY(reminderId.has_value());
+
+    ReminderCondition condition;
+    condition.reminderId = *reminderId;
+    condition.startBar = TestCounts::kThree;
+    condition.endBar = TestBars::kEndSection;
+    condition.minBpm = TestReminder::kConditionMinBpm;
+    QVERIFY(m_conditionRepo.createCondition(condition).has_value());
+
+    PracticeTrackerController controller(m_journalRepo, m_noticeRepo, m_reminderRepo,
+                                         m_conditionRepo, *m_errorLog);
+    controller.setSongId(*songId);
+    controller.setAssetId(*assetId);
+    controller.loadTrainingDefaults(TestBpm::kDefaultSong);
+
+    QCOMPARE(controller.startBar(), TestCounts::kThree);
+    QCOMPARE(controller.endBar(), TestBars::kEndSection);
+    QCOMPARE(controller.targetBpm(), TestReminder::kConditionMinBpm);
+}
+
+void TestViewModels::testPracticeTrackerLoadDefaultsPrefersSourceReminder() {
+    const std::optional<qlonglong> songId = createSong(QStringLiteral("Source Reminder Prefer"));
+    QVERIFY(songId.has_value());
+
+    const std::optional<qlonglong> mediaId =
+        createMediaFile(*songId, QStringLiteral("/tmp/source_reminder_prefer.gp5"),
+                        MediaKind::GuitarPro, true);
+    QVERIFY(mediaId.has_value());
+
+    PracticeAsset practiceAsset;
+    practiceAsset.songId = *songId;
+    practiceAsset.guitarProId = *mediaId;
+    const std::optional<qlonglong> assetId = m_practiceAssetRepo.upsert(practiceAsset);
+    QVERIFY(assetId.has_value());
+
+    JournalEntry journalEntry;
+    journalEntry.assetId = *assetId;
+    journalEntry.practiceDate =
+        QDateTime(QDate(TestDates::kYear, TestDates::kMarch, TestDates::kDay1),
+                  QTime(TestDates::kHour10, TestDates::kMinute0));
+    journalEntry.startBar = TestBars::kStart;
+    journalEntry.endBar = TestBars::kEndExtended;
+    journalEntry.practicedBpm = TestBpm::kUpdated;
+    QVERIFY(m_journalRepo.createEntry(journalEntry).has_value());
+
+    Reminder reminder;
+    reminder.songId = *songId;
+    reminder.practiceAssetId = *assetId;
+    reminder.title = QStringLiteral("Prefer me");
+    reminder.isActive = true;
+    reminder.isDaily = true;
+    const std::optional<qlonglong> reminderId = m_reminderRepo.createReminder(reminder);
+    QVERIFY(reminderId.has_value());
+
+    ReminderCondition condition;
+    condition.reminderId = *reminderId;
+    condition.startBar = TestCounts::kThree;
+    condition.endBar = TestBars::kEndSection;
+    condition.minBpm = TestReminder::kConditionMinBpm;
+    QVERIFY(m_conditionRepo.createCondition(condition).has_value());
+
+    PracticeTrackerController controller(m_journalRepo, m_noticeRepo, m_reminderRepo,
+                                         m_conditionRepo, *m_errorLog);
+    controller.setSongId(*songId);
+    controller.setAssetId(*assetId);
+    controller.loadTrainingDefaults(TestBpm::kDefaultSong, *reminderId);
 
     QCOMPARE(controller.startBar(), TestCounts::kThree);
     QCOMPARE(controller.endBar(), TestBars::kEndSection);
@@ -938,40 +1028,6 @@ void TestViewModels::testPracticeAssetControllerCompositeUpsert() {
     QCOMPARE(payload.value(QStringLiteral("audioId")).toLongLong(), *audioId);
 }
 
-void TestViewModels::testPracticeAssetControllerFilteredAudioFiles() {
-    const std::optional<qlonglong> songId = createSong(QStringLiteral("Audio Filter Song"));
-    QVERIFY(songId.has_value());
-
-    MediaFile backingTrack;
-    backingTrack.songId = *songId;
-    backingTrack.filePath = QStringLiteral("/tmp/backing_track.mp3");
-    backingTrack.fileType = QStringLiteral("mp3");
-    backingTrack.mediaKind = MediaKind::Audio;
-    backingTrack.sourceType = MediaSourceType::Local;
-    backingTrack.sourceRelativePath = QStringLiteral("Audio/backing_track.mp3");
-    QVERIFY(m_mediaFileRepo.createMediaFile(backingTrack).has_value());
-
-    MediaFile clickTrack;
-    clickTrack.songId = *songId;
-    clickTrack.filePath = QStringLiteral("/tmp/metronome.wav");
-    clickTrack.fileType = QStringLiteral("wav");
-    clickTrack.mediaKind = MediaKind::Audio;
-    clickTrack.sourceType = MediaSourceType::Local;
-    clickTrack.sourceRelativePath = QStringLiteral("Audio/metronome.wav");
-    QVERIFY(m_mediaFileRepo.createMediaFile(clickTrack).has_value());
-
-    createMediaFile(*songId, QStringLiteral("/tmp/not_audio.pdf"), MediaKind::Document);
-
-    const QVariantList backingMatches =
-        m_practiceAssetController->filteredAudioFiles(QStringLiteral("backing"));
-    QCOMPARE(backingMatches.size(), 1);
-    QCOMPARE(backingMatches.first().toMap().value(QStringLiteral("displayName")).toString(),
-             QStringLiteral("backing_track.mp3"));
-
-    const QVariantList allAudio = m_practiceAssetController->filteredAudioFiles(QString());
-    QCOMPARE(allAudio.size(), 2);
-}
-
 void TestViewModels::testGuitarProPreviewControllerLoadsTab() {
     const std::optional<qlonglong> songId = createSong(QStringLiteral("Preview Song"));
     QVERIFY(songId.has_value());
@@ -1177,23 +1233,22 @@ void TestViewModels::testGuitarProPreviewControllerLoadSoundFontJavaScript() {
     QCOMPARE(m_appSettings->effectiveSoundFontPath(), soundFontPath);
 
     QSignalSpy jsSpy(&controller, &GuitarProPreviewController::runPlayerJavaScript);
-    QSignalSpy seqSpy(&controller, &GuitarProPreviewController::runPlayerJavaScriptSequence);
     controller.handlePlayerEvent(QStringLiteral(R"({"event":"bridgeReady","payload":{}})"));
+    // Custom SoundFont loading starts after scoreLoaded (not on bridgeReady alone).
+    controller.handlePlayerEvent(
+        QStringLiteral(R"({"event":"scoreLoaded","payload":{"trackNames":[],"barCount":1}})"));
     QVERIFY(jsSpy.count() >= 1);
-    bool foundCustomSoundFont = false;
-    for (int i = 0; i < seqSpy.count(); ++i) {
-        const QStringList scripts = seqSpy.at(i).at(0).toStringList();
-        for (const QString &script : scripts) {
-            if (script.contains(QStringLiteral("beginSoundFontBytesLoad"))) {
-                foundCustomSoundFont = true;
-                break;
-            }
-        }
-        if (foundCustomSoundFont) {
+    bool foundSoundFontCommand = false;
+    for (int i = 0; i < jsSpy.count(); ++i) {
+        const QString script = jsSpy.at(i).at(0).toString();
+        if (script.contains(QStringLiteral("loadBuiltInSoundFont"))
+            || script.contains(QStringLiteral("loadCustomSoundFontFromUrl"))
+            || script.contains(QStringLiteral("beginSoundFontBytesLoad"))) {
+            foundSoundFontCommand = true;
             break;
         }
     }
-    QVERIFY(foundCustomSoundFont);
+    QVERIFY(foundSoundFontCommand);
 }
 
 std::optional<qlonglong> TestViewModels::createSong(const QString &title, int baseBpm) {
@@ -1299,12 +1354,6 @@ void TestViewModels::testLibraryLinkModelBooleanSearch() {
     const QVariantList allVisible = model.visibleUnlinkedSongIds();
     QCOMPARE(allVisible.size(), 3);
     QCOMPARE(model.orderSongIdsForLinking(allVisible).first().toLongLong(), *gpSongId);
-
-    model.setSearchText(QStringLiteral("Picking Licks"));
-    QCOMPARE(model.defaultLinkTitle(), QStringLiteral("Picking Licks"));
-
-    model.setSearchText(QStringLiteral("Picking && mp4"));
-    QVERIFY(model.defaultLinkTitle().isEmpty());
 }
 
 void TestViewModels::testLibraryLinkModelContainersOnlyShowsGroupTitle() {

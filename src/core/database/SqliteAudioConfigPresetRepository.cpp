@@ -132,38 +132,6 @@ SqliteAudioConfigPresetRepository::createPreset(const AudioConfigPreset &preset)
 }
 
 /**
- * @brief Updates the settings of an existing audio configuration preset.
- * @param preset The preset object containing the updated values.
- * @return True if the update was successful, false otherwise.
- */
-bool SqliteAudioConfigPresetRepository::updatePreset(const AudioConfigPreset &preset) {
-    if (preset.id <= 0 || preset.mediaFileId <= 0 || !RepositoryUtils::ensureOpen(m_connection)) {
-        return false;
-    }
-
-    QSqlQuery query(RepositoryUtils::database(m_connection));
-    query.prepare(
-        QStringLiteral("UPDATE audio_config_presets SET "
-                       "name = :name, tempo_percent = :tempo, eq_preset_id = :eq, "
-                       "region_start_ms = :start_ms, region_end_ms = :end_ms, loop_enabled = :loop "
-                       "WHERE id = :id"));
-    query.bindValue(QStringLiteral(":id"), preset.id);
-    query.bindValue(QStringLiteral(":name"), preset.name);
-    query.bindValue(QStringLiteral(":tempo"), preset.tempoPercent);
-    query.bindValue(QStringLiteral(":eq"), preset.eqPresetId);
-    query.bindValue(QStringLiteral(":start_ms"), preset.regionStartMs);
-    query.bindValue(QStringLiteral(":end_ms"), preset.regionEndMs);
-    query.bindValue(QStringLiteral(":loop"), preset.loopEnabled ? 1 : 0);
-
-    if (!query.exec()) {
-        qCritical(lcAudioPresetRepo) << "updatePreset failed:" << query.lastError().text();
-        return false;
-    }
-
-    return true;
-}
-
-/**
  * @brief Removes an audio configuration preset from the database by its ID.
  * @param presetId The unique ID of the preset to delete.
  * @return True if the deletion was successful, false otherwise.

@@ -256,7 +256,7 @@ ApplicationWindow {
         });
     }
 
-    function pushPracticeHub(songId, title, baseBpm, editingReminderId, practiceAssetId, mediaId) {
+    function pushPracticeHub(songId, title, baseBpm, editingReminderId, practiceAssetId, mediaId, sourceReminderId) {
         if (!root.servicesReady || practiceTracker.timerRunning)
             return;
         stackView.push(practiceHubComponent, {
@@ -265,7 +265,8 @@ ApplicationWindow {
             songBaseBpm: baseBpm,
             initialEditingReminderId: editingReminderId > 0 ? editingReminderId : 0,
             initialPracticeAssetId: practiceAssetId > 0 ? practiceAssetId : 0,
-            initialMediaId: mediaId > 0 ? mediaId : 0
+            initialMediaId: mediaId > 0 ? mediaId : 0,
+            initialSourceReminderId: sourceReminderId > 0 ? sourceReminderId : 0
         });
     }
 
@@ -351,8 +352,8 @@ ApplicationWindow {
         DashboardPage {
             sessionLocked: practiceTracker.timerRunning
 
-            onSongSelected: (songId, title, baseBpm, practiceAssetId, mediaId) => root.pushPracticeHub(songId, title, baseBpm, 0, practiceAssetId || 0, mediaId || 0)
-            onReminderEditRequested: (songId, title, baseBpm, reminderId, practiceAssetId) => root.pushPracticeHub(songId, title, baseBpm, reminderId, practiceAssetId || 0, 0)
+            onSongSelected: (songId, title, baseBpm, practiceAssetId, mediaId, sourceReminderId) => root.pushPracticeHub(songId, title, baseBpm, 0, practiceAssetId || 0, mediaId || 0, sourceReminderId || 0)
+            onReminderEditRequested: (songId, title, baseBpm, reminderId, practiceAssetId) => root.pushPracticeHub(songId, title, baseBpm, reminderId, practiceAssetId || 0, 0, reminderId)
         }
     }
 

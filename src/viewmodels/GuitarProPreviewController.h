@@ -156,14 +156,14 @@ class GuitarProPreviewController : public QObject {
 
     /** Called from QML/WebChannel when AlphaTab posts a JSON event. */
     Q_INVOKABLE void handlePlayerEvent(const QString &json);
-    /** JavaScript snippet to (re)load the current score into AlphaTab. */
-    Q_INVOKABLE QString loadScoreJavaScript() const;
     /** Retry SoundFont load when the player page becomes visible again. */
     Q_INVOKABLE void onPlayerSurfaceActivated();
+    /** JavaScript snippet to (re)load the current score into AlphaTab. */
+    [[nodiscard]] QString loadScoreJavaScript() const;
     /** JavaScript snippet applying track/tempo/loop to a ready player. */
-    Q_INVOKABLE QString applyPlayerSettingsJavaScript() const;
+    [[nodiscard]] QString applyPlayerSettingsJavaScript() const;
     /** JavaScript snippet loading the configured SoundFont into AlphaTab. */
-    Q_INVOKABLE QString loadSoundFontJavaScript() const;
+    [[nodiscard]] QString loadSoundFontJavaScript() const;
 
   signals:
     void loadingChanged();

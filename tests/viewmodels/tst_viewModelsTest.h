@@ -70,6 +70,8 @@ class TestViewModels : public QObject {
     void testPracticeTrackerRejectsInvalidBarRange();
     void testPracticeTrackerLoadDefaultsFromLastSession();
     void testPracticeTrackerLoadDefaultsFromReminder();
+    void testPracticeTrackerLoadDefaultsFromAssetReminder();
+    void testPracticeTrackerLoadDefaultsPrefersSourceReminder();
     void testReminderListModelFiltersByPracticeAsset();
     void testReminderListModelBuildScheduleLabelUsesLocaleDateFormat();
     void testJournalTableModelUsesLocaleDateFormat();
@@ -77,7 +79,6 @@ class TestViewModels : public QObject {
     void testReminderControllerRequiresPracticeAssetId();
     void testReminderControllerDeleteReminderUpdatesCounts();
     void testPracticeAssetControllerCompositeUpsert();
-    void testPracticeAssetControllerFilteredAudioFiles();
     void testGuitarProPreviewControllerLoadsTab();
     void testGuitarProPreviewControllerRejectsNonGp();
     void testGuitarProPreviewControllerMixerAndMetronome();

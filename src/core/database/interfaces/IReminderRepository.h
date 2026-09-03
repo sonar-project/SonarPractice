@@ -40,7 +40,6 @@ class IReminderRepository {
      * @brief Returns all active reminders with song title and BPM from a JOIN.
      */
     virtual QList<ReminderDayEntry> listAllActiveWithSong() = 0;
-    virtual QList<Reminder> listActiveInRange(const QDate &from, const QDate &to) = 0;
 
   protected:
     IReminderRepository() = default;

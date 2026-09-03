@@ -137,13 +137,13 @@ void TestImportService::testImportDirectoryEmitsProgress() {
     const QString gpCopy = tempDir.filePath(QStringLiteral("song.gp3"));
     QVERIFY(QFile::copy(m_testGp3Path, gpCopy));
 
-    QSignalSpy progressSpy(m_importService.get(), &ImportService::importProgress);
+    QSignalSpy progressSpy(m_importService.get(), &ImportService::progressChanged);
     QSignalSpy finishedSpy(m_importService.get(), &ImportService::importFinished);
 
-    m_importService->importDirectory(tempDir.path());
+    m_importService->importPaths({tempDir.path()});
 
     QVERIFY(finishedSpy.wait(30000));
-    QCOMPARE(progressSpy.count(), 1);
+    QVERIFY(progressSpy.count() >= 1);
     QCOMPARE(finishedSpy.count(), 1);
 
     const ImportSummary summary = finishedSpy.at(0).at(0).value<ImportSummary>();
@@ -307,7 +307,7 @@ void TestImportService::testImportDirectoryStoresRelativePaths() {
     QVERIFY(QFile::copy(m_testGp3Path, nestedGp3));
 
     QSignalSpy finishedSpy(m_importService.get(), &ImportService::importFinished);
-    m_importService->importDirectory(tempDir.path());
+    m_importService->importPaths({tempDir.path()});
     QVERIFY(finishedSpy.wait(30000));
 
     const QList<MediaFile> songsMedia =

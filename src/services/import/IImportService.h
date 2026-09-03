@@ -14,9 +14,6 @@ class IImportService {
     virtual ImportResult importFile(const QString &absolutePath,
                                     StorageStrategy strategy = StorageStrategy::Link) = 0;
 
-    virtual void importDirectory(const QString &directoryPath,
-                                 StorageStrategy strategy = StorageStrategy::Link) = 0;
-
     virtual void cancelImport() = 0;
 };
 
