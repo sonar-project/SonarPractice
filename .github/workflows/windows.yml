@@ -38,6 +38,11 @@ jobs:
             echo "value=${version}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -48,6 +53,8 @@ jobs:
           modules: ${{ env.QT_MODULES }}
           tools: tools_ninja tools_cmake
           aqtsource: ${{ env.AQT_SOURCE }}
+          aqtversion: '==3.1.19'
+          setup-python: false
           cache: true
 
       - name: Setup MSVC
