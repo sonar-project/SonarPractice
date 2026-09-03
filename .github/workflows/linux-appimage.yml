@@ -29,6 +29,7 @@ jobs:
 
       - name: Set version from tag
         if: startsWith(github.ref, 'refs/tags/')
+        id: version
         run: bash scripts/ci/set_version.sh "${GITHUB_REF_NAME}"
 
       - name: Install system dependencies
@@ -74,7 +75,7 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            bash scripts/ci/build_appimage.sh "${GITHUB_REF_NAME}"
+            bash scripts/ci/build_appimage.sh "${{ steps.version.outputs.full_version }}"
           else
             bash scripts/ci/build_appimage.sh
           fi
@@ -91,6 +92,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: SonarPractice-*-x86_64.AppImage
-          prerelease: true
+          prerelease: ${{ steps.version.outputs.is_prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
