@@ -20,6 +20,7 @@ Pane {
     property int linkGroupId: 0
     property bool isContainerMember: false
     property int hubSongId: 0
+    property int mediaId: 0
     property var assetSummary: []
 
     property bool isFavorite: false

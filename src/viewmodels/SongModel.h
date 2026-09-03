@@ -59,7 +59,8 @@ class SongModel : public QAbstractListModel {
         DisplayTitleRole,
         LinkGroupIdRole,
         IsContainerMemberRole,
-        HubSongIdRole
+        HubSongIdRole,
+        MediaIdRole
     };
     Q_ENUM(Roles)
 

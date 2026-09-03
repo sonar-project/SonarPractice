@@ -139,6 +139,7 @@ void TestViewModels::testSongModelAssetSummary() {
 
     const QVariantList summary = model.data(index, SongModel::AssetSummaryRole).toList();
     QCOMPARE(summary.size(), 3);
+    QVERIFY(model.data(index, SongModel::MediaIdRole).toLongLong() > 0);
 
     int totalCount = 0;
     for (const QVariant &entry : summary) {
@@ -345,6 +346,18 @@ void TestViewModels::testSongModelExpandAllGroupsRevealsMembers() {
 
     model.setExpandAllGroups(true);
     QCOMPARE(model.rowCount(), 2);
+
+    qlonglong hubMediaId = 0;
+    qlonglong memberMediaId = 0;
+    for (int row = 0; row < model.rowCount(); ++row) {
+        const QModelIndex index = model.index(row);
+        if (model.data(index, SongModel::IsContainerMemberRole).toBool())
+            memberMediaId = model.data(index, SongModel::MediaIdRole).toLongLong();
+        else
+            hubMediaId = model.data(index, SongModel::MediaIdRole).toLongLong();
+    }
+    QCOMPARE(hubMediaId, *primaryMediaId);
+    QCOMPARE(memberMediaId, *secondaryMediaId);
 
     model.setExpandAllGroups(false);
     model.setGroupExpanded(*groupId, true);

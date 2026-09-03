@@ -258,6 +258,8 @@ GroupBox {
             kindRow.kindCombo.currentIndex = idx + 1; // +1 for the "--" placeholder
     }
 
+    property int _restoreGeneration: 0
+
     /** Forces every kindRow's cached file list to re-read from mediaFileModel. */
     function _refreshAllKindRowCaches() {
         for (const kind of root.kindOrder) {
@@ -268,19 +270,45 @@ GroupBox {
         root._updateActiveMediaDisplayName();
     }
 
+    function _resetKindCombos() {
+        for (const kind of root.kindOrder) {
+            const kindRow = root._kindRowCache[kind];
+            if (kindRow)
+                kindRow.kindCombo.currentIndex = 0;
+        }
+    }
+
     function restoreLastSelection() {
+        const gen = ++root._restoreGeneration;
         Qt.callLater(function () {
+            if (gen !== root._restoreGeneration)
+                return;
+
+            root._resetKindCombos();
             root._refreshAllKindRowCaches();
 
-            // Prefer explicit request (reminder / dashboard session), then last practiced asset.
-            let assetId = root.requestedActivePracticeAssetId > 0
-                          ? root.requestedActivePracticeAssetId
-                          : practiceAssetController.lastPracticeAssetIdForSong(root.songId);
+            // Reminder/calendar asset, then dashboard file, then last practiced asset.
+            if (root.requestedActivePracticeAssetId > 0) {
+                const requestedAsset = practiceAssetController.assetById(
+                    root.requestedActivePracticeAssetId);
+                if (requestedAsset && Object.keys(requestedAsset).length > 0) {
+                    root._applyAssetSelection(requestedAsset, root.requestedActivePracticeAssetId);
+                    return;
+                }
+            }
 
-            if (assetId > 0) {
-                const asset = practiceAssetController.assetById(assetId);
+            if (root.requestedActiveMediaId > 0) {
+                if (root._applyMediaFileSelection(root.requestedActiveMediaId))
+                    return;
+                if (root._firstAvailableMediaId() <= 0)
+                    return;
+            }
+
+            const journalAssetId = practiceAssetController.lastPracticeAssetIdForSong(root.songId);
+            if (journalAssetId > 0) {
+                const asset = practiceAssetController.assetById(journalAssetId);
                 if (asset && Object.keys(asset).length > 0) {
-                    root._applyAssetSelection(asset, assetId);
+                    root._applyAssetSelection(asset, journalAssetId);
                     return;
                 }
             }
@@ -290,8 +318,8 @@ GroupBox {
             if (mediaId <= 0)
                 mediaId = root._firstAvailableMediaId();
             if (mediaId > 0) {
-                root._applyMediaFileSelection(mediaId);
-                return;
+                if (root._applyMediaFileSelection(mediaId))
+                    return;
             }
 
             root._clearPracticeMaterial();
@@ -325,7 +353,7 @@ GroupBox {
     /** Preselect a single media file in its kind combo and mark it active. */
     function _applyMediaFileSelection(mediaId) {
         if (mediaId <= 0)
-            return;
+            return false;
         for (const kind of root.kindOrder) {
             const kindRow = root._kindRowCache[kind];
             if (!kindRow)
@@ -339,10 +367,9 @@ GroupBox {
                 root._activateRadioForMediaId(mediaId);
             });
             root._updateKindLabels();
-            return;
+            return true;
         }
-        root._clearPracticeMaterial();
-        root._updateKindLabels();
+        return false;
     }
 
     function _firstAvailableMediaId() {
@@ -371,7 +398,10 @@ GroupBox {
         }
     }
 
-    onRequestedActiveMediaIdChanged: root.restoreLastSelection()
+    onRequestedActiveMediaIdChanged: {
+        if (root.requestedActiveMediaId > 0)
+            root.restoreLastSelection();
+    }
     onRequestedActivePracticeAssetIdChanged: {
         if (root.requestedActivePracticeAssetId > 0)
             root.restoreLastSelection();
@@ -455,9 +485,18 @@ GroupBox {
                     property var kindFiles: mediaFileModel.filesForKind(modelData)
 
                     function _refreshKindFiles() {
+                        const previous = kindRow.selectedEntry();
+                        const previousId = previous ? previous.mediaId : 0;
                         kindRow.kindFiles = mediaFileModel.filesForKind(kindRow.modelData);
-                        if (kindCombo.currentIndex > 0)
-                            kindRow.applyComboSelection();
+                        if (previousId <= 0) {
+                            if (kindCombo.currentIndex !== 0)
+                                kindCombo.currentIndex = 0;
+                            return;
+                        }
+                        const idx = kindRow.filteredFiles.findIndex(f => f.mediaId === previousId);
+                        const nextIndex = idx >= 0 ? idx + 1 : 0;
+                        if (kindCombo.currentIndex !== nextIndex)
+                            kindCombo.currentIndex = nextIndex;
                     }
 
                     property int _comboSelectionRetries: 0
@@ -806,6 +845,16 @@ GroupBox {
 
     Connections {
         target: mediaFileModel
+        function onSongIdChanged() {
+            root._resetKindCombos();
+            root.restoreLastSelection();
+        }
+        function onFilesForKindChanged(kind) {
+            const kindRow = root._kindRowCache[kind];
+            if (kindRow)
+                kindRow._refreshKindFiles();
+            root.restoreLastSelection();
+        }
         function onMediaCountChanged() {
             root._refreshAllKindRowCaches();
             root.restoreLastSelection();

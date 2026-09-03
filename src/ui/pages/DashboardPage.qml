@@ -13,7 +13,7 @@ Page {
 
     required property bool sessionLocked
 
-    signal songSelected(int songId, string title, int baseBpm, int practiceAssetId)
+    signal songSelected(int songId, string title, int baseBpm, int practiceAssetId, int mediaId)
     signal reminderEditRequested(int songId, string title, int baseBpm, int reminderId, int practiceAssetId)
 
     background: Rectangle { color: Theme.windowBackground }
@@ -122,20 +122,20 @@ Page {
                 Layout.fillHeight: true
                 Layout.minimumWidth: 280
 
-                onSongActivated: (songId, title, baseBpm) =>
-                    root.songSelected(songId, title, baseBpm, 0)
+                onSongActivated: (songId, title, baseBpm, mediaId) =>
+                    root.songSelected(songId, title, baseBpm, 0, mediaId)
             }
 
             DashboardReminderPanel {
                 onOpenSessionRequested: (songId, title, baseBpm, practiceAssetId) =>
-                    root.songSelected(songId, title, baseBpm, practiceAssetId)
+                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0)
                 onEditReminderRequested: (songId, title, baseBpm, reminderId, practiceAssetId) =>
                     root.reminderEditRequested(songId, title, baseBpm, reminderId, practiceAssetId)
             }
 
             PracticeCalendarPanel {
                 onOpenPracticeRequested: (songId, title, baseBpm, practiceAssetId) =>
-                    root.songSelected(songId, title, baseBpm, practiceAssetId)
+                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0)
             }
         }
     }
@@ -152,8 +152,8 @@ Page {
                 Layout.fillHeight: true
                 Layout.preferredHeight: Math.max(200, root.height * 0.45)
 
-                onSongActivated: (songId, title, baseBpm) =>
-                    root.songSelected(songId, title, baseBpm, 0)
+                onSongActivated: (songId, title, baseBpm, mediaId) =>
+                    root.songSelected(songId, title, baseBpm, 0, mediaId)
             }
 
             DashboardReminderPanel {
@@ -161,7 +161,7 @@ Page {
                 panelWidth: parent.width
 
                 onOpenSessionRequested: (songId, title, baseBpm, practiceAssetId) =>
-                    root.songSelected(songId, title, baseBpm, practiceAssetId)
+                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0)
                 onEditReminderRequested: (songId, title, baseBpm, reminderId, practiceAssetId) =>
                     root.reminderEditRequested(songId, title, baseBpm, reminderId, practiceAssetId)
             }
@@ -171,7 +171,7 @@ Page {
                 sidePanelWidth: parent.width
 
                 onOpenPracticeRequested: (songId, title, baseBpm, practiceAssetId) =>
-                    root.songSelected(songId, title, baseBpm, practiceAssetId)
+                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0)
             }
         }
     }

@@ -108,6 +108,9 @@ namespace {
         row.assetSummary = buildAssetSummary(groupMedia);
         row.linkedMediaCount = groupMedia.size();
         row.hubSongId = snapshot.resolveHubSongId(song.id);
+        const QList<MediaFile> ownFiles = snapshot.mediaBySongId(song.id);
+        if (!ownFiles.isEmpty())
+            row.mediaId = ownFiles.first().id;
 
         if (linkGroup.has_value()) {
             row.isLinkedGroup = row.linkedMediaCount > 1;

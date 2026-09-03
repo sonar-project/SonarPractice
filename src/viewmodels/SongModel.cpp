@@ -74,6 +74,8 @@ QVariant SongModel::data(const QModelIndex &index, int role) const {
         return row.isContainerMember;
     case HubSongIdRole:
         return row.hubSongId > 0 ? row.hubSongId : row.id;
+    case MediaIdRole:
+        return row.mediaId;
     default:
         return {};
     }
@@ -96,6 +98,7 @@ QHash<int, QByteArray> SongModel::roleNames() const {
         {LinkGroupIdRole, "linkGroupId"},
         {IsContainerMemberRole, "isContainerMember"},
         {HubSongIdRole, "hubSongId"},
+        {MediaIdRole, "mediaId"},
     };
 }
 

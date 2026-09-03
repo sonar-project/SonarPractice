@@ -25,6 +25,7 @@ struct SongListRowData {
     qlonglong linkGroupId{};
     bool isContainerMember{false};
     qlonglong hubSongId{};
+    qlonglong mediaId{};
     QString searchHaystack{};
 };
 

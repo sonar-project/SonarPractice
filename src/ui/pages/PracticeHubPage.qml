@@ -17,6 +17,7 @@ Page {
     
     property int initialEditingReminderId: 0
     property int initialPracticeAssetId: 0
+    property int initialMediaId: 0
 
     signal backRequested
     signal assetOpenRequested(int mediaId)
@@ -93,6 +94,11 @@ Page {
             songInfo.requestedActivePracticeAssetId = assetId;
             root.initialPracticeAssetId = 0;
         }
+        if (root.initialMediaId > 0) {
+            songInfo.requestedActiveMediaId = root.initialMediaId;
+            root.initialMediaId = 0;
+        }
+        songInfo.restoreLastSelection();
         if (root.initialEditingReminderId > 0)
             reminderPanel.loadReminderForEdit(root.initialEditingReminderId);
         else

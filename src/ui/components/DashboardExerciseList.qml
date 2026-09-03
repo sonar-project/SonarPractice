@@ -6,7 +6,7 @@ import QtQuick.Layouts
 ColumnLayout {
     id: root
 
-    signal songActivated(int songId, string title, int baseBpm)
+    signal songActivated(int songId, string title, int baseBpm, int mediaId)
 
     spacing: 8
 
@@ -67,6 +67,7 @@ ColumnLayout {
             required property int linkGroupId
             required property bool isContainerMember
             required property int hubSongId
+            required property int mediaId
             required property var assetSummary
 
             width: exerciseGrid.cellWidth - 12
@@ -86,12 +87,14 @@ ColumnLayout {
                 linkGroupId: cardHost.linkGroupId
                 isContainerMember: cardHost.isContainerMember
                 hubSongId: cardHost.hubSongId
+                mediaId: cardHost.mediaId
                 assetSummary: cardHost.assetSummary
 
                 onActivated: root.songActivated(
                     cardHost.hubSongId > 0 ? cardHost.hubSongId : cardHost.songId,
                     cardHost.displayTitle.length > 0 ? cardHost.displayTitle : cardHost.title,
-                    cardHost.baseBpm)
+                    cardHost.baseBpm,
+                    cardHost.mediaId)
             }
         }
     }
