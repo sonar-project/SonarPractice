@@ -137,10 +137,10 @@
     if (isDark) {
       return {
         staffLineColor: "#ffffff80",
-        barSeparatorColor: "#eceff1",
-        mainGlyphColor: "#eceff1",
-        secondaryGlyphColor: "#b0bec5",
-        scoreInfoColor: "#eceff1",
+        barSeparatorColor: "#cfd8dc",
+        mainGlyphColor: "#cfd8dc",
+        secondaryGlyphColor: "#90a4ae",
+        scoreInfoColor: "#cfd8dc",
         barNumberColor: "#90a4ae",
       };
     }
@@ -152,6 +152,64 @@
       scoreInfoColor: "#1a1a2e",
       barNumberColor: "#6b7280",
     };
+  }
+
+  /**
+   * GP files often embed black header colors (Title/SubTitle/…). AlphaTab prefers
+   * those over resources.scoreInfoColor — replace with the active theme color.
+   */
+  function applyEmbeddedScoreInfoColors(isDark) {
+    try {
+      const style = api && api.score && api.score.style;
+      if (!style) {
+        return;
+      }
+      if (!style.colors) {
+        style.colors = new Map();
+      }
+      const Color = alphaTab.model && alphaTab.model.Color;
+      if (!Color || typeof Color.fromJson !== "function") {
+        return;
+      }
+      const hex = isDark ? "#cfd8dc" : "#1a1a2e";
+      const themed = Color.fromJson(hex);
+      const ScoreSubElement = alphaTab.model.ScoreSubElement;
+      const keys = [];
+      if (ScoreSubElement) {
+        [
+          "Title",
+          "SubTitle",
+          "Artist",
+          "Album",
+          "Words",
+          "Music",
+          "WordsAndMusic",
+          "Transcriber",
+          "Copyright",
+          "CopyrightSecondLine",
+        ].forEach(function (name) {
+          if (ScoreSubElement[name] !== undefined) {
+            keys.push(ScoreSubElement[name]);
+          }
+        });
+      }
+      if (keys.length === 0) {
+        for (let i = 0; i <= 9; i++) {
+          keys.push(i);
+        }
+      }
+      // Replace known header keys and any other embedded entries (still often black).
+      keys.forEach(function (key) {
+        style.colors.set(key, themed);
+      });
+      if (typeof style.colors.forEach === "function") {
+        style.colors.forEach(function (_value, key) {
+          style.colors.set(key, themed);
+        });
+      }
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   function applyPageTheme(isDark) {
@@ -172,7 +230,7 @@
       return;
     }
     const Color = alphaTab.model && alphaTab.model.Color;
-    if (!Color) {
+    if (!Color || typeof Color.fromJson !== "function") {
       return;
     }
     const resources = notationResources(isDark);
@@ -180,9 +238,60 @@
     Object.keys(resources).forEach(function (key) {
       target[key] = Color.fromJson(resources[key]);
     });
+    applyEmbeddedScoreInfoColors(isDark);
     api.updateSettings();
+    installCanvasColorReuseFix(api);
     if (rerender && scoreReady) {
       applyTrackVisibility();
+    }
+  }
+
+  function scoreRendererOf(instance) {
+    if (!instance || !instance.renderer) {
+      return null;
+    }
+    // AlphaTabApi.renderer is a wrapper; the real ScoreRenderer is .instance.
+    return instance.renderer.instance || instance.renderer;
+  }
+
+  /**
+   * AlphaTab's canvas `color` setter only writes fillStyle when rgba changed, but beginRender
+   * creates a fresh 2d context without resetting the cached color. Later partials that reuse
+   * the same rgba (title → tuning → "rendered by alphaTab") keep the browser default — black.
+   */
+  function installCanvasColorReuseFix(instance) {
+    try {
+      const scoreRenderer = scoreRendererOf(instance);
+      const canvas = scoreRenderer && scoreRenderer.canvas;
+      if (!canvas || typeof canvas.beginRender !== "function") {
+        return false;
+      }
+      const Color = alphaTab.model && alphaTab.model.Color;
+      if (!Color || typeof Color.fromJson !== "function") {
+        return false;
+      }
+      const proto = Object.getPrototypeOf(canvas);
+      if (proto && !proto.__spColorReuseFix) {
+        const origProtoBegin = proto.beginRender;
+        proto.beginRender = function () {
+          const result = origProtoBegin.apply(this, arguments);
+          this.Sm = Color.fromJson("#01020300");
+          return result;
+        };
+        proto.__spColorReuseFix = true;
+      }
+      if (!canvas.__spColorReuseFix) {
+        const origBegin = canvas.beginRender.bind(canvas);
+        canvas.beginRender = function () {
+          const result = origBegin.apply(this, arguments);
+          this.Sm = Color.fromJson("#01020300");
+          return result;
+        };
+        canvas.__spColorReuseFix = true;
+      }
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -197,6 +306,8 @@
     if (selectedTrackIndex < 0 || selectedTrackIndex >= tracks.length) {
       selectedTrackIndex = 0;
     }
+    applyEmbeddedScoreInfoColors(darkTheme);
+    installCanvasColorReuseFix(api);
     api.renderTracks([tracks[selectedTrackIndex]]);
   }
 
@@ -1329,6 +1440,9 @@
         engine: "html5",
         fontDirectory: "./font/",
         logLevel: alphaTab.LogLevel.Warning,
+        // Workers serialize Colors; the watermark keeps a stale black colorOverride.
+        useWorkers: false,
+        enableLazyLoading: false,
       },
       display: {
         layoutMode: alphaTab.LayoutMode.Page,
@@ -1340,6 +1454,11 @@
       },
       player: playerOptions,
     });
+
+    api = instance;
+    // Apply theme Colors before any score layout bakes colorOverride (watermark).
+    applyNotationTheme(darkTheme, false);
+    installCanvasColorReuseFix(instance);
 
     // AlphaTab 1.8 exposes soundFontLoaded + error, not soundFontLoadFailed on the API.
     onEvent(instance.error, function (e) {
@@ -1372,8 +1491,9 @@
 
     onEvent(instance.scoreLoaded, function () {
       scoreReady = true;
-      // Colors only — do not api.render() here (async render races renderTracks).
+      // Replace GP-embedded blacks + apply theme; renderTracks follows in applyAllPendingSettings.
       applyNotationTheme(darkTheme, false);
+      installCanvasColorReuseFix(instance);
       try {
         const tempo = Number(instance.score && instance.score.tempo);
         if (tempo > 0) {
@@ -1395,16 +1515,17 @@
       setStatus("");
     });
 
+    onEvent(instance.postRenderFinished, function () {
+      installCanvasColorReuseFix(instance);
+      if (pendingLoop.enabled) {
+        highlightLoopBars(pendingLoop.startBar, pendingLoop.endBar);
+      }
+    });
+
     onEvent(instance.playerReady, function () {
       playerReady = true;
       applyAllPendingSettings();
       notifyNative("playerReady", {});
-    });
-
-    onEvent(instance.postRenderFinished, function () {
-      if (pendingLoop.enabled) {
-        highlightLoopBars(pendingLoop.startBar, pendingLoop.endBar);
-      }
     });
 
     onEvent(instance.playerStateChanged, function (args) {
@@ -1461,8 +1582,6 @@
     });
 
     wireMetronomeEvents(instance);
-
-    api = instance;
   }
 
   function assimilateMixer(mixer) {

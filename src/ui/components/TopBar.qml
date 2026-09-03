@@ -69,9 +69,13 @@ ToolBar {
 
         ToolButton {
             visible: root.showThemeToggle
-            text: Theme.isDark ? "\u2600" : "\u263E"
-            font.pixelSize: 18
-            palette.buttonText: Theme.textToolbar
+            // Unicode moon often missing as a tofu block in light theme fonts — use SVGs.
+            icon.source: Theme.isDark
+                         ? "qrc:/qt/qml/com/sonarp/sonarpractice/assets/svg/sun.svg"
+                         : "qrc:/qt/qml/com/sonarp/sonarpractice/assets/svg/moon.svg"
+            icon.width: 18
+            icon.height: 18
+            icon.color: Theme.textToolbar
             ToolTip.visible: hovered
             ToolTip.text: Theme.isDark ? qsTr("Light theme") : qsTr("Dark theme")
             onClicked: Theme.toggle()

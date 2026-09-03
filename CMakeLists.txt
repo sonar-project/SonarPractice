@@ -150,6 +150,8 @@ qt_add_qml_module(SonarPractice
     assets/svg/heading-2.svg
     assets/svg/heading-3.svg
     assets/svg/mixer.svg
+    assets/svg/sun.svg
+    assets/svg/moon.svg
 
     src/ui/js/MediaKind.js
     src/ui/js/MarkdownFormat.js
