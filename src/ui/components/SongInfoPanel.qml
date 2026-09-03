@@ -13,7 +13,6 @@ GroupBox {
     id: root
 
     required property int songId
-    required property string songTitle
     required property int songBaseBpm
 
     signal assetOpenRequested(int mediaId)
@@ -53,6 +52,8 @@ GroupBox {
      */
     property var _kindRowCache: ({})
     property bool _clearingPracticeMaterial: false
+    /** Suppress radio commit/clear while restoring selection programmatically. */
+    property bool _syncingPracticeMaterialRadio: false
     property string activeMediaDisplayName: ""
 
     function _updateActiveMediaDisplayName() {
@@ -188,7 +189,9 @@ GroupBox {
                 continue;
             const entry = kindRow.selectedEntry();
             if (entry && entry.mediaId === mediaId) {
+                root._syncingPracticeMaterialRadio = true;
                 kindRow.setPracticeMaterialActive(true);
+                root._syncingPracticeMaterialRadio = false;
                 return;
             }
         }
@@ -342,7 +345,12 @@ GroupBox {
         _restoreComboForMediaId(MediaKind.Image, asset.imageId ?? 0);
         _restoreComboForMediaId(MediaKind.Document, asset.documentId ?? 0);
         const primaryMediaId = practiceAssetController.mediaFileIdForAsset(assetId);
-        if (primaryMediaId > 0) {
+        // Set active IDs directly — RadioButton.onToggled only fires on user interaction,
+        // so a programmatic checked=true would leave practiceMaterialReady false.
+        if (primaryMediaId > 0 && assetId > 0) {
+            root.activeMediaId = primaryMediaId;
+            root.activePracticeAssetId = assetId;
+            root._updateActiveMediaDisplayName();
             Qt.callLater(function () {
                 root._activateRadioForMediaId(primaryMediaId);
             });
@@ -365,6 +373,7 @@ GroupBox {
             root._setPendingKindSlot(kind, mediaId);
             Qt.callLater(function () {
                 root._activateRadioForMediaId(mediaId);
+                root._commitPracticeMaterial(mediaId);
             });
             root._updateKindLabels();
             return true;
@@ -658,18 +667,21 @@ GroupBox {
                                 text: qsTr("active material")
                                 enabled: !root.mediaSelectionLocked && kindRow.selectedEntry() !== null
                                 ButtonGroup.group: practiceMaterialGroup
-                                onToggled: {
+                                // Use checkedChanged (not toggled): toggled only fires on user
+                                // interaction, so restoreLastSelection's programmatic checked=true
+                                // would never commit and leave the Start-timer button disabled.
+                                onCheckedChanged: {
+                                    if (root._syncingPracticeMaterialRadio
+                                            || root._clearingPracticeMaterial)
+                                        return;
                                     if (checked) {
                                         const entry = kindRow.selectedEntry();
                                         if (entry)
                                             root._commitPracticeMaterial(entry.mediaId);
                                     } else {
                                         const entry = kindRow.selectedEntry();
-                                        if (!root._clearingPracticeMaterial
-                                                && entry
-                                                && entry.mediaId === root.activeMediaId) {
+                                        if (entry && entry.mediaId === root.activeMediaId)
                                             root._clearPracticeMaterial();
-                                        }
                                     }
                                 }
                             }

@@ -41,8 +41,6 @@ int StubImportService::lastFailedCount() const { return 0; }
 
 void StubImportService::importPaths(const QStringList &paths) { Q_UNUSED(paths); }
 
-void StubImportService::clearStatusMessage() {}
-
 StubPracticeTracker::StubPracticeTracker(QObject *parent)
     : QObject(parent)
     , m_journalModel(this) {}
@@ -91,7 +89,10 @@ void StubPracticeTracker::reloadJournalNote() {}
 
 void StubPracticeTracker::saveJournalNote() {}
 
-void StubPracticeTracker::loadTrainingDefaults(int fallbackBpm) { Q_UNUSED(fallbackBpm); }
+void StubPracticeTracker::loadTrainingDefaults(int fallbackBpm, qlonglong reminderId) {
+    Q_UNUSED(fallbackBpm);
+    Q_UNUSED(reminderId);
+}
 
 StubPracticeSession::StubPracticeSession(QObject *parent)
     : QObject(parent) {}
@@ -108,16 +109,6 @@ int StubSongModel::count() const { return 0; }
 bool StubSongModel::catalogReady() const { return false; }
 
 void StubSongModel::reload() {}
-
-void StubSongModel::setGroupExpanded(qlonglong groupId, bool expanded) {
-    Q_UNUSED(groupId);
-    Q_UNUSED(expanded);
-}
-
-bool StubSongModel::isGroupExpanded(qlonglong groupId) const {
-    Q_UNUSED(groupId);
-    return false;
-}
 
 const QString &StubSongModel::searchText() const { return m_searchText; }
 
@@ -228,17 +219,6 @@ void StubLibraryLinkModel::setContainersOnly(bool only) {
         emit hideContainersChanged();
     }
     emit containersOnlyChanged();
-}
-
-QString StubLibraryLinkModel::defaultLinkTitle() const {
-    QString trimmed = m_searchText.trimmed();
-    if (trimmed.isEmpty()) {
-        return {};
-    }
-    if (trimmed.contains(QStringLiteral("&&")) || trimmed.contains(QStringLiteral("||"))) {
-        return {};
-    }
-    return trimmed;
 }
 
 QString StubLibraryLinkModel::titleForSong(qlonglong songId) const {

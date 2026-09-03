@@ -169,7 +169,6 @@ void PracticeTrackerController::setStatusMessage(const QString &message, const b
 void PracticeTrackerController::reportError(const QString &context, const QString &message) {
     m_errorLog.logError(QStringLiteral("PracticeTracker.%1").arg(context), message, false);
     setStatusMessage(message, true);
-    emit saveFailed(message);
 }
 
 void PracticeTrackerController::reloadJournalNote() {
@@ -245,13 +244,21 @@ void PracticeTrackerController::cancelTimer() {
 
 void PracticeTrackerController::reloadJournal() { m_journalModel.reload(); }
 
-// Adopts bar range and tempo from the last journal entry or an active reminder condition.
-void PracticeTrackerController::loadTrainingDefaults(int fallbackBpm) {
+// Adopts bar range and tempo from a source reminder, last journal entry, or reminder condition.
+void PracticeTrackerController::loadTrainingDefaults(int fallbackBpm, qlonglong reminderId) {
     if (m_songId <= 0) {
         return;
     }
 
-    const std::optional<JournalEntry> lastEntry = m_journalRepo.lastEntryForAsset(m_assetId);
+    // Opening a specific reminder (Dashboard / calendar) must apply its condition first.
+    if (const std::optional<ReminderCondition> fromReminder = conditionForReminder(reminderId);
+        fromReminder.has_value()) {
+        applyTrainingCondition(*fromReminder, fallbackBpm);
+        return;
+    }
+
+    const std::optional<JournalEntry> lastEntry =
+        m_assetId > 0 ? m_journalRepo.lastEntryForAsset(m_assetId) : std::nullopt;
     if (lastEntry.has_value()) {
         m_startBar = lastEntry->startBar;
         m_endBar = lastEntry->endBar;
@@ -261,13 +268,9 @@ void PracticeTrackerController::loadTrainingDefaults(int fallbackBpm) {
         return;
     }
 
-    const std::optional<ReminderCondition> condition = conditionForSong(m_songId);
-    if (condition.has_value()) {
-        m_startBar = condition->startBar;
-        m_endBar = condition->endBar;
-        m_targetBpm = condition->minBpm > 0 ? condition->minBpm
-                                            : (fallbackBpm > 0 ? fallbackBpm : m_targetBpm);
-        emit paramsChanged();
+    if (const std::optional<ReminderCondition> condition = conditionForContext();
+        condition.has_value()) {
+        applyTrainingCondition(*condition, fallbackBpm);
         return;
     }
 
@@ -277,28 +280,62 @@ void PracticeTrackerController::loadTrainingDefaults(int fallbackBpm) {
     emit paramsChanged();
 }
 
-std::optional<ReminderCondition>
-PracticeTrackerController::conditionForSong(qlonglong songId) const {
-    const QList<Reminder> reminders = m_reminderRepo.listForSong(songId);
+void PracticeTrackerController::applyTrainingCondition(const ReminderCondition &condition,
+                                                       int fallbackBpm) {
+    m_startBar = condition.startBar > 0 ? condition.startBar : PracticeConstants::kDefaultStartBar;
+    m_endBar = condition.endBar > 0 ? condition.endBar : PracticeConstants::kDefaultEndBar;
+    if (m_endBar < m_startBar) {
+        m_endBar = m_startBar;
+    }
+    m_targetBpm = condition.minBpm > 0 ? condition.minBpm
+                                       : (fallbackBpm > 0 ? fallbackBpm : m_targetBpm);
+    emit paramsChanged();
+}
 
+std::optional<ReminderCondition>
+PracticeTrackerController::conditionForReminder(qlonglong reminderId) const {
+    if (reminderId <= 0) {
+        return std::nullopt;
+    }
+    const QList<ReminderCondition> conditions = m_conditionRepo.listForReminder(reminderId);
+    if (conditions.isEmpty()) {
+        return std::nullopt;
+    }
+    return conditions.first();
+}
+
+std::optional<ReminderCondition>
+PracticeTrackerController::conditionFromReminders(const QList<Reminder> &reminders) const {
     for (auto it = reminders.crbegin(); it != reminders.crend(); ++it) {
         if (!it->isActive) {
             continue;
         }
-        const QList<ReminderCondition> conditions = m_conditionRepo.listForReminder(it->id);
-        if (!conditions.isEmpty()) {
-            return conditions.first();
+        if (const std::optional<ReminderCondition> condition = conditionForReminder(it->id);
+            condition.has_value()) {
+            return condition;
         }
     }
 
     for (auto it = reminders.crbegin(); it != reminders.crend(); ++it) {
-        const QList<ReminderCondition> conditions = m_conditionRepo.listForReminder(it->id);
-        if (!conditions.isEmpty()) {
-            return conditions.first();
+        if (const std::optional<ReminderCondition> condition = conditionForReminder(it->id);
+            condition.has_value()) {
+            return condition;
         }
     }
 
     return std::nullopt;
+}
+
+std::optional<ReminderCondition> PracticeTrackerController::conditionForContext() const {
+    // PracticeHub reminders are material-linked; song-level listForSong excludes those.
+    if (m_assetId > 0) {
+        if (const std::optional<ReminderCondition> fromAsset =
+                conditionFromReminders(m_reminderRepo.listForPracticeAsset(m_assetId));
+            fromAsset.has_value()) {
+            return fromAsset;
+        }
+    }
+    return conditionFromReminders(m_reminderRepo.listForSong(m_songId));
 }
 
 // Formats the elapsed practice time as MM:SS.

@@ -32,7 +32,6 @@ class MockImportService : public QObject {
 
   public slots:
     void importPaths(const QStringList &paths);
-    void clearStatusMessage() {}
     void cancelImport() {}
 
   signals:
@@ -111,7 +110,7 @@ class MockPracticeTracker : public QObject {
     void reloadJournal() {}
     void reloadJournalNote() {}
     bool saveJournalNote() { return true; }
-    void loadTrainingDefaults(int fallbackBpm);
+    void loadTrainingDefaults(int fallbackBpm, qlonglong reminderId = 0);
 
   signals:
     void paramsChanged();
@@ -120,7 +119,6 @@ class MockPracticeTracker : public QObject {
     void journalSaved(qlonglong entryId);
     void journalMarkdownChanged();
     void statusMessageChanged();
-    void saveFailed(const QString &message);
 
   private:
     int m_startBar{PracticeConstants::kDefaultStartBar};

@@ -14,8 +14,6 @@ Item {
 
     signal pathSelected(string path)
 
-    readonly property var treeController: treeLogic
-
     implicitHeight: 200
 
     function rebuildTree() {

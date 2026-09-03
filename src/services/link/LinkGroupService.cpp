@@ -133,15 +133,6 @@ QVariantMap LinkGroupService::groupInfoForSong(qlonglong songId) const {
     return info;
 }
 
-bool LinkGroupService::dissolveGroupForPrimarySong(qlonglong primarySongId) {
-    const std::optional<LinkGroup> group =
-        m_dependencies.linkGroupRepo.getGroupByPrimarySong(primarySongId);
-    if (!group.has_value()) {
-        return false;
-    }
-    return dissolveGroup(group->id);
-}
-
 qlonglong LinkGroupService::createGroupFromSongs(const QString &title, qlonglong primarySongId,
                                                  const QVariantList &secondarySongIds) {
     QList<qlonglong> songIds;

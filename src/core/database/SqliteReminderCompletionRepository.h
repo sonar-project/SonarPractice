@@ -10,7 +10,6 @@ class SqliteReminderCompletionRepository final : public IReminderCompletionRepos
 
     [[nodiscard]] bool isAccepted(qlonglong reminderId, const QDate &date) const override;
     bool setAccepted(qlonglong reminderId, const QDate &date, bool accepted) override;
-    bool clearOverride(qlonglong reminderId, const QDate &date) override;
 
   private:
     IDatabaseConnection &m_connection;

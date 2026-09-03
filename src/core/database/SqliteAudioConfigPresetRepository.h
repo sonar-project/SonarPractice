@@ -15,8 +15,6 @@ class SqliteAudioConfigPresetRepository : public IAudioConfigPresetRepository {
 
     listPresetsForMedia(qlonglong mediaFileId) override;
     [[nodiscard]] std::optional<qlonglong> createPreset(const AudioConfigPreset &preset) override;
-
-    [[nodiscard]] bool updatePreset(const AudioConfigPreset &preset) override;
     [[nodiscard]] bool deletePreset(qlonglong presetId) override;
 
   private:

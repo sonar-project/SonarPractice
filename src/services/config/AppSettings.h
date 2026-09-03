@@ -88,9 +88,6 @@ class AppSettings : public QObject {
     [[nodiscard]] bool isExtensionAllowed(const QString &extension) const;
 
     Q_INVOKABLE void ensureDefaults();
-    Q_INVOKABLE void setExtensionCategory(const QString &categoryKey,
-                                          const QStringList &extensions);
-    Q_INVOKABLE void resetExtensionCategoriesToDefaults();
     Q_INVOKABLE void saveConfiguration();
     Q_INVOKABLE void reload();
 

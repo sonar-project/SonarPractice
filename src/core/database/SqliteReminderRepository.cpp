@@ -413,29 +413,3 @@ QList<ReminderDayEntry> SqliteReminderRepository::listAllActiveWithSong() {
 
     return entries;
 }
-
-/**
- * @brief Finds all active reminders that will be due within a date range.
- * @param from The start date of the range.
- * @param to The end date of the range.
- * @return A list of reminders due within the range.
- */
-QList<Reminder> SqliteReminderRepository::listActiveInRange(const QDate &from, const QDate &to) {
-    QList<Reminder> result;
-
-    if (!from.isValid() || !to.isValid() || from > to) {
-        return result;
-    }
-
-    const QList<Reminder> active = listAllActive();
-    for (const Reminder &reminder : active) {
-        for (QDate day = from; day <= to; day = day.addDays(1)) {
-            if (reminder.isDueOn(day)) {
-                result.append(reminder);
-                break;
-            }
-        }
-    }
-
-    return result;
-}

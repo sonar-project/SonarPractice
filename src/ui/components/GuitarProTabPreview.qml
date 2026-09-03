@@ -9,8 +9,6 @@ import QtQuick.Layouts
 GroupBox {
     id: root
 
-    /** When true, fills a dedicated stack page (always visible; Back closes the page). */
-    property bool pageMode: false
     /** Guitar-Pro-style bottom mixer strip (vertical faders). */
     property bool mixerVisible: false
 
@@ -379,18 +377,15 @@ GroupBox {
         Loader {
             id: playerLoader
             Layout.fillWidth: true
-            Layout.fillHeight: root.pageMode
-            Layout.preferredHeight: root.pageMode ? 0 : 360
+            Layout.fillHeight: true
             Layout.minimumHeight: 220
             active: root.showPlayer && guitarProPreviewController.playerAvailable
-                    && (root.pageMode || guitarProPreviewController.visible)
             source: active ? "GuitarProPlayerView.qml" : ""
         }
 
         ScrollView {
             Layout.fillWidth: true
-            Layout.fillHeight: root.pageMode && !root.showPlayer
-            Layout.preferredHeight: root.pageMode ? 0 : 220
+            Layout.fillHeight: !root.showPlayer
             Layout.minimumHeight: 120
             clip: true
             visible: !root.showPlayer

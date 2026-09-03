@@ -18,7 +18,6 @@ class IFileRelationRepository {
     IFileRelationRepository &operator=(IFileRelationRepository &&) = delete;
 
     virtual bool linkToPrimary(qlonglong primaryMediaId, qlonglong secondaryMediaId) = 0;
-    virtual bool unlink(qlonglong secondaryMediaId) = 0;
     virtual bool deleteRelationsForPrimary(qlonglong primaryMediaId) = 0;
     virtual QList<MediaFile> getLinkedMedia(qlonglong primaryMediaId) = 0;
     virtual bool isSecondaryMedia(qlonglong mediaId) = 0;

@@ -9,7 +9,6 @@ class SqliteFileRelationRepository : public IFileRelationRepository {
     explicit SqliteFileRelationRepository(IDatabaseConnection &connection);
 
     [[nodiscard]] bool linkToPrimary(qlonglong primaryMediaId, qlonglong secondaryMediaId) override;
-    [[nodiscard]] bool unlink(qlonglong secondaryMediaId) override;
     [[nodiscard]] bool deleteRelationsForPrimary(qlonglong primaryMediaId) override;
     [[nodiscard]] QList<MediaFile> getLinkedMedia(qlonglong primaryMediaId) override;
     [[nodiscard]] bool isSecondaryMedia(qlonglong mediaId) override;

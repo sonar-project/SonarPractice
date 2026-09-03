@@ -50,23 +50,6 @@ bool SqliteFileRelationRepository::linkToPrimary(qlonglong primaryMediaId,
 }
 
 /**
- * @brief Removes the link for a specific secondary media file.
- * @param secondaryMediaId The ID of the secondary media file to unlink.
- * @return True if the link was removed successfully, false otherwise.
- */
-bool SqliteFileRelationRepository::unlink(qlonglong secondaryMediaId) {
-    if (secondaryMediaId <= 0 || !RepositoryUtils::ensureOpen(m_connection)) {
-        return false;
-    }
-
-    QSqlQuery query(RepositoryUtils::database(m_connection));
-    query.prepare("DELETE FROM file_relations WHERE file_id_b = :secondary_id");
-    query.bindValue(":secondary_id", secondaryMediaId);
-
-    return query.exec();
-}
-
-/**
  * @brief Removes all secondary links associated with a primary media file.
  * @param primaryMediaId The ID of the primary media file.
  * @return True if the relations were deleted successfully, false otherwise.

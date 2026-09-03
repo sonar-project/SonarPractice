@@ -15,7 +15,6 @@ class IReminderCompletionRepository {
 
     virtual bool isAccepted(qlonglong reminderId, const QDate &date) const = 0;
     virtual bool setAccepted(qlonglong reminderId, const QDate &date, bool accepted) = 0;
-    virtual bool clearOverride(qlonglong reminderId, const QDate &date) = 0;
 
   protected:
     IReminderCompletionRepository() = default;

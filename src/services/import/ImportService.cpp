@@ -381,18 +381,6 @@ int ImportService::lastSkippedCount() const { return m_lastSkippedCount; }
 int ImportService::lastFailedCount() const { return m_lastFailedCount; }
 
 /**
- * @brief Clear the current status message.
- */
-void ImportService::clearStatusMessage() {
-    if (m_statusMessage.isEmpty()) {
-        return;
-    }
-
-    m_statusMessage.clear();
-    emit statusMessageChanged();
-}
-
-/**
  * @brief Import a single file synchronously.
  * @param[in] absolutePath Full path of the file to import.
  * @param[in] strategy Desired storage strategy.
@@ -409,7 +397,6 @@ ImportResult ImportService::importFile(const QString &absolutePath, StorageStrat
         result.sourcePath = absolutePath;
         result.message = tr("Import already running");
         setStatusMessage(result.message);
-        emit errorOccurred(result.message);
         return result;
     }
 
@@ -430,8 +417,6 @@ ImportResult ImportService::importFile(const QString &absolutePath, StorageStrat
     };
     const ImportResult result = importFileInternal(ctx, fileEntry, strategy);
     setProgress(1, 1, absolutePath);
-    emit fileImported(result);
-    emit importProgress(1, 1, absolutePath);
 
     ImportSummary summary;
     switch (result.status) {
@@ -443,49 +428,12 @@ ImportResult ImportService::importFile(const QString &absolutePath, StorageStrat
         break;
     case ImportStatus::Failed:
         summary.failedCount = 1;
-        if (!result.message.isEmpty()) {
-            emit errorOccurred(result.message);
-        }
         break;
     }
 
     endImport();
     emitImportFinished(summary);
     return result;
-}
-
-/**
- * @brief Import all supported files inside a directory.
- * @param[in] directoryPath Path to the directory.
- * @param[in] strategy Desired storage strategy.
- */
-void ImportService::importDirectory(const QString &directoryPath, StorageStrategy strategy) {
-    if (!tryBeginImport()) {
-        setStatusMessage(tr("Import already running"));
-        emit errorOccurred(tr("Import already running"));
-        return;
-    }
-
-    const QList<CollectedFile> collected = FileImportUtils::collectSupportedFilesWithPaths(
-        directoryPath, m_dependencies.config.allowedFileTypes());
-
-    if (collected.isEmpty()) {
-        setStatusMessage(tr("No supported files found in directory"));
-        emit errorOccurred(tr("No supported files found in directory"));
-        endImport();
-        emitImportFinished({});
-        return;
-    }
-
-    QList<ImportFileEntry> entries;
-    entries.reserve(collected.size());
-    for (const CollectedFile &file : collected) {
-        entries.append({.absolutePath = file.absolutePath,
-                        .importRoot = file.importRoot,
-                        .sourceRelativePath = file.sourceRelativePath});
-    }
-
-    startBatchImport(entries, strategy);
 }
 
 /**
@@ -505,7 +453,6 @@ void ImportService::importPaths(const QStringList &paths, StorageStrategy strate
 
     if (!tryBeginImport()) {
         setStatusMessage(tr("Import already running"));
-        emit errorOccurred(tr("Import already running"));
         return;
     }
 
@@ -519,7 +466,6 @@ void ImportService::importPaths(const QStringList &paths, StorageStrategy strate
 
     if (collected.isEmpty()) {
         setStatusMessage(tr("No supported files found"));
-        emit errorOccurred(tr("No supported files found"));
         endImport();
         emitImportFinished({});
         return;
@@ -608,13 +554,8 @@ void ImportService::startBatchImport(const QList<ImportFileEntry> &files,
  */
 void ImportService::handleBatchProgress(int current, int total, const QString &currentFile,
                                         const ImportResult &result) {
+    Q_UNUSED(result);
     setProgress(current, total, currentFile);
-    emit fileImported(result);
-    emit importProgress(current, total, currentFile);
-
-    if (result.status == ImportStatus::Failed && !result.message.isEmpty()) {
-        emit errorOccurred(result.message);
-    }
 }
 
 /**
@@ -632,7 +573,6 @@ void ImportService::handleBatchFinished(const ImportSummary &summary) {
  */
 void ImportService::handleBatchFailed(const QString &message) {
     setStatusMessage(message);
-    emit errorOccurred(message);
     endImport();
     emitImportFinished({});
 }

@@ -166,44 +166,12 @@ void SongModel::setExpandAllGroups(bool expand) {
     }
 
     m_expandAllGroups = expand;
-    if (expand) {
-        m_expandedGroupIds.clear();
-    }
     ensureFilterCurrent();
     applyFilter();
     emit expandAllGroupsChanged();
-    emit expandedGroupsChanged();
 }
 
 bool SongModel::catalogReady() const { return m_catalogReady; }
-
-void SongModel::setGroupExpanded(qlonglong groupId, bool expanded) {
-    if (groupId <= 0) {
-        return;
-    }
-
-    if (m_expandAllGroups && !expanded) {
-        m_expandAllGroups = false;
-        emit expandAllGroupsChanged();
-    }
-
-    const bool wasExpanded = m_expandedGroupIds.contains(groupId);
-    if (expanded) {
-        m_expandedGroupIds.insert(groupId);
-    } else {
-        m_expandedGroupIds.remove(groupId);
-    }
-
-    if (wasExpanded != expanded) {
-        ensureFilterCurrent();
-        applyFilter();
-        emit expandedGroupsChanged();
-    }
-}
-
-bool SongModel::isGroupExpanded(qlonglong groupId) const {
-    return groupId > 0 && (m_expandAllGroups || m_expandedGroupIds.contains(groupId));
-}
 
 CatalogSnapshot::Dependencies SongModel::repositoryDependencies() const {
     return CatalogSnapshot::Dependencies{
@@ -276,8 +244,7 @@ void SongModel::applyFilter() {
         }
 
         for (const SongRow &row : m_secondaryRows) {
-            if (m_expandAllGroups ||
-                (row.linkGroupId > 0 && m_expandedGroupIds.contains(row.linkGroupId))) {
+            if (m_expandAllGroups) {
                 appendIfMatches(row);
             }
         }

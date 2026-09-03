@@ -19,7 +19,6 @@ class ILinkGroupRepository {
     virtual std::optional<qlonglong> createGroup(const LinkGroup &group) = 0;
     virtual std::optional<LinkGroup> getGroup(qlonglong groupId) = 0;
     virtual std::optional<LinkGroup> getGroupByPrimarySong(qlonglong primarySongId) = 0;
-    virtual std::optional<LinkGroup> getGroupByPrimaryMedia(qlonglong primaryMediaId) = 0;
     virtual std::optional<LinkGroup> getGroupForSecondaryMedia(qlonglong secondaryMediaId) = 0;
     virtual bool updateTitle(qlonglong groupId, const QString &title) = 0;
     virtual bool deleteGroup(qlonglong groupId) = 0;

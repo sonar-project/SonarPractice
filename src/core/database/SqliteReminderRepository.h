@@ -17,7 +17,6 @@ class SqliteReminderRepository : public IReminderRepository {
     [[nodiscard]] QList<Reminder> listForDate(const QDate &date) override;
     [[nodiscard]] QList<ReminderDayEntry> listForDateWithSong(const QDate &date) override;
     [[nodiscard]] QList<ReminderDayEntry> listAllActiveWithSong() override;
-    [[nodiscard]] QList<Reminder> listActiveInRange(const QDate &from, const QDate &to) override;
 
   private:
     static Reminder reminderFromQuery(const class QSqlQuery &query);

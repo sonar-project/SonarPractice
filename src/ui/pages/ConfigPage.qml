@@ -12,6 +12,10 @@ Page {
 
     property bool firstRun: true
 
+    /** Shell (and guitarProPreviewController) exist only after DB bootstrap — not on first-run setup. */
+    readonly property bool guitarProPlayerAvailable:
+        startupController.shellReady && guitarProPreviewController.playerAvailable
+
     signal configurationSaved()
     signal cancelled()
 
@@ -118,7 +122,6 @@ Page {
         }
 
         appSettings.storageStrategy = strategyGroup.checkedButton.strategyValue
-        // appSettings.storageStrategy = strategyGroup.checkedButton // TODO: test without strategyValue (missing Q_PROPERTY of this)
 
         if (copyStrategy.checked || moveStrategy.checked) {
             const storagePath = storagePathField.text.trim()
@@ -221,7 +224,7 @@ Page {
     }
 
     function persistSoundFontSettings() {
-        if (!guitarProPreviewController.playerAvailable)
+        if (!root.guitarProPlayerAvailable)
             return true
 
         const previousPath = appSettings.soundFontPath
@@ -386,7 +389,7 @@ Page {
 
         GroupBox {
             Layout.fillWidth: true
-            visible: guitarProPreviewController.playerAvailable
+            visible: root.guitarProPlayerAvailable
             title: qsTr("Guitar Pro SoundFont")
 
             ColumnLayout {

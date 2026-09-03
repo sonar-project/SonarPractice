@@ -21,12 +21,6 @@ Page {
 
     header: TopBar {
         title: root.songTitle.length > 0 ? root.songTitle : audioConfigController.displayName
-        subtitle: {
-            if (root.songTitle.length > 0 && audioConfigController.displayName.length > 0
-                    && root.songTitle !== audioConfigController.displayName)
-                return audioConfigController.displayName
-            return ""
-        }
         showBack: true
         onBackRequested: root.backRequested()
     }

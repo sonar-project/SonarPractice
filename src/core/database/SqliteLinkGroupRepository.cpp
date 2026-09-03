@@ -90,29 +90,6 @@ std::optional<LinkGroup> SqliteLinkGroupRepository::getGroupByPrimarySong(qlongl
 }
 
 /**
- * @brief Finds a link group associated with a specific primary media file.
- * @param primaryMediaId The ID of the primary media file.
- * @return The LinkGroup object, or nullopt if not found.
- */
-std::optional<LinkGroup>
-SqliteLinkGroupRepository::getGroupByPrimaryMedia(qlonglong primaryMediaId) {
-    if (primaryMediaId <= 0 || !RepositoryUtils::ensureOpen(m_connection)) {
-        return std::nullopt;
-    }
-
-    QSqlQuery query(RepositoryUtils::database(m_connection));
-    query.prepare("SELECT id, title, primary_song_id, primary_media_id, created_at "
-                  "FROM link_groups WHERE primary_media_id = :primary_media_id");
-    query.bindValue(":primary_media_id", primaryMediaId);
-
-    if (!query.exec() || !query.next()) {
-        return std::nullopt;
-    }
-
-    return mapRow(query);
-}
-
-/**
  * @brief Finds the link group that contains a given secondary media file.
  * @param secondaryMediaId The ID of the secondary media file.
  * @return The LinkGroup object, or nullopt if not found.

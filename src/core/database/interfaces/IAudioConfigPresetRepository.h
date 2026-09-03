@@ -15,7 +15,6 @@ class IAudioConfigPresetRepository {
     listPresetsForMedia(qlonglong mediaFileId) = 0;
     [[nodiscard]] virtual std::optional<qlonglong>
     createPreset(const AudioConfigPreset &preset) = 0;
-    [[nodiscard]] virtual bool updatePreset(const AudioConfigPreset &preset) = 0;
     [[nodiscard]] virtual bool deletePreset(qlonglong presetId) = 0;
 };
 

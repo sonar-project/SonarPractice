@@ -14,9 +14,6 @@ namespace AudioConstants {
     constexpr int kTempoDebounceMs{250};
     constexpr int kPositionPollIntervalMs{50};
 
-    constexpr int kPrebufferMs{400};
-    constexpr int kRingBufferMs{800};
-
     constexpr int kPeakBucketCount{512};
     constexpr int kDefaultRegionStartMs{};
     constexpr int kMaxRegionUndoSteps{32};

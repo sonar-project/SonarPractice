@@ -13,7 +13,7 @@ Page {
 
     required property bool sessionLocked
 
-    signal songSelected(int songId, string title, int baseBpm, int practiceAssetId, int mediaId)
+    signal songSelected(int songId, string title, int baseBpm, int practiceAssetId, int mediaId, int sourceReminderId)
     signal reminderEditRequested(int songId, string title, int baseBpm, int reminderId, int practiceAssetId)
 
     background: Rectangle { color: Theme.windowBackground }
@@ -84,12 +84,12 @@ Page {
                 onToggled: songModel.containersOnly = checked
             }
 
-            CheckBox {
-                text: qsTr("Show all files")
-                checked: songModel.expandAllGroups
-                enabled: !songModel.hideContainers && !songModel.containersOnly
-                onToggled: songModel.expandAllGroups = checked
-            }
+            // CheckBox {
+            //     text: qsTr("Show all files")
+            //     checked: songModel.expandAllGroups
+            //     enabled: !songModel.hideContainers && !songModel.containersOnly
+            //     onToggled: songModel.expandAllGroups = checked
+            // }
         }
 
         Loader {
@@ -123,19 +123,19 @@ Page {
                 Layout.minimumWidth: 280
 
                 onSongActivated: (songId, title, baseBpm, mediaId) =>
-                    root.songSelected(songId, title, baseBpm, 0, mediaId)
+                    root.songSelected(songId, title, baseBpm, 0, mediaId, 0)
             }
 
             DashboardReminderPanel {
-                onOpenSessionRequested: (songId, title, baseBpm, practiceAssetId) =>
-                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0)
+                onOpenSessionRequested: (songId, title, baseBpm, practiceAssetId, reminderId) =>
+                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0, reminderId)
                 onEditReminderRequested: (songId, title, baseBpm, reminderId, practiceAssetId) =>
                     root.reminderEditRequested(songId, title, baseBpm, reminderId, practiceAssetId)
             }
 
             PracticeCalendarPanel {
-                onOpenPracticeRequested: (songId, title, baseBpm, practiceAssetId) =>
-                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0)
+                onOpenPracticeRequested: (songId, title, baseBpm, practiceAssetId, reminderId) =>
+                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0, reminderId || 0)
             }
         }
     }
@@ -153,15 +153,15 @@ Page {
                 Layout.preferredHeight: Math.max(200, root.height * 0.45)
 
                 onSongActivated: (songId, title, baseBpm, mediaId) =>
-                    root.songSelected(songId, title, baseBpm, 0, mediaId)
+                    root.songSelected(songId, title, baseBpm, 0, mediaId, 0)
             }
 
             DashboardReminderPanel {
                 Layout.fillWidth: true
                 panelWidth: parent.width
 
-                onOpenSessionRequested: (songId, title, baseBpm, practiceAssetId) =>
-                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0)
+                onOpenSessionRequested: (songId, title, baseBpm, practiceAssetId, reminderId) =>
+                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0, reminderId)
                 onEditReminderRequested: (songId, title, baseBpm, reminderId, practiceAssetId) =>
                     root.reminderEditRequested(songId, title, baseBpm, reminderId, practiceAssetId)
             }
@@ -170,8 +170,8 @@ Page {
                 Layout.fillWidth: true
                 sidePanelWidth: parent.width
 
-                onOpenPracticeRequested: (songId, title, baseBpm, practiceAssetId) =>
-                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0)
+                onOpenPracticeRequested: (songId, title, baseBpm, practiceAssetId, reminderId) =>
+                    root.songSelected(songId, title, baseBpm, practiceAssetId, 0, reminderId || 0)
             }
         }
     }

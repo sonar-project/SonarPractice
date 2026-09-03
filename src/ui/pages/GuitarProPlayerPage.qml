@@ -22,15 +22,6 @@ Page {
 
     header: TopBar {
         title: root.songTitle.length > 0 ? root.songTitle : qsTr("Guitar Pro player")
-        subtitle: {
-            const parts = []
-            if (guitarProPreviewController.title.length > 0
-                    && guitarProPreviewController.title !== root.songTitle)
-                parts.push(guitarProPreviewController.title)
-            if (guitarProPreviewController.artist.length > 0)
-                parts.push(guitarProPreviewController.artist)
-            return parts.join(" — ")
-        }
         showBack: true
         sessionLocked: practiceTracker.timerRunning
         sessionLabel: qsTr("Timer running")
@@ -43,6 +34,5 @@ Page {
     GuitarProTabPreview {
         anchors.fill: parent
         anchors.margins: 12
-        pageMode: true
     }
 }

@@ -18,6 +18,8 @@ Page {
     property int initialEditingReminderId: 0
     property int initialPracticeAssetId: 0
     property int initialMediaId: 0
+    /** Reminder whose condition (bars/BPM) should seed the training panel. */
+    property int initialSourceReminderId: 0
 
     signal backRequested
     signal assetOpenRequested(int mediaId)
@@ -71,16 +73,25 @@ Page {
     function resolveInitialPracticeAssetId() {
         if (root.initialPracticeAssetId > 0)
             return root.initialPracticeAssetId;
-        if (root.initialEditingReminderId <= 0)
+        if (root.initialEditingReminderId <= 0 && root.initialSourceReminderId <= 0)
             return 0;
-        const payload = reminderController.reminderEditPayload(root.initialEditingReminderId);
+        const reminderId = root.initialEditingReminderId > 0
+                         ? root.initialEditingReminderId
+                         : root.initialSourceReminderId;
+        const payload = reminderController.reminderEditPayload(reminderId);
         return payload.practiceAssetId ?? 0;
     }
 
     function syncSongContext() {
         journalEditor.ready = false;
         practiceTracker.songId = root.songId;
-        practiceTracker.loadTrainingDefaults(root.songBaseBpm);
+        const assetId = root.resolveInitialPracticeAssetId();
+        // Clear stale asset from a previous hub visit before loading defaults.
+        practiceTracker.assetId = assetId;
+        const sourceReminderId = root.initialSourceReminderId > 0
+                               ? root.initialSourceReminderId
+                               : root.initialEditingReminderId;
+        practiceTracker.loadTrainingDefaults(root.songBaseBpm, sourceReminderId);
         mediaFileModel.songId = root.songId;
         mediaFileModel.reload();
         practiceTracker.reloadJournal();
@@ -89,7 +100,6 @@ Page {
         journalEditor.ready = true;
         reminderController.songId = root.songId;
         guitarProPreviewController.clear();
-        const assetId = root.resolveInitialPracticeAssetId();
         if (assetId > 0) {
             songInfo.requestedActivePracticeAssetId = assetId;
             root.initialPracticeAssetId = 0;
@@ -103,6 +113,7 @@ Page {
             reminderPanel.loadReminderForEdit(root.initialEditingReminderId);
         else
             reminderPanel.applyTrainingDefaults();
+        root.initialSourceReminderId = 0;
     }
 
     Component.onCompleted: root.syncSongContext()
@@ -155,7 +166,6 @@ Page {
                     id: songInfo
                     Layout.fillWidth: true
                     songId: root.songId
-                    songTitle: root.songTitle
                     songBaseBpm: root.songBaseBpm
                     onAssetOpenRequested: mediaId => root.assetOpenRequested(mediaId)
                     onPracticeRequested: mediaId => root.practiceRequested(mediaId)

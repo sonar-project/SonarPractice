@@ -14,7 +14,7 @@ Rectangle {
     readonly property int dailyCount: reminderController.dailyReminderCount
     readonly property int periodicCount: reminderController.periodicReminderCount
 
-    signal openSessionRequested(int songId, string title, int baseBpm, int practiceAssetId)
+    signal openSessionRequested(int songId, string title, int baseBpm, int practiceAssetId, int reminderId)
     signal editReminderRequested(int songId, string title, int baseBpm, int reminderId, int practiceAssetId)
 
     implicitWidth: panelWidth
@@ -226,7 +226,7 @@ Rectangle {
                                     flat: true
                                     font.pixelSize: 10
                                     onClicked: root.openSessionRequested(
-                                                   dailyDelegate.songId, dailyDelegate.songTitle, dailyDelegate.baseBpm, dailyDelegate.practiceAssetId)
+                                                   dailyDelegate.songId, dailyDelegate.songTitle, dailyDelegate.baseBpm, dailyDelegate.practiceAssetId, dailyDelegate.reminderId)
                                 }
 
                                 Button {
@@ -375,7 +375,7 @@ Rectangle {
                                     flat: true
                                     font.pixelSize: 10
                                     onClicked: root.openSessionRequested(
-                                                   periodicDelegate.songId, periodicDelegate.songTitle, periodicDelegate.baseBpm, periodicDelegate.practiceAssetId)
+                                                   periodicDelegate.songId, periodicDelegate.songTitle, periodicDelegate.baseBpm, periodicDelegate.practiceAssetId, periodicDelegate.reminderId)
                                 }
 
                                 Button {

@@ -8,7 +8,6 @@ Item {
     property real regionEndRatio: 1
     property real playheadRatio: 0
 
-    readonly property int horizontalPadding: 4
     readonly property int verticalPadding: 8
 
     function canvasColor(c) {

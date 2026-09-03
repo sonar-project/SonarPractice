@@ -37,62 +37,44 @@
 <context>
     <name>AppSettings</name>
     <message>
-        <location filename="src/services/config/AppSettings.cpp" line="104"/>
+        <location filename="src/services/config/AppSettings.cpp" line="105"/>
         <source>Guitar Pro</source>
         <translation>GuitarPro</translation>
     </message>
     <message>
-        <location filename="src/services/config/AppSettings.cpp" line="109"/>
+        <location filename="src/services/config/AppSettings.cpp" line="110"/>
         <source>Audio</source>
         <translation>Audio</translation>
     </message>
     <message>
-        <location filename="src/services/config/AppSettings.cpp" line="116"/>
+        <location filename="src/services/config/AppSettings.cpp" line="117"/>
         <source>Video</source>
         <translation>Video</translation>
     </message>
     <message>
-        <location filename="src/services/config/AppSettings.cpp" line="123"/>
+        <location filename="src/services/config/AppSettings.cpp" line="124"/>
         <source>Images</source>
         <translation>Bilder</translation>
     </message>
     <message>
-        <location filename="src/services/config/AppSettings.cpp" line="128"/>
+        <location filename="src/services/config/AppSettings.cpp" line="129"/>
         <source>Documents</source>
         <translation>Dokumente</translation>
     </message>
     <message>
-        <location filename="src/services/config/AppSettings.cpp" line="367"/>
+        <location filename="src/services/config/AppSettings.cpp" line="368"/>
         <source>All supported</source>
         <translation>Alle unterstützten</translation>
     </message>
     <message>
-        <location filename="src/services/config/AppSettings.cpp" line="386"/>
+        <location filename="src/services/config/AppSettings.cpp" line="387"/>
         <source>All files (*)</source>
         <translation>Alle Dateien (*)</translation>
     </message>
-</context>
-<context>
-    <name>AssetTile</name>
     <message>
-        <location filename="src/ui/components/AssetTile.qml" line="91"/>
-        <source>URL</source>
-        <translation>URL</translation>
-    </message>
-    <message>
-        <location filename="src/ui/components/AssetTile.qml" line="92"/>
-        <source>Managed</source>
-        <translation>Verwaltet</translation>
-    </message>
-    <message>
-        <location filename="src/ui/components/AssetTile.qml" line="92"/>
-        <source>Linked</source>
-        <translation>Verknüpft</translation>
-    </message>
-    <message>
-        <location filename="src/ui/components/AssetTile.qml" line="101"/>
-        <source>Practice</source>
-        <translation>Üben</translation>
+        <location filename="src/services/config/AppSettings.cpp" line="446"/>
+        <source>SoundFont files</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -132,10 +114,6 @@
         <translation>Kein Preset ausgewählt.</translation>
     </message>
     <message>
-        <source>Playback not ready yet — please wait a moment.</source>
-        <translation type="vanished">Wiedergabe noch nicht bereit — bitte kurz warten.</translation>
-    </message>
-    <message>
         <location filename="src/viewmodels/AudioConfigController.cpp" line="445"/>
         <source>Cancelling processing…</source>
         <translation>Verarbeitung wird abgebrochen…</translation>
@@ -161,10 +139,6 @@
         <location filename="src/viewmodels/AudioConfigController.cpp" line="604"/>
         <source>Could not save preset.</source>
         <translation>Preset konnte nicht gespeichert werden.</translation>
-    </message>
-    <message>
-        <source>Preset </source>
-        <translation type="vanished">Preset </translation>
     </message>
     <message>
         <location filename="src/viewmodels/AudioConfigController.cpp" line="615"/>
@@ -199,138 +173,138 @@
 <context>
     <name>AudioConfigPage</name>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="80"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="74"/>
         <source>Pause</source>
         <translation>Pause</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="80"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="74"/>
         <source>Play</source>
         <translation>Play</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="86"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="80"/>
         <source>Stop</source>
         <translation>Stop</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="92"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="86"/>
         <source>%1 / %2 s</source>
         <translation>%1 / %2 s</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="101"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="95"/>
         <source>Loop A–B</source>
         <translation>Loop A–B</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="113"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="107"/>
         <source>A = Position</source>
         <translation>A = Position</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="119"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="113"/>
         <source>B = Position</source>
         <translation>B = Position</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="125"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="119"/>
         <source>Undo</source>
         <translation>Rückgängig</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="133"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="127"/>
         <source>Tempo</source>
         <translation>Tempo</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="171"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="165"/>
         <source>50 %</source>
         <translation>50 %</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="172"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="166"/>
         <source>60 %</source>
         <translation>60 %</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="173"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="167"/>
         <source>90 %</source>
         <translation>90 %</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="174"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="168"/>
         <source>100 %</source>
         <translation>100 %</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="210"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="204"/>
         <source>%1 %</source>
         <translation>%1 %</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="218"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="212"/>
         <source>EQ preset</source>
         <oldsource>EQ-Preset</oldsource>
         <translation>EQ-Preset</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="230"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="224"/>
         <source>Neutral</source>
         <translation>Neutral</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="231"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="225"/>
         <source>Reduce bass</source>
         <oldsource>Bass reduzieren</oldsource>
         <translation>Bass reduzieren</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="232"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="226"/>
         <source>Reduce treble</source>
         <translation>Höhen reduzieren</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="233"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="227"/>
         <source>Emphasize mids</source>
         <translation>Mitten betonen</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="294"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="288"/>
         <source>Save</source>
         <translation>Speichern</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="338"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="332"/>
         <source>Delete</source>
         <translation>Löschen</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="258"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="252"/>
         <source>Saved configurations</source>
         <oldsource>Gespeicherte Konfigurationen</oldsource>
         <translation>Gespeicherte Konfigurationen</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="275"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="269"/>
         <source>No preset is active on open. Select a saved preset and tap Load to apply tempo, EQ, and markers.</source>
         <oldsource>Beim Öffnen ist kein Preset aktiv. Wähle ein gespeichertes Preset und tippe auf Laden, um Tempo, EQ und Marker zu übernehmen.</oldsource>
         <translation>Beim Öffnen ist kein Preset aktiv. Wähle ein gespeichertes Preset und tippe auf Laden, um Tempo, EQ und Marker zu übernehmen.</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="288"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="282"/>
         <source>Preset name</source>
         <oldsource>Preset-Name</oldsource>
         <translation>Preset-Name</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="332"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="326"/>
         <source>Load</source>
         <oldsource>Laden</oldsource>
         <translation>Laden</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/AudioConfigPage.qml" line="359"/>
+        <location filename="src/ui/pages/AudioConfigPage.qml" line="353"/>
         <source>Keys: Alt+p Play/Pause · Alt+a Start marker · Alt+b End marker · Alt+l Loop · Ctrl+Z Undo</source>
         <oldsource>Tasten: Alt+p Play/Pause · Alt+a Start-Marker · Alt+b End-Marker · Alt+l Loop · Strg+Z Rückgängig</oldsource>
         <translation>Tasten: Alt+p Play/Pause · Alt+a Start-Marker · Alt+b End-Marker · Alt+l Loop · Strg+Z Rückgängig</translation>
@@ -435,117 +409,182 @@
 <context>
     <name>ConfigPage</name>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="132"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="183"/>
         <source>Folder ready: %1</source>
         <oldsource>Ordner bereit: %1</oldsource>
         <translation>Ordner bereit: %1</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="20"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="21"/>
         <source>Setup</source>
         <translation>Einrichtung</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="20"/>
-        <location filename="src/ui/pages/ConfigPage.qml" line="185"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="21"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="297"/>
         <source>Settings</source>
         <translation>Einstellungen</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="82"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="125"/>
         <source>Please specify a target folder.</source>
         <translation>Bitte einen Zielordner angeben.</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="87"/>
-        <location filename="src/ui/pages/ConfigPage.qml" line="134"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="130"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="185"/>
         <source>Could not create folder: %1</source>
         <translation>Ordner konnte nicht angelegt werden: %1</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="185"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="238"/>
+        <source>Please choose a SoundFont file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="245"/>
+        <source>Only .sf2 and .sf3 SoundFont files are supported.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="252"/>
+        <source>SoundFont saved. Please restart SonarPractice so the bank can be loaded into memory.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="271"/>
+        <source>Choose SoundFont</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="273"/>
+        <source>All files (*)</source>
+        <translation type="unfinished">Alle Dateien (*)</translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="297"/>
         <source>Welcome to SonarPractice</source>
         <translation>Willkommen bei SonarPractice</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="194"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="306"/>
         <source>Configure how imported files are handled and which formats are allowed.</source>
         <oldsource>Lege fest, wie importierte Dateien behandelt werden und welche Formate erlaubt sind.</oldsource>
         <translation>Lege fest, wie importierte Dateien behandelt werden und welche Formate erlaubt sind.</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="201"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="313"/>
         <source>Language</source>
         <translation>Sprache</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="210"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="322"/>
         <source>English uses the strings from the source code. Other languages load a SonarPractice_*.ts translation file. The system language is selected by default when a matching translation exists.</source>
         <oldsource>Choose a translation file. By default the system language is used when available.</oldsource>
         <translation>Choose a translation file. By default the system language is used when available.</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="276"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="389"/>
+        <source>Guitar Pro SoundFont</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="398"/>
+        <source>Choose the instrument bank used for Guitar Pro playback. A complete General MIDI SoundFont (.sf2 or .sf3) is recommended.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="405"/>
+        <source>Built-in (sonivox.sf3)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="416"/>
+        <source>Custom file…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="430"/>
+        <source>Path to .sf2 or .sf3 file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="438"/>
+        <source>Browse…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="448"/>
+        <source>Reset to default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="457"/>
+        <source>Custom SoundFonts are experimental. If you don&apos;t hear any sound, please restart SonarPractice.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/pages/ConfigPage.qml" line="475"/>
         <source>File management</source>
         <translation>Dateiverwaltung</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="284"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="483"/>
         <source>No management (files stay at original location)</source>
         <translation>Keine Verwaltung (Dateien bleiben am Originalort)</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="292"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="491"/>
         <source>Copy files</source>
         <translation>Dateien kopieren</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="299"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="498"/>
         <source>Move files</source>
         <translation>Dateien verschieben</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="308"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="507"/>
         <source>Target folder for copy or move:</source>
         <translation>Zielordner für Kopie oder Verschiebung:</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="325"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="524"/>
         <source>Choose folder</source>
         <translation>Ordner wählen</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="330"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="529"/>
         <source>Create folder</source>
         <translation>Ordner anlegen</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="349"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="548"/>
         <source>Supported file formats</source>
         <translation>Unterstützte Dateiformate</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="373"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="572"/>
         <source>Separate extensions with ;</source>
         <translation>Endungen mit ; trennen</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="380"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="579"/>
         <source>Restore defaults</source>
         <translation>Standard wiederherstellen</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="405"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="604"/>
         <source>Cancel</source>
         <translation>Abbrechen</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="410"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="609"/>
         <source>Save and start</source>
         <translation>Speichern und starten</translation>
     </message>
     <message>
-        <location filename="src/ui/pages/ConfigPage.qml" line="410"/>
+        <location filename="src/ui/pages/ConfigPage.qml" line="609"/>
         <source>Save</source>
         <translation>Speichern</translation>
     </message>
@@ -580,10 +619,6 @@
         <source>Timer running</source>
         <oldsource>Timer läuft</oldsource>
         <translation>Timer läuft</translation>
-    </message>
-    <message>
-        <source>Launch hub</source>
-        <translation type="vanished">Startzentrale</translation>
     </message>
     <message>
         <location filename="src/ui/pages/DashboardPage.qml" line="76"/>
@@ -733,7 +768,7 @@ The reminder condition was only partially met. Mark as completed for this day an
         <translation></translation>
     </message>
     <message>
-        <location filename="src/ui/pages/GuitarProPlayerPage.qml" line="36"/>
+        <location filename="src/ui/pages/GuitarProPlayerPage.qml" line="27"/>
         <source>Timer running</source>
         <translation>Timer läuft</translation>
     </message>
@@ -741,47 +776,73 @@ The reminder condition was only partially met. Mark as completed for this day an
 <context>
     <name>GuitarProPreviewController</name>
     <message>
-        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="319"/>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="579"/>
+        <source>Custom SoundFont is not in memory. Please restart SonarPractice after choosing a SoundFont in Settings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="604"/>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="614"/>
+        <source>Could not open SoundFont file: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="624"/>
+        <source>SoundFont file is empty: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="635"/>
+        <source>SoundFont is too large for the fallback loader (%1 MB). Please restart SonarPractice after selecting the SoundFont in Settings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="789"/>
+        <source>SoundFont could not be loaded</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="825"/>
         <source>Invalid media file</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="326"/>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="832"/>
         <source>Media file not found</source>
         <translation type="unfinished">Media file not found</translation>
     </message>
     <message>
-        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="333"/>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="839"/>
         <source>Only Guitar Pro files can be previewed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="359"/>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="867"/>
         <source>Could not read Guitar Pro file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="370"/>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="878"/>
         <source>Could not parse Guitar Pro file</source>
         <translation type="unfinished">Guitar-Pro-Datei konnte nicht gelesen werden</translation>
     </message>
     <message>
-        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="372"/>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="880"/>
         <source>ASCII preview unavailable; using interactive player</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="378"/>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="886"/>
         <source>Guitar Pro file has no tracks</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="440"/>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="954"/>
         <source>Track %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="442"/>
+        <location filename="src/viewmodels/GuitarProPreviewController.cpp" line="956"/>
         <source> (percussion)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -789,62 +850,177 @@ The reminder condition was only partially met. Mark as completed for this day an
 <context>
     <name>GuitarProTabPreview</name>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="47"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="52"/>
         <source>ASCII</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="56"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="61"/>
         <source>Player</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="71"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="76"/>
         <source>Track</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="89"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="94"/>
         <source>Tuning: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="104"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="119"/>
+        <source>Transpose</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="125"/>
+        <source>−1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="130"/>
+        <source>One semitone lower</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="148"/>
+        <source>st</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="154"/>
+        <source>+1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="159"/>
+        <source>One semitone higher</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="163"/>
+        <source>Reset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="171"/>
+        <source>Notated tuning: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="188"/>
         <source>Pause</source>
         <translation type="unfinished">Pause</translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="104"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="188"/>
         <source>Play</source>
         <translation type="unfinished">Play</translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="110"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="196"/>
         <source>Stop</source>
         <translation type="unfinished">Stop</translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="115"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="205"/>
+        <source>Loading soundfont…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="210"/>
         <source>Tempo</source>
         <translation type="unfinished">Tempo</translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="129"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="230"/>
+        <source>BPM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="238"/>
+        <source>(%1% of %2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="239"/>
+        <source>(%1%)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="304"/>
+        <source>Metronome</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="315"/>
+        <source>Count-in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="330"/>
+        <source>1/4</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="331"/>
+        <source>1/8</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="332"/>
+        <source>1/16</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="333"/>
+        <source>1/32</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="456"/>
+        <source>M</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="465"/>
+        <source>Mute</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="485"/>
         <source>%1%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="136"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="513"/>
+        <source>Track %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="543"/>
+        <source>Hide mixer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="543"/>
+        <source>Show mixer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="246"/>
         <source>Loop</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="146"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="256"/>
         <source>Bars</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/GuitarProTabPreview.qml" line="211"/>
+        <location filename="src/ui/components/GuitarProTabPreview.qml" line="372"/>
         <source>Interactive player requires Qt WebEngine. Showing ASCII tablature.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -918,70 +1094,25 @@ The reminder condition was only partially met. Mark as completed for this day an
         <translation>Erfolgreich importiert</translation>
     </message>
     <message>
-        <location filename="src/services/import/ImportService.cpp" line="410"/>
-        <location filename="src/services/import/ImportService.cpp" line="464"/>
-        <location filename="src/services/import/ImportService.cpp" line="465"/>
-        <location filename="src/services/import/ImportService.cpp" line="507"/>
-        <location filename="src/services/import/ImportService.cpp" line="508"/>
+        <location filename="src/services/import/ImportService.cpp" line="398"/>
+        <location filename="src/services/import/ImportService.cpp" line="455"/>
         <source>Import already running</source>
         <translation>Import läuft bereits</translation>
     </message>
     <message>
-        <location filename="src/services/import/ImportService.cpp" line="473"/>
-        <location filename="src/services/import/ImportService.cpp" line="474"/>
-        <source>No supported files found in directory</source>
-        <translation>Keine unterstützten Dateien im Ordner gefunden</translation>
-    </message>
-    <message>
-        <location filename="src/services/import/ImportService.cpp" line="521"/>
-        <location filename="src/services/import/ImportService.cpp" line="522"/>
+        <location filename="src/services/import/ImportService.cpp" line="468"/>
         <source>No supported files found</source>
         <translation>Keine unterstützten Dateien gefunden</translation>
     </message>
     <message>
-        <location filename="src/services/import/ImportService.cpp" line="594"/>
+        <location filename="src/services/import/ImportService.cpp" line="540"/>
         <source>Could not open database for import</source>
         <translation>Datenbank für Import konnte nicht geöffnet werden</translation>
     </message>
     <message>
-        <location filename="src/services/import/ImportService.cpp" line="716"/>
+        <location filename="src/services/import/ImportService.cpp" line="656"/>
         <source>%1 imported, %2 skipped, %3 failed</source>
         <translation>%1 importiert, %2 übersprungen, %3 fehlgeschlagen</translation>
-    </message>
-</context>
-<context>
-    <name>ImportSheet</name>
-    <message>
-        <location filename="src/ui/pages/ImportSheet.qml" line="32"/>
-        <source>Import media</source>
-        <oldsource>Medien importieren</oldsource>
-        <translation>Medien importieren</translation>
-    </message>
-    <message>
-        <location filename="src/ui/pages/ImportSheet.qml" line="41"/>
-        <source>No wizard — drop files or folders here. ImportService will group them into exercises later.</source>
-        <oldsource>Kein Wizard — Dateien oder Ordner hier ablegen. Der ImportService gruppiert sie später zu Übungsgruppen.</oldsource>
-        <translation>Kein Wizard — Dateien oder Ordner hier ablegen. Der ImportService gruppiert sie später zu Übungsgruppen.</translation>
-    </message>
-    <message>
-        <location filename="src/ui/pages/ImportSheet.qml" line="75"/>
-        <source>Drop files here
-(GP, PDF, audio, images, URLs)</source>
-        <oldsource>Dateien hier ablegen
-(GP, PDF, Audio, Bilder, URLs)</oldsource>
-        <translation>Dateien hier ablegen
-(GP, PDF, Audio, Bilder, URLs)</translation>
-    </message>
-    <message>
-        <location filename="src/ui/pages/ImportSheet.qml" line="87"/>
-        <source>Cancel</source>
-        <translation>Abbrechen</translation>
-    </message>
-    <message>
-        <location filename="src/ui/pages/ImportSheet.qml" line="94"/>
-        <source>Import files</source>
-        <oldsource>Datei Import</oldsource>
-        <translation>Datei Import</translation>
     </message>
 </context>
 <context>
@@ -1130,39 +1261,39 @@ The reminder condition was only partially met. Mark as completed for this day an
 <context>
     <name>LibraryFolderTree</name>
     <message>
-        <location filename="src/ui/components/LibraryFolderTree.qml" line="46"/>
+        <location filename="src/ui/components/LibraryFolderTree.qml" line="44"/>
         <source>Search folders…</source>
         <oldsource>Ordner suchen…</oldsource>
         <translation>Ordner suchen…</translation>
     </message>
     <message>
-        <location filename="src/ui/components/LibraryFolderTree.qml" line="61"/>
+        <location filename="src/ui/components/LibraryFolderTree.qml" line="59"/>
         <source>Custom path…</source>
         <translation>Eigener Pfad…</translation>
     </message>
     <message>
-        <location filename="src/ui/components/LibraryFolderTree.qml" line="79"/>
+        <location filename="src/ui/components/LibraryFolderTree.qml" line="77"/>
         <source>Expand all</source>
         <translation>Alles aufklappen</translation>
     </message>
     <message>
-        <location filename="src/ui/components/LibraryFolderTree.qml" line="188"/>
+        <location filename="src/ui/components/LibraryFolderTree.qml" line="186"/>
         <source>Root directory</source>
         <translation>Stammverzeichnis</translation>
     </message>
     <message>
-        <location filename="src/ui/components/LibraryFolderTree.qml" line="68"/>
+        <location filename="src/ui/components/LibraryFolderTree.qml" line="66"/>
         <source>OK</source>
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="src/ui/components/LibraryFolderTree.qml" line="87"/>
+        <location filename="src/ui/components/LibraryFolderTree.qml" line="85"/>
         <source>Collapse all</source>
         <oldsource>Alles zuklappen</oldsource>
         <translation>Alles zuklappen</translation>
     </message>
     <message>
-        <location filename="src/ui/components/LibraryFolderTree.qml" line="274"/>
+        <location filename="src/ui/components/LibraryFolderTree.qml" line="272"/>
         <source>All folders</source>
         <oldsource>Alle Ordner</oldsource>
         <translation>Alle Ordner</translation>
@@ -1373,10 +1504,6 @@ The reminder condition was only partially met. Mark as completed for this day an
         <translation>Gruppe erstellen</translation>
     </message>
     <message>
-        <source>Gruppe wird erstellt…</source>
-        <translation type="vanished">Gruppe wird erstellt…</translation>
-    </message>
-    <message>
         <location filename="src/ui/pages/LibraryPage.qml" line="741"/>
         <source>Please wait…</source>
         <oldsource>Bitte warten…</oldsource>
@@ -1463,14 +1590,6 @@ The reminder condition was only partially met. Mark as completed for this day an
         <translation>Keine Dateien importiert.</translation>
     </message>
     <message>
-        <source>Repertoire and practice manager
-Import → File imports media into the local database.</source>
-        <oldsource>Repertoire- und Übungsmanager
-Import → Datei importiert Medien in die lokale Datenbank.</oldsource>
-        <translation type="vanished">Repertoire- und Übungsmanager
-Import → Datei importiert Medien in die lokale Datenbank.</translation>
-    </message>
-    <message>
         <location filename="src/ui/Main.qml" line="221"/>
         <source>Import file</source>
         <oldsource>Datei importieren</oldsource>
@@ -1521,39 +1640,6 @@ Import → Datei importiert Medien in die lokale Datenbank.</translation>
     </message>
 </context>
 <context>
-    <name>MediaKind</name>
-    <message>
-        <location filename="src/ui/js/MediaKind.js" line="16"/>
-        <source>Guitar Pro</source>
-        <translation>GuitarPro</translation>
-    </message>
-    <message>
-        <location filename="src/ui/js/MediaKind.js" line="17"/>
-        <source>Audio</source>
-        <translation>Audio</translation>
-    </message>
-    <message>
-        <location filename="src/ui/js/MediaKind.js" line="18"/>
-        <source>Video</source>
-        <translation>Video</translation>
-    </message>
-    <message>
-        <location filename="src/ui/js/MediaKind.js" line="19"/>
-        <source>Image</source>
-        <translation>Image</translation>
-    </message>
-    <message>
-        <location filename="src/ui/js/MediaKind.js" line="20"/>
-        <source>Document</source>
-        <translation>Document</translation>
-    </message>
-    <message>
-        <location filename="src/ui/js/MediaKind.js" line="21"/>
-        <source>Unknown</source>
-        <translation>Unknown</translation>
-    </message>
-</context>
-<context>
     <name>MediaStreamProbe</name>
     <message>
         <location filename="src/services/media/MediaStreamProbe.cpp" line="68"/>
@@ -1588,11 +1674,6 @@ Import → Datei importiert Medien in die lokale Datenbank.</translation>
         <source>Calendar</source>
         <oldsource>Kalender</oldsource>
         <translation>Kalender</translation>
-    </message>
-    <message>
-        <source>Select the practice date for journal and reminders.</source>
-        <oldsource>Wähle das Übungsdatum für Journal und Erinnerungen.</oldsource>
-        <translation type="vanished">Wähle das Übungsdatum für Journal und Erinnerungen.</translation>
     </message>
     <message>
         <location filename="src/ui/components/PracticeCalendarPanel.qml" line="111"/>
@@ -1692,7 +1773,7 @@ Mark this exercise as completed for the day?</source>
 <context>
     <name>PracticeHubPage</name>
     <message>
-        <location filename="src/ui/pages/PracticeHubPage.qml" line="52"/>
+        <location filename="src/ui/pages/PracticeHubPage.qml" line="56"/>
         <source>Timer running</source>
         <oldsource>Timer läuft</oldsource>
         <translation>Timer läuft</translation>
@@ -1720,28 +1801,24 @@ Mark this exercise as completed for the day?</source>
 <context>
     <name>PracticeTrackerController</name>
     <message>
-        <location filename="src/viewmodels/PracticeTrackerController.cpp" line="195"/>
+        <location filename="src/viewmodels/PracticeTrackerController.cpp" line="194"/>
         <source>Could not save journal note.</source>
         <translation>Journalnotiz konnte nicht gespeichert werden.</translation>
     </message>
     <message>
-        <location filename="src/viewmodels/PracticeTrackerController.cpp" line="213"/>
+        <location filename="src/viewmodels/PracticeTrackerController.cpp" line="212"/>
         <source>Invalid bar range or no exercise selected.</source>
         <translation>Ungültiger Taktbereich oder keine Übung gewählt.</translation>
     </message>
     <message>
-        <location filename="src/viewmodels/PracticeTrackerController.cpp" line="219"/>
+        <location filename="src/viewmodels/PracticeTrackerController.cpp" line="218"/>
         <source>Could not save practice session.</source>
         <translation>Übungseinheit konnte nicht gespeichert werden.</translation>
     </message>
     <message>
-        <location filename="src/viewmodels/PracticeTrackerController.cpp" line="227"/>
+        <location filename="src/viewmodels/PracticeTrackerController.cpp" line="226"/>
         <source>Practice session saved.</source>
         <translation>Übungseinheit gespeichert.</translation>
-    </message>
-    <message>
-        <source>Save failed.</source>
-        <translation type="vanished">Speichern fehlgeschlagen.</translation>
     </message>
 </context>
 <context>
@@ -1754,22 +1831,9 @@ Mark this exercise as completed for the day?</source>
         <translation>Decoder lieferte keine Audiodaten.</translation>
     </message>
     <message>
-        <source>Audio file read</source>
-        <oldsource>Audiodatei gelesen</oldsource>
-        <translation type="vanished">Audiodatei gelesen</translation>
-    </message>
-    <message>
         <location filename="src/services/audio/AudioProcessorWorker.cpp" line="49"/>
         <source>Processing cancelled.</source>
         <translation>Verarbeitung abgebrochen.</translation>
-    </message>
-    <message>
-        <source>Reading audio file…</source>
-        <translation type="vanished">Audiodatei wird gelesen…</translation>
-    </message>
-    <message>
-        <source>No audio data to process.</source>
-        <translation type="vanished">Keine Audiodaten zur Verarbeitung.</translation>
     </message>
     <message>
         <location filename="src/services/audio/AudioProcessorWorker.cpp" line="91"/>
@@ -2049,18 +2113,18 @@ Mark this exercise as completed for the day?</source>
 <context>
     <name>SongCard</name>
     <message>
-        <location filename="src/ui/components/SongCard.qml" line="95"/>
+        <location filename="src/ui/components/SongCard.qml" line="91"/>
         <source>Group</source>
         <oldsource>Gruppe</oldsource>
         <translation>Gruppe</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongCard.qml" line="104"/>
+        <location filename="src/ui/components/SongCard.qml" line="100"/>
         <source>File</source>
         <translation>Datei</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongCard.qml" line="154"/>
+        <location filename="src/ui/components/SongCard.qml" line="150"/>
         <source>%1 BPM</source>
         <translation>%1 BPM</translation>
     </message>
@@ -2068,85 +2132,80 @@ Mark this exercise as completed for the day?</source>
 <context>
     <name>SongInfoPanel</name>
     <message>
-        <source>Song information</source>
-        <oldsource>Songinformationen</oldsource>
-        <translation type="vanished">Songinformationen</translation>
-    </message>
-    <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="377"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="432"/>
         <source>Base tempo: %1 BPM</source>
         <oldsource>Basis-Tempo: %1 BPM</oldsource>
         <translation>Basis-Tempo: %1 BPM</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="385"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="440"/>
         <source>%1 media — select a file and open it with the button.</source>
         <oldsource>%1 Medien — wähle eine Datei und öffne sie mit dem Button.</oldsource>
         <translation>%1 Medien — wähle eine Datei und öffne sie mit dem Button.</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="391"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="446"/>
         <source>Select a file and mark it as active material.</source>
         <oldsource>Wähle eine Datei und markiere sie als aktives Material.</oldsource>
         <translation>Wähle eine Datei und markiere sie als aktives Material.</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="398"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="453"/>
         <source>Search media...</source>
         <oldsource>Suche Medien...</oldsource>
         <translation>Suche Medien...</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="593"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="657"/>
         <source>active material</source>
         <oldsource>aktives Material</oldsource>
         <translation>aktives Material</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="377"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="432"/>
         <source>No tempo set</source>
         <translation>Kein Tempo hinterlegt</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="385"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="440"/>
         <source>No media found for this exercise.</source>
         <translation>Keine Medien für diese Übung gefunden.</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="613"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="677"/>
         <source>Open</source>
         <translation>Öffnen</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="665"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="728"/>
         <source>Pause</source>
         <translation>Pause</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="665"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="728"/>
         <source>Play</source>
         <translation>Play</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="680"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="743"/>
         <source>Configure</source>
         <oldsource>Konfigurieren</oldsource>
         <translation>Konfigurieren</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="645"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="709"/>
         <source>Open externally</source>
         <oldsource>Extern öffnen</oldsource>
         <translation>Extern öffnen</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="744"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="807"/>
         <source>Load preset</source>
         <oldsource>Preset laden</oldsource>
         <translation>Preset laden</translation>
     </message>
     <message>
-        <location filename="src/ui/components/SongInfoPanel.qml" line="764"/>
+        <location filename="src/ui/components/SongInfoPanel.qml" line="827"/>
         <source>Processing audio…</source>
         <translation>Audio wird verarbeitet…</translation>
     </message>
@@ -2258,10 +2317,6 @@ Mark this exercise as completed for the day?</source>
         <location filename="src/ui/components/SongReminderPanel.qml" line="624"/>
         <source>Weekly</source>
         <translation>Wöchentlich</translation>
-    </message>
-    <message>
-        <source>Every 7 days</source>
-        <translation type="vanished">Alle 7 Tage</translation>
     </message>
     <message>
         <location filename="src/ui/components/SongReminderPanel.qml" line="703"/>
@@ -2427,24 +2482,24 @@ Mark this exercise as completed for the day?</source>
 <context>
     <name>TopBar</name>
     <message>
-        <location filename="src/ui/components/TopBar.qml" line="13"/>
+        <location filename="src/ui/components/TopBar.qml" line="12"/>
         <source>Session active</source>
         <oldsource>Session aktiv</oldsource>
         <translation>Session aktiv</translation>
     </message>
     <message>
-        <location filename="src/ui/components/TopBar.qml" line="76"/>
+        <location filename="src/ui/components/TopBar.qml" line="79"/>
         <source>Light theme</source>
         <oldsource>Helles Theme</oldsource>
         <translation>Helles Theme</translation>
     </message>
     <message>
-        <location filename="src/ui/components/TopBar.qml" line="76"/>
+        <location filename="src/ui/components/TopBar.qml" line="79"/>
         <source>Dark theme</source>
         <translation>Dunkles Theme</translation>
     </message>
     <message>
-        <location filename="src/ui/components/TopBar.qml" line="83"/>
+        <location filename="src/ui/components/TopBar.qml" line="86"/>
         <source>Stop training</source>
         <translation>Übung beenden</translation>
     </message>
@@ -2457,57 +2512,57 @@ Mark this exercise as completed for the day?</source>
         <translation>Training</translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="147"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="154"/>
         <source>Bar from</source>
         <translation>Takt von</translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="169"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="176"/>
         <source>Bar to</source>
         <translation>Takt bis</translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="216"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="223"/>
         <source>Use external</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="219"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="226"/>
         <source>Skip the internal player and use Guitar Pro / TuxGuitar via Open externally.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="223"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="230"/>
         <source>Track</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="256"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="263"/>
         <source>Select a Guitar Pro file above (and mark it active) to use the internal player.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="267"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="274"/>
         <source>Stop and save</source>
         <translation>Stoppen &amp; speichern</translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="267"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="274"/>
         <source>Start timer</source>
         <translation>Timer starten</translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="287"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="294"/>
         <source>Open player</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="293"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="300"/>
         <source>Cancel</source>
         <translation>Abbrechen</translation>
     </message>
     <message>
-        <location filename="src/ui/components/TrainingPanel.qml" line="189"/>
+        <location filename="src/ui/components/TrainingPanel.qml" line="196"/>
         <source>Tempo: %1 BPM</source>
         <translation>Tempo: %1 BPM</translation>
     </message>

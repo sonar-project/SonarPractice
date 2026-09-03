@@ -2,13 +2,17 @@
 #define PRACTICETRACKERCONTROLLER_H
 
 #include <QDate>
+#include <QList>
 #include <QObject>
 #include <QtQml/qqmlregistration.h>
+#include <optional>
 #include <qtmetamacros.h>
 
 #include "JournalTableModel.h"
 #include "PracticeConstants.h"
 #include "PracticeTrackerService.h"
+#include "Reminder.h"
+#include "ReminderCondition.h"
 
 class ApplicationErrorLog;
 class IPracticeJournalRepository;
@@ -92,7 +96,13 @@ class PracticeTrackerController : public QObject {
     void reloadJournal();
     void reloadJournalNote();
     bool saveJournalNote();
-    void loadTrainingDefaults(int fallbackBpm = 0);
+    /**
+     * Loads bars/BPM from journal or reminder conditions.
+     * @param fallbackBpm Song base BPM used when no practiced/condition BPM exists.
+     * @param reminderId When > 0 (e.g. Dashboard "Open exercise"), prefer that
+     *        reminder's condition over the last journal entry.
+     */
+    Q_INVOKABLE void loadTrainingDefaults(int fallbackBpm = 0, qlonglong reminderId = 0);
 
   signals:
     void songIdChanged();
@@ -104,14 +114,17 @@ class PracticeTrackerController : public QObject {
     void journalSaved(qlonglong entryId);
     void journalMarkdownChanged();
     void statusMessageChanged();
-    void saveFailed(const QString &message);
 
   private:
     void setStatusMessage(const QString &message, bool isError);
     void reportError(const QString &context, const QString &message);
     void updateElapsedDisplay();
     PracticeTrackerParams buildParams() const;
-    std::optional<class ReminderCondition> conditionForSong(qlonglong songId) const;
+    [[nodiscard]] std::optional<ReminderCondition>
+    conditionFromReminders(const QList<Reminder> &reminders) const;
+    [[nodiscard]] std::optional<ReminderCondition> conditionForContext() const;
+    [[nodiscard]] std::optional<ReminderCondition> conditionForReminder(qlonglong reminderId) const;
+    void applyTrainingCondition(const ReminderCondition &condition, int fallbackBpm);
 
     PracticeTrackerService m_service;
     JournalTableModel m_journalModel;

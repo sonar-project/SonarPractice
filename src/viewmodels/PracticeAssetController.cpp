@@ -5,15 +5,13 @@
 
 #include "PracticeAssetController.h"
 
-#include "MediaFile.h"
-#include "MediaFileListModel.h"
-#include "interfaces/IMediaFileRepository.h"
 #include "interfaces/IPracticeAssetRepository.h"
 
+#include <QVariantMap>
+
 PracticeAssetController::PracticeAssetController(IPracticeAssetRepository &assetRepo,
-                                                 IMediaFileRepository &mediaFileRepo,
                                                  QObject *parent)
-    : QObject(parent), m_assetRepo(assetRepo), m_mediaFileRepository(mediaFileRepo) {}
+    : QObject(parent), m_assetRepo(assetRepo) {}
 
 qlonglong PracticeAssetController::lastMediaFileIdForSong(qlonglong songId) {
     return m_assetRepo.lastPrimaryMediaIdForSong(songId);
@@ -63,22 +61,4 @@ qlonglong PracticeAssetController::upsertCompositeAsset(qlonglong songId, qlongl
     asset.imageId = imageId;
     asset.documentId = documentId;
     return upsertCompositeAsset(asset);
-}
-
-QVariantList PracticeAssetController::filteredAudioFiles(const QString &filter) const {
-    QVariantList result;
-
-    const auto allFiles = m_mediaFileRepository.getAllMediaFiles();
-
-    for (const auto &file : allFiles) {
-        const QString name = MediaFileListModel::displayNameForFile(file);
-
-        if (file.mediaKind == MediaKind::Audio && name.contains(filter, Qt::CaseInsensitive)) {
-            QVariantMap map;
-            map[QStringLiteral("mediaId")] = file.id;
-            map[QStringLiteral("displayName")] = name;
-            result.append(map);
-        }
-    }
-    return result;
 }

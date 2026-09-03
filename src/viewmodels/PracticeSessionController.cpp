@@ -49,6 +49,5 @@ bool PracticeSessionController::launchMediaFile(qlonglong mediaFileId, const QSt
 bool PracticeSessionController::reportFailure(const QString &context, const QString &message) {
     m_dependencies.errorLog.logError(
         QStringLiteral("PracticeSession.%1").arg(context), message);
-    emit launchFailed(message);
     return false;
 }

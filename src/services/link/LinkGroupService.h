@@ -30,7 +30,6 @@ class LinkGroupService : public QObject {
                                                        const QList<qlonglong> &secondaryMediaIds);
 
     [[nodiscard]] bool dissolveGroup(qlonglong groupId);
-    [[nodiscard]] bool dissolveGroupForPrimarySong(qlonglong primarySongId);
 
     /// Creates a group and returns its id, or 0 when creation fails.
     Q_INVOKABLE qlonglong createGroupFromSongs(const QString &title, qlonglong primarySongId,

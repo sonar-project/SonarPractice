@@ -57,7 +57,6 @@ class CatalogViewCache {
     [[nodiscard]] const QList<SongListRowData> &songAllRows() const;
     [[nodiscard]] const QList<SongListRowData> &songSecondaryRows() const;
     [[nodiscard]] const QList<LibraryLinkRowData> &libraryRows() const;
-    [[nodiscard]] int folderCountFor(const QString &folderPath, bool includeSubfolders) const;
     [[nodiscard]] const QHash<QString, int> &folderCountDirect() const;
     [[nodiscard]] const QHash<QString, int> &folderCountRecursive() const;
 

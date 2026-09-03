@@ -33,7 +33,6 @@ public:
 
 public slots:
     void importPaths(const QStringList &paths);
-    void clearStatusMessage();
     void cancelImport() {}
 
 signals:
@@ -84,7 +83,7 @@ public slots:
     void reloadJournal();
     void reloadJournalNote();
     void saveJournalNote();
-    void loadTrainingDefaults(int fallbackBpm);
+    void loadTrainingDefaults(int fallbackBpm, qlonglong reminderId = 0);
 
 signals:
     void selectedDateChanged();
@@ -134,9 +133,6 @@ public:
     void setHideContainers(bool hide);
     void setContainersOnly(bool only);
     void setExpandAllGroups(bool expand);
-
-    Q_INVOKABLE void setGroupExpanded(qlonglong groupId, bool expanded);
-    [[nodiscard]] Q_INVOKABLE bool isGroupExpanded(qlonglong groupId) const;
 
 public slots:
     void reload();
@@ -199,7 +195,6 @@ public:
     [[nodiscard]] bool hideContainers() const { return m_hideContainers; }
     [[nodiscard]] bool containersOnly() const { return m_containersOnly; }
 
-    [[nodiscard]] Q_INVOKABLE QString defaultLinkTitle() const;
     [[nodiscard]] Q_INVOKABLE QString titleForSong(qlonglong songId) const;
     [[nodiscard]] Q_INVOKABLE bool isSongLinked(qlonglong songId) const;
     [[nodiscard]] Q_INVOKABLE QStringList distinctFolderPaths() const;

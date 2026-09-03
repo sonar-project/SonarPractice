@@ -2,7 +2,6 @@
 #define SONGMODEL_H
 
 #include <QAbstractListModel>
-#include <QSet>
 #include <QTimer>
 #include <QtQml/qqmlregistration.h>
 
@@ -22,7 +21,7 @@ class IFileRelationRepository;
  * @brief Song list for QML with search and link-group display modes.
  *
  * Primary rows live in m_allRows; linked member songs in m_secondaryRows and appear
- * when their group is expanded or expandAllGroups is enabled.
+ * when expandAllGroups is enabled.
  */
 class SongModel : public QAbstractListModel {
     Q_OBJECT
@@ -88,9 +87,6 @@ class SongModel : public QAbstractListModel {
     /** Applies rows built on a worker thread from @p snapshot. */
     void applySnapshot(const CatalogSnapshot &snapshot);
     void applyViewCache(const CatalogViewCache &cache);
-    /** Toggles member-song visibility for one link group (ignored while expandAllGroups is on). */
-    Q_INVOKABLE void setGroupExpanded(qlonglong groupId, bool expanded);
-    Q_INVOKABLE bool isGroupExpanded(qlonglong groupId) const;
 
   signals:
     void searchTextChanged();
@@ -98,7 +94,6 @@ class SongModel : public QAbstractListModel {
     void hideContainersChanged();
     void containersOnlyChanged();
     void expandAllGroupsChanged();
-    void expandedGroupsChanged();
     void catalogReadyChanged();
 
   private:
@@ -124,7 +119,6 @@ class SongModel : public QAbstractListModel {
     QList<SongRow> m_allRows;
     QList<SongRow> m_secondaryRows;
     QList<SongRow> m_rows;
-    QSet<qlonglong> m_expandedGroupIds;
     QString m_searchText;
     bool m_hideContainers{false};
     bool m_containersOnly{false};

@@ -9,7 +9,7 @@ Rectangle {
 
     property int sidePanelWidth: 300
 
-    signal openPracticeRequested(int songId, string title, int baseBpm, int practiceAssetId)
+    signal openPracticeRequested(int songId, string title, int baseBpm, int practiceAssetId, int reminderId)
 
     readonly property var today: new Date()
 
@@ -316,7 +316,7 @@ Rectangle {
 
                     root.openPracticeRequested(
                                 modelData.songId, modelData.songTitle, modelData.baseBpm,
-                                modelData.practiceAssetId)
+                                modelData.practiceAssetId, modelData.reminderId || 0)
                 }
             }
 
@@ -367,7 +367,8 @@ Rectangle {
                 onClicked: {
                     root.openPracticeRequested(
                                 partialConfirmDialog.songId, partialConfirmDialog.songTitle,
-                                partialConfirmDialog.baseBpm, partialConfirmDialog.practiceAssetId)
+                                partialConfirmDialog.baseBpm, partialConfirmDialog.practiceAssetId,
+                                partialConfirmDialog.reminderId)
                     partialConfirmDialog.close()
                 }
             }
