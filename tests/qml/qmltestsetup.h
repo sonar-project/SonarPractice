@@ -16,6 +16,8 @@ class MockImportService : public QObject {
     Q_PROPERTY(int lastImportedCount READ lastImportedCount CONSTANT)
     Q_PROPERTY(int lastSkippedCount READ lastSkippedCount CONSTANT)
     Q_PROPERTY(int lastFailedCount READ lastFailedCount CONSTANT)
+    Q_PROPERTY(QStringList lastFailureDetails READ lastFailureDetails CONSTANT)
+    Q_PROPERTY(QStringList lastFailureReasonSummary READ lastFailureReasonSummary CONSTANT)
 
   public:
     explicit MockImportService(QObject *parent = nullptr);
@@ -28,6 +30,8 @@ class MockImportService : public QObject {
     [[nodiscard]] int lastImportedCount() const { return 0; }
     [[nodiscard]] int lastSkippedCount() const { return 0; }
     [[nodiscard]] int lastFailedCount() const { return 0; }
+    [[nodiscard]] QStringList lastFailureDetails() const { return {}; }
+    [[nodiscard]] QStringList lastFailureReasonSummary() const { return {}; }
     [[nodiscard]] const QStringList &lastImportedPaths() const { return m_lastPaths; }
 
   public slots:

@@ -1,10 +1,12 @@
 #include "ImportService.h"
+#include "ApplicationErrorLog.h"
 #include "FileImportUtils.h"
 #include "ImportTypes.h"
 #include "ManagedFileStorage.h"
 #include "MediaStreamProbe.h"
 #include "fnv1a.h"
 
+#include <QHash>
 #include <QSet>
 #include <utility>
 
@@ -19,6 +21,7 @@
 #include <QMetaObject>
 #include <QSqlDatabase>
 #include <QThread>
+#include <algorithm>
 #include <functional>
 
 namespace {
@@ -324,6 +327,11 @@ namespace {
                 break;
             case ImportStatus::Failed:
                 ++summary.failedCount;
+                summary.failures.append(
+                    {.path = fileEntry.absolutePath,
+                     .message = result.message.isEmpty()
+                                    ? ImportService::tr("Unknown import error")
+                                    : result.message});
                 break;
             }
 
@@ -399,6 +407,20 @@ int ImportService::lastSkippedCount() const { return m_lastSkippedCount; }
 int ImportService::lastFailedCount() const { return m_lastFailedCount; }
 
 /**
+ * @brief Get per-file failure lines from the last batch.
+ * @return Lines formatted as "path — message".
+ */
+const QStringList &ImportService::lastFailureDetails() const { return m_lastFailureDetails; }
+
+/**
+ * @brief Get grouped failure reasons from the last batch.
+ * @return Lines formatted as "message (count)".
+ */
+const QStringList &ImportService::lastFailureReasonSummary() const {
+    return m_lastFailureReasonSummary;
+}
+
+/**
  * @brief Import a single file synchronously.
  * @param[in] absolutePath Full path of the file to import.
  * @param[in] strategy Desired storage strategy.
@@ -446,6 +468,9 @@ ImportResult ImportService::importFile(const QString &absolutePath, StorageStrat
         break;
     case ImportStatus::Failed:
         summary.failedCount = 1;
+        summary.failures.append(
+            {.path = absolutePath,
+             .message = result.message.isEmpty() ? tr("Unknown import error") : result.message});
         break;
     }
 
@@ -504,6 +529,9 @@ void ImportService::startBatchImport(const QStringList &paths, StorageStrategy s
     m_lastImportedCount = 0;
     m_lastSkippedCount = 0;
     m_lastFailedCount = 0;
+    m_lastFailureDetails.clear();
+    m_lastFailureReasonSummary.clear();
+    emit lastSummaryChanged();
     setProgress(0, 0, QString());
 
     QThread *thread = QThread::create([this, job]() mutable {
@@ -679,6 +707,8 @@ void ImportService::emitImportFinished(const ImportSummary &summary) {
     m_lastImportedCount = summary.importedCount;
     m_lastSkippedCount = summary.skippedCount;
     m_lastFailedCount = summary.failedCount;
+    storeFailureDetails(summary.failures);
+    logImportFailures(summary.failures);
     emit lastSummaryChanged();
 
     const QString message = tr("%1 imported, %2 skipped, %3 failed")
@@ -687,4 +717,57 @@ void ImportService::emitImportFinished(const ImportSummary &summary) {
                                 .arg(summary.failedCount);
     setStatusMessage(message);
     emit importFinished(summary);
+}
+
+/**
+ * @brief Cache failure details for QML after a batch finishes.
+ * @param[in] failures Per-file failure entries.
+ */
+void ImportService::storeFailureDetails(const QList<ImportFailureDetail> &failures) {
+    m_lastFailureDetails.clear();
+    m_lastFailureReasonSummary.clear();
+    m_lastFailureDetails.reserve(failures.size());
+
+    QHash<QString, int> reasonCounts;
+    for (const ImportFailureDetail &failure : failures) {
+        const QString message =
+            failure.message.isEmpty() ? tr("Unknown import error") : failure.message;
+        m_lastFailureDetails.append(
+            QStringLiteral("%1 — %2").arg(failure.path, message));
+        ++reasonCounts[message];
+    }
+
+    QList<QString> reasons = reasonCounts.keys();
+    std::sort(reasons.begin(), reasons.end(), [&](const QString &left, const QString &right) {
+        const int leftCount = reasonCounts.value(left);
+        const int rightCount = reasonCounts.value(right);
+        if (leftCount != rightCount) {
+            return leftCount > rightCount;
+        }
+        return left.localeAwareCompare(right) < 0;
+    });
+
+    m_lastFailureReasonSummary.reserve(reasons.size());
+    for (const QString &reason : reasons) {
+        m_lastFailureReasonSummary.append(
+            tr("%1 (%2)").arg(reason).arg(reasonCounts.value(reason)));
+    }
+}
+
+/**
+ * @brief Persist import failures to the application error log.
+ * @param[in] failures Per-file failure entries.
+ */
+void ImportService::logImportFailures(const QList<ImportFailureDetail> &failures) {
+    if (m_dependencies.errorLog == nullptr || failures.isEmpty()) {
+        return;
+    }
+
+    for (const ImportFailureDetail &failure : failures) {
+        const QString message =
+            failure.message.isEmpty() ? tr("Unknown import error") : failure.message;
+        m_dependencies.errorLog->logError(
+            QStringLiteral("Import"),
+            QStringLiteral("%1: %2").arg(failure.path, message), false);
+    }
 }

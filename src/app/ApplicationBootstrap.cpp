@@ -157,6 +157,10 @@ bool ApplicationBootstrap::openCoreDatabase() {
         .songRepo = *m_songRepo,
     });
 
+    m_pathResolver = std::make_unique<PathResolver>(m_appSettings.managedStorageRoot());
+    m_launcher = std::make_unique<DesktopLauncher>();
+    m_errorLog = std::make_unique<ApplicationErrorLog>(this);
+
     m_importService = std::make_unique<ImportService>(ImportService::Dependencies{
         .artistRepo = *m_artistRepo,
         .tuningRepo = *m_tuningRepo,
@@ -166,11 +170,8 @@ bool ApplicationBootstrap::openCoreDatabase() {
         .config = *m_configProvider,
         .appSettings = m_appSettings,
         .databasePath = dbPath,
+        .errorLog = m_errorLog.get(),
     });
-
-    m_pathResolver = std::make_unique<PathResolver>(m_appSettings.managedStorageRoot());
-    m_launcher = std::make_unique<DesktopLauncher>();
-    m_errorLog = std::make_unique<ApplicationErrorLog>(this);
 
     m_songModel = std::make_unique<SongModel>(*m_songRepo, *m_mediaFileRepo, *m_artistRepo,
                                               *m_linkGroupRepo, *m_fileRelationRepo);

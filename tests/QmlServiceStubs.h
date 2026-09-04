@@ -18,6 +18,8 @@ class StubImportService : public QObject {
     Q_PROPERTY(int lastImportedCount READ lastImportedCount CONSTANT)
     Q_PROPERTY(int lastSkippedCount READ lastSkippedCount CONSTANT)
     Q_PROPERTY(int lastFailedCount READ lastFailedCount CONSTANT)
+    Q_PROPERTY(QStringList lastFailureDetails READ lastFailureDetails CONSTANT)
+    Q_PROPERTY(QStringList lastFailureReasonSummary READ lastFailureReasonSummary CONSTANT)
 
 public:
     explicit StubImportService(QObject *parent = nullptr);
@@ -30,6 +32,8 @@ public:
     [[nodiscard]] int lastImportedCount() const;
     [[nodiscard]] int lastSkippedCount() const;
     [[nodiscard]] int lastFailedCount() const;
+    [[nodiscard]] QStringList lastFailureDetails() const;
+    [[nodiscard]] QStringList lastFailureReasonSummary() const;
 
 public slots:
     void importPaths(const QStringList &paths);

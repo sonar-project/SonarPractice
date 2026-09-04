@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
+import QtQuick.Layouts
 import QtCore
 
 pragma ComponentBehavior: Bound
@@ -149,14 +150,73 @@ ApplicationWindow {
         anchors.centerIn: parent
         modal: true
         standardButtons: Dialog.Ok
-        width: Math.min(root.width * 0.7, 420)
+        width: Math.min(root.width * 0.85, 560)
+        height: failureDetailsVisible
+                ? Math.min(root.height * 0.8, 520)
+                : implicitHeight
 
         property string summaryText: ""
+        property var reasonLines: []
+        property var detailLines: []
+        property bool failureDetailsVisible: detailLines.length > 0
 
-        Label {
+        contentItem: ColumnLayout {
+            spacing: 12
             width: importSummaryDialog.availableWidth
-            wrapMode: Text.WordWrap
-            text: importSummaryDialog.summaryText
+
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: importSummaryDialog.summaryText
+            }
+
+            Label {
+                Layout.fillWidth: true
+                visible: importSummaryDialog.reasonLines.length > 0
+                text: qsTr("Failure reasons:")
+                font.weight: Font.DemiBold
+            }
+
+            Label {
+                Layout.fillWidth: true
+                visible: importSummaryDialog.reasonLines.length > 0
+                wrapMode: Text.WordWrap
+                text: importSummaryDialog.reasonLines.join("\n")
+            }
+
+            Label {
+                Layout.fillWidth: true
+                visible: importSummaryDialog.failureDetailsVisible
+                text: qsTr("Failed files:")
+                font.weight: Font.DemiBold
+            }
+
+            ScrollView {
+                id: failureScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.preferredHeight: importSummaryDialog.failureDetailsVisible ? 220 : 0
+                visible: importSummaryDialog.failureDetailsVisible
+                clip: true
+
+                TextArea {
+                    width: failureScroll.availableWidth
+                    readOnly: true
+                    wrapMode: TextArea.WrapAnywhere
+                    selectByMouse: true
+                    text: importSummaryDialog.detailLines.join("\n")
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                visible: importSummaryDialog.failureDetailsVisible
+                wrapMode: Text.WordWrap
+                font.pixelSize: 12
+                opacity: 0.8
+                text: qsTr("Details were also written to the error log:\n%1")
+                        .arg(errorLog?.logFilePath ?? "")
+            }
         }
     }
 
@@ -179,6 +239,12 @@ ApplicationWindow {
                 lines.push(qsTr("No files imported."));
 
             importSummaryDialog.summaryText = lines.join("\n");
+            importSummaryDialog.reasonLines = failed > 0
+                    ? (importService.lastFailureReasonSummary || [])
+                    : [];
+            importSummaryDialog.detailLines = failed > 0
+                    ? (importService.lastFailureDetails || [])
+                    : [];
             importSummaryDialog.open();
         }
     }

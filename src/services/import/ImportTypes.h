@@ -3,6 +3,7 @@
 
 #include "MediaFile.h"
 
+#include <QList>
 #include <QMetaType>
 #include <QString>
 #include <QtGlobal>
@@ -23,10 +24,16 @@ struct ImportResult {
     QString songTitle{};
 };
 
+struct ImportFailureDetail {
+    QString path{};
+    QString message{};
+};
+
 struct ImportSummary {
     int importedCount{};
     int skippedCount{};
     int failedCount{};
+    QList<ImportFailureDetail> failures{};
 };
 
 struct ImportFileEntry {
@@ -37,5 +44,6 @@ struct ImportFileEntry {
 
 Q_DECLARE_METATYPE(ImportResult)
 Q_DECLARE_METATYPE(ImportSummary)
+Q_DECLARE_METATYPE(ImportFailureDetail)
 
 #endif // IMPORTTYPES_H
