@@ -27,8 +27,8 @@ ToolBar {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         z: 1
-        visible: root.showSessionTimer
-        text: practiceTracker.elapsedDisplay
+        visible: root.showSessionTimer && practiceTracker
+        text: practiceTracker ? practiceTracker.elapsedDisplay : ""
         font.pixelSize: 20
         font.weight: Font.Bold
         font.family: "monospace"
