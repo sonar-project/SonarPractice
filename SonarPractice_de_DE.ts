@@ -1028,19 +1028,29 @@ The reminder condition was only partially met. Mark as completed for this day an
 <context>
     <name>ImportProgressOverlay</name>
     <message>
-        <location filename="src/ui/components/ImportProgressOverlay.qml" line="57"/>
+        <location filename="src/ui/components/ImportProgressOverlay.qml" line="58"/>
+        <source>Searching for files…</source>
+        <translation>Dateien werden gesucht…</translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/ImportProgressOverlay.qml" line="59"/>
         <source>Import in progress…</source>
         <oldsource>Import läuft…</oldsource>
         <translation>Import läuft…</translation>
     </message>
     <message>
-        <location filename="src/ui/components/ImportProgressOverlay.qml" line="86"/>
+        <location filename="src/ui/components/ImportProgressOverlay.qml" line="88"/>
+        <source>%1 files found…</source>
+        <translation>%1 Dateien gefunden…</translation>
+    </message>
+    <message>
+        <location filename="src/ui/components/ImportProgressOverlay.qml" line="98"/>
         <source>%1 of %2 files</source>
         <oldsource>%1 von %2 Dateien</oldsource>
         <translation>%1 von %2 Dateien</translation>
     </message>
     <message>
-        <location filename="src/ui/components/ImportProgressOverlay.qml" line="111"/>
+        <location filename="src/ui/components/ImportProgressOverlay.qml" line="123"/>
         <source>Cancel</source>
         <translation>Abbrechen</translation>
     </message>

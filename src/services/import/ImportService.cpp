@@ -14,6 +14,7 @@
 #include "SqliteSongRepository.h"
 #include "SqliteTuningRepository.h"
 
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QMetaObject>
 #include <QSqlDatabase>
@@ -41,9 +42,26 @@ namespace {
     struct ImportBatchJob {
         ImportEnvironment environment;
         QString databasePath;
+        QStringList sourcePaths;
         QList<ImportFileEntry> files;
         StorageStrategy strategy;
     };
+
+    QList<ImportFileEntry> uniqueImportEntries(const QList<CollectedFile> &collected) {
+        QList<ImportFileEntry> uniqueEntries;
+        uniqueEntries.reserve(collected.size());
+        QSet<QString> seenPaths;
+        for (const CollectedFile &file : collected) {
+            if (seenPaths.contains(file.absolutePath)) {
+                continue;
+            }
+            seenPaths.insert(file.absolutePath);
+            uniqueEntries.append({.absolutePath = file.absolutePath,
+                                  .importRoot = file.importRoot,
+                                  .sourceRelativePath = file.sourceRelativePath});
+        }
+        return uniqueEntries;
+    }
 
     /**
      * @brief Construct import environment from dependencies.
@@ -456,41 +474,7 @@ void ImportService::importPaths(const QStringList &paths, StorageStrategy strate
         return;
     }
 
-    PathParams pathParams;
-    pathParams.paths.append(paths);
-    pathParams.extensions = m_dependencies.config.allowedFileTypes();
-
-    PathParameters params(pathParams);
-
-    const QList<CollectedFile> collected = FileImportUtils::collectEntriesFromPaths(params);
-
-    if (collected.isEmpty()) {
-        setStatusMessage(tr("No supported files found"));
-        endImport();
-        emitImportFinished({});
-        return;
-    }
-
-    QList<ImportFileEntry> entries;
-    entries.reserve(collected.size());
-    for (const CollectedFile &file : collected) {
-        entries.append({.absolutePath = file.absolutePath,
-                        .importRoot = file.importRoot,
-                        .sourceRelativePath = file.sourceRelativePath});
-    }
-
-    QSet<QString> seenPaths;
-    QList<ImportFileEntry> uniqueEntries;
-    uniqueEntries.reserve(entries.size());
-    for (const ImportFileEntry &entry : entries) {
-        if (seenPaths.contains(entry.absolutePath)) {
-            continue;
-        }
-        seenPaths.insert(entry.absolutePath);
-        uniqueEntries.append(entry);
-    }
-
-    startBatchImport(uniqueEntries, strategy);
+    startBatchImport(paths, strategy);
 }
 
 /**
@@ -499,16 +483,16 @@ void ImportService::importPaths(const QStringList &paths, StorageStrategy strate
 void ImportService::cancelImport() { m_cancelRequested.store(true, std::memory_order_release); }
 
 /**
- * @brief Start a batch import in a worker thread.
- * @param[in] files Files to import.
+ * @brief Start path collection and batch import in a worker thread.
+ * @param[in] paths File or directory paths to import.
  * @param[in] strategy Storage strategy.
  */
-void ImportService::startBatchImport(const QList<ImportFileEntry> &files,
-                                     StorageStrategy strategy) {
+void ImportService::startBatchImport(const QStringList &paths, StorageStrategy strategy) {
     ImportBatchJob job{
         .environment = buildImportEnvironment(m_dependencies),
         .databasePath = m_dependencies.databasePath,
-        .files = files,
+        .sourcePaths = paths,
+        .files = {},
         .strategy = strategy,
     };
 
@@ -520,16 +504,60 @@ void ImportService::startBatchImport(const QList<ImportFileEntry> &files,
     m_lastImportedCount = 0;
     m_lastSkippedCount = 0;
     m_lastFailedCount = 0;
-    setProgress(0, static_cast<int>(files.size()), QString());
+    setProgress(0, 0, QString());
 
-    QThread *thread = QThread::create([this, job]() {
-        const std::optional<ImportSummary> summary = runBatchImportSync(
-            job, &m_cancelRequested,
+    QThread *thread = QThread::create([this, job]() mutable {
+        const auto reportProgress =
             [this](int current, int total, const QString &currentFile, const ImportResult &result) {
                 QMetaObject::invokeMethod(this, "handleBatchProgress", Qt::QueuedConnection,
                                           Q_ARG(int, current), Q_ARG(int, total),
                                           Q_ARG(QString, currentFile), Q_ARG(ImportResult, result));
+            };
+
+        PathParams pathParams;
+        pathParams.paths = job.sourcePaths;
+        pathParams.extensions = job.environment.allowedFileTypes;
+        PathParameters params(pathParams);
+
+        QElapsedTimer scanTimer;
+        scanTimer.start();
+        int lastReportedCount = 0;
+
+        const QList<CollectedFile> collected = FileImportUtils::collectEntriesFromPaths(
+            params, &m_cancelRequested,
+            [&](int foundCount, const QString & /*absolutePath*/) {
+                const bool shouldReport = foundCount == 1 || foundCount - lastReportedCount >= 50 ||
+                                          scanTimer.elapsed() >= 50;
+                if (!shouldReport) {
+                    return;
+                }
+                lastReportedCount = foundCount;
+                scanTimer.restart();
+                reportProgress(foundCount, 0, QString(), ImportResult{});
             });
+
+        if (m_cancelRequested.load(std::memory_order_acquire)) {
+            QMetaObject::invokeMethod(this, "handleBatchFinished", Qt::QueuedConnection,
+                                      Q_ARG(ImportSummary, ImportSummary{}));
+            return;
+        }
+
+        if (collected.isEmpty()) {
+            QMetaObject::invokeMethod(
+                this, "handleBatchFailed", Qt::QueuedConnection,
+                Q_ARG(QString, ImportService::tr("No supported files found")));
+            return;
+        }
+
+        if (lastReportedCount != static_cast<int>(collected.size())) {
+            reportProgress(static_cast<int>(collected.size()), 0, QString(), ImportResult{});
+        }
+
+        job.files = uniqueImportEntries(collected);
+        reportProgress(0, static_cast<int>(job.files.size()), QString(), ImportResult{});
+
+        const std::optional<ImportSummary> summary =
+            runBatchImportSync(job, &m_cancelRequested, reportProgress);
 
         if (summary.has_value()) {
             QMetaObject::invokeMethod(this, "handleBatchFinished", Qt::QueuedConnection,

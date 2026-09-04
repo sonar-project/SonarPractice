@@ -12,6 +12,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
+#include <atomic>
 
 void TestImportService::initTestCase() {
     QTemporaryFile tempFile;
@@ -413,6 +414,65 @@ void TestImportService::testImportAudioFileHasNoVideoFlag() {
     QVERIFY(mediaFile.has_value());
     QCOMPARE(mediaFile->mediaKind, MediaKind::Audio);
     QCOMPARE(mediaFile->hasVideo, false);
+}
+
+void TestImportService::testImportPathsReturnsWhileBusy() {
+    QSignalSpy finishedSpy(m_importService.get(), &ImportService::importFinished);
+
+    m_importService->importPaths({m_testGp3Path});
+
+    QVERIFY(m_importService->isBusy());
+    QCOMPARE(finishedSpy.count(), 0);
+
+    QVERIFY(finishedSpy.wait(30000));
+    QVERIFY(!m_importService->isBusy());
+}
+
+void TestImportService::testCollectSupportedFilesHonorsCancel() {
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    for (int index = 0; index < 5; ++index) {
+        const QString copyPath =
+            tempDir.filePath(QStringLiteral("song-%1.gp3").arg(index));
+        QVERIFY(QFile::copy(m_testGp3Path, copyPath));
+    }
+
+    std::atomic_bool cancelRequested{false};
+    int foundCount = 0;
+    const QList<CollectedFile> collected = FileImportUtils::collectSupportedFilesWithPaths(
+        tempDir.path(), m_config->allowedFileTypes(), &cancelRequested,
+        [&](int count, const QString &) {
+            foundCount = count;
+            if (count >= 1) {
+                cancelRequested.store(true, std::memory_order_release);
+            }
+        });
+
+    QCOMPARE(collected.size(), 1);
+    QCOMPARE(foundCount, 1);
+}
+
+void TestImportService::testImportPathsReportsScanProgress() {
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString gpCopy = tempDir.filePath(QStringLiteral("song.gp3"));
+    QVERIFY(QFile::copy(m_testGp3Path, gpCopy));
+
+    bool sawScanProgress = false;
+    const QMetaObject::Connection connection = connect(
+        m_importService.get(), &ImportService::progressChanged, this, [this, &sawScanProgress]() {
+            if (m_importService->progressTotal() == 0 && m_importService->progressCurrent() > 0) {
+                sawScanProgress = true;
+            }
+        });
+
+    QSignalSpy finishedSpy(m_importService.get(), &ImportService::importFinished);
+    m_importService->importPaths({tempDir.path()});
+    QVERIFY(finishedSpy.wait(30000));
+    QVERIFY(sawScanProgress);
+    disconnect(connection);
 }
 
 QTEST_MAIN(TestImportService)

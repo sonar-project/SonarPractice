@@ -6,6 +6,22 @@
 
 namespace FileImportUtils {
 
+    namespace {
+
+        bool isCancelRequested(const std::atomic_bool *cancelRequested) {
+            return cancelRequested != nullptr &&
+                   cancelRequested->load(std::memory_order_acquire);
+        }
+
+        void notifyFileFound(const FileFoundCallback &onFileFound, int foundCount,
+                             const QString &absolutePath) {
+            if (onFileFound) {
+                onFileFound(foundCount, absolutePath);
+            }
+        }
+
+    } // namespace
+
     QString normalizedExtension(const QString &filePath) {
         return QFileInfo(filePath).suffix().toLower();
     }
@@ -31,8 +47,11 @@ namespace FileImportUtils {
         return files;
     }
 
-    QList<CollectedFile> collectSupportedFilesWithPaths(const QString &directoryPath,
-                                                        const QStringList &allowedExtensions) {
+    QList<CollectedFile>
+    collectSupportedFilesWithPaths(const QString &directoryPath,
+                                   const QStringList &allowedExtensions,
+                                   const std::atomic_bool *cancelRequested,
+                                   const FileFoundCallback &onFileFound) {
         QList<CollectedFile> files;
         const QString normalizedRoot = QDir(directoryPath).absolutePath();
         const QString rootFolderName = QFileInfo(normalizedRoot).fileName();
@@ -40,6 +59,10 @@ namespace FileImportUtils {
                               QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
 
         while (iterator.hasNext()) {
+            if (isCancelRequested(cancelRequested)) {
+                return files;
+            }
+
             const QString filePath = iterator.next();
             if (!isExtensionAllowed(normalizedExtension(filePath), allowedExtensions)) {
                 continue;
@@ -55,6 +78,11 @@ namespace FileImportUtils {
                                            ? pathInsideRoot
                                            : rootFolderName + QLatin1Char('/') + pathInsideRoot;
             files.append(entry);
+            notifyFileFound(onFileFound, static_cast<int>(files.size()), entry.absolutePath);
+        }
+
+        if (isCancelRequested(cancelRequested)) {
+            return files;
         }
 
         std::ranges::sort(files, [](const CollectedFile &a, const CollectedFile &b) {
@@ -63,18 +91,32 @@ namespace FileImportUtils {
         return files;
     }
 
-    QList<CollectedFile> collectEntriesFromPaths(const PathParameters &params) {
+    QList<CollectedFile> collectEntriesFromPaths(const PathParameters &params,
+                                                 const std::atomic_bool *cancelRequested,
+                                                 const FileFoundCallback &onFileFound) {
         QList<CollectedFile> entries;
+        int foundCount = 0;
 
         for (const QString &path : params.filePaths) {
+            if (isCancelRequested(cancelRequested)) {
+                break;
+            }
+
             const QFileInfo fileInfo(path);
             if (!fileInfo.exists()) {
                 continue;
             }
 
             if (fileInfo.isDir()) {
-                entries.append(collectSupportedFilesWithPaths(fileInfo.absoluteFilePath(),
-                                                              params.allowedExtensions));
+                const int baseCount = foundCount;
+                const QList<CollectedFile> directoryEntries = collectSupportedFilesWithPaths(
+                    fileInfo.absoluteFilePath(), params.allowedExtensions, cancelRequested,
+                    [&](int localCount, const QString &absolutePath) {
+                        foundCount = baseCount + localCount;
+                        notifyFileFound(onFileFound, foundCount, absolutePath);
+                    });
+                entries.append(directoryEntries);
+                foundCount = baseCount + directoryEntries.size();
                 continue;
             }
 
@@ -92,6 +134,8 @@ namespace FileImportUtils {
             entry.importRoot.clear();
             entry.sourceRelativePath = fileInfo.fileName();
             entries.append(entry);
+            ++foundCount;
+            notifyFileFound(onFileFound, foundCount, entry.absolutePath);
         }
 
         return entries;

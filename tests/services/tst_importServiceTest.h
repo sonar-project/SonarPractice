@@ -39,6 +39,9 @@ class TestImportService : public QObject {
     void testImportPathsStoresRelativePathsForMultipleSubfolders();
     void testCollectSupportedFilesPreservesMultipleSubfolderPaths();
     void testImportAudioFileHasNoVideoFlag();
+    void testImportPathsReturnsWhileBusy();
+    void testCollectSupportedFilesHonorsCancel();
+    void testImportPathsReportsScanProgress();
 
   private:
     void createImportService();
