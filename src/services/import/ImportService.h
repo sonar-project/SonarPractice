@@ -75,7 +75,7 @@ class ImportService : public QObject, public IImportService {
     void importFinished(const ImportSummary &summary);
 
   private:
-    void startBatchImport(const QList<ImportFileEntry> &files, StorageStrategy strategy);
+    void startBatchImport(const QStringList &paths, StorageStrategy strategy);
 
     [[nodiscard]] bool isCancelled() const;
     [[nodiscard]] bool tryBeginImport();

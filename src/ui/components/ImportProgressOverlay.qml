@@ -54,7 +54,9 @@ Popup {
 
             Label {
                 Layout.fillWidth: true
-                text: qsTr("Import in progress…")
+                text: (importService?.progressTotal ?? 0) <= 0
+                      ? qsTr("Searching for files…")
+                      : qsTr("Import in progress…")
                 font.pixelSize: 18
                 font.weight: Font.DemiBold
                 color: Theme.textHeading
@@ -76,6 +78,16 @@ Popup {
                 to: Math.max(importService?.progressTotal ?? 1, 1)
                 value: importService?.progressCurrent ?? 0
             }
+        }
+
+        Label {
+            Layout.fillWidth: true
+            Layout.preferredWidth: contentColumn.width
+            visible: (importService?.progressTotal ?? 0) <= 0
+                     && (importService?.progressCurrent ?? 0) > 0
+            text: qsTr("%1 files found…").arg(importService?.progressCurrent ?? 0)
+            font.pixelSize: 13
+            color: Theme.textHint
         }
 
         Label {

@@ -5,6 +5,8 @@
 
 #include <QString>
 #include <QStringList>
+#include <atomic>
+#include <functional>
 
 struct CollectedFile {
     QString absolutePath{};
@@ -25,6 +27,8 @@ struct PathParameters {
         : filePaths(params.paths), allowedExtensions(params.extensions) {}
 };
 
+using FileFoundCallback = std::function<void(int foundCount, const QString &absolutePath)>;
+
 namespace FileImportUtils {
 
     [[nodiscard]] QString normalizedExtension(const QString &filePath);
@@ -39,9 +43,14 @@ namespace FileImportUtils {
 
     [[nodiscard]] QList<CollectedFile>
     collectSupportedFilesWithPaths(const QString &directoryPath,
-                                   const QStringList &allowedExtensions);
+                                   const QStringList &allowedExtensions,
+                                   const std::atomic_bool *cancelRequested = nullptr,
+                                   const FileFoundCallback &onFileFound = {});
 
-    [[nodiscard]] QList<CollectedFile> collectEntriesFromPaths(const PathParameters &params);
+    [[nodiscard]] QList<CollectedFile>
+    collectEntriesFromPaths(const PathParameters &params,
+                            const std::atomic_bool *cancelRequested = nullptr,
+                            const FileFoundCallback &onFileFound = {});
 
 } // namespace FileImportUtils
 
