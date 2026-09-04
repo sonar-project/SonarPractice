@@ -8,7 +8,7 @@ on:
 
 env:
   # Prefer release assets for this tag; source fallback uses main until packaging is tagged.
-  LIBGP_PARSER_TAG: v0.2.1
+  LIBGP_PARSER_TAG: v0.2.2-r1
   LIBGP_PARSER_GIT_REF: main
   LIBGP_PARSER_REPO: sonar-project/libgp_parser
 
