@@ -26,6 +26,7 @@ void TestImportService::init() {
     m_dbDir = std::make_unique<QTemporaryDir>();
     QVERIFY(m_dbDir->isValid());
     m_dbPath = m_dbDir->filePath(QStringLiteral("import_test.db"));
+    m_errorLogPath = m_dbDir->filePath(QStringLiteral("import_errors.log"));
 
     m_appSettings = std::make_unique<AppSettings>(m_settingsPath);
     m_appSettings->ensureDefaults();
@@ -47,6 +48,7 @@ void TestImportService::init() {
 
 void TestImportService::createImportService() {
     m_config = std::make_unique<SettingsConfigProvider>(*m_appSettings);
+    m_errorLog = std::make_unique<ApplicationErrorLog>(m_errorLogPath);
     m_importService = std::make_unique<ImportService>(ImportService::Dependencies{
         m_artistRepo,
         m_tuningRepo,
@@ -56,11 +58,13 @@ void TestImportService::createImportService() {
         *m_config,
         *m_appSettings,
         m_dbPath,
+        m_errorLog.get(),
     });
 }
 
 void TestImportService::cleanup() {
     m_importService.reset();
+    m_errorLog.reset();
     m_config.reset();
     m_appSettings.reset();
     m_dbDir.reset();
@@ -473,6 +477,50 @@ void TestImportService::testImportPathsReportsScanProgress() {
     QVERIFY(finishedSpy.wait(30000));
     QVERIFY(sawScanProgress);
     disconnect(connection);
+}
+
+void TestImportService::testImportFailureDetailsExposeReason() {
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString txtPath = tempDir.filePath(QStringLiteral("unsupported.xyz"));
+    QFile file(txtPath);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write("not supported");
+    file.close();
+
+    // Allowed extensions come from config; .xyz is not supported, but importPaths only
+    // collects supported extensions — use importFile for a guaranteed Failed result.
+    const ImportResult result = m_importService->importFile(txtPath);
+    QCOMPARE(result.status, ImportStatus::Failed);
+    QCOMPARE(m_importService->lastFailedCount(), 1);
+    QCOMPARE(m_importService->lastFailureDetails().size(), 1);
+    QVERIFY(m_importService->lastFailureDetails().constFirst().contains(txtPath));
+    QVERIFY(m_importService->lastFailureDetails().constFirst().contains(
+        QStringLiteral("Unsupported file extension")));
+    QCOMPARE(m_importService->lastFailureReasonSummary().size(), 1);
+    QVERIFY(m_importService->lastFailureReasonSummary().constFirst().contains(
+        QStringLiteral("Unsupported file extension")));
+}
+
+void TestImportService::testImportFailuresAreWrittenToErrorLog() {
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString txtPath = tempDir.filePath(QStringLiteral("unsupported.xyz"));
+    QFile file(txtPath);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write("not supported");
+    file.close();
+
+    QCOMPARE(m_importService->importFile(txtPath).status, ImportStatus::Failed);
+
+    QFile logFile(m_errorLogPath);
+    QVERIFY(logFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString logText = QString::fromUtf8(logFile.readAll());
+    QVERIFY(logText.contains(QStringLiteral("[Import]")));
+    QVERIFY(logText.contains(txtPath));
+    QVERIFY(logText.contains(QStringLiteral("Unsupported file extension")));
 }
 
 QTEST_MAIN(TestImportService)

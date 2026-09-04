@@ -1120,6 +1120,14 @@ The reminder condition was only partially met. Mark as completed for this day an
         <translation>Datenbank für Import konnte nicht geöffnet werden</translation>
     </message>
     <message>
+        <source>Unknown import error</source>
+        <translation>Unbekannter Importfehler</translation>
+    </message>
+    <message>
+        <source>%1 (%2)</source>
+        <translation>%1 (%2)</translation>
+    </message>
+    <message>
         <location filename="src/services/import/ImportService.cpp" line="656"/>
         <source>%1 imported, %2 skipped, %3 failed</source>
         <translation>%1 importiert, %2 übersprungen, %3 fehlgeschlagen</translation>
@@ -1578,24 +1586,41 @@ The reminder condition was only partially met. Mark as completed for this day an
         <translation>Import abgeschlossen</translation>
     </message>
     <message>
-        <location filename="src/ui/Main.qml" line="173"/>
+        <location filename="src/ui/Main.qml" line="175"/>
+        <source>Failure reasons:</source>
+        <translation>Fehlerursachen:</translation>
+    </message>
+    <message>
+        <location filename="src/ui/Main.qml" line="189"/>
+        <source>Failed files:</source>
+        <translation>Fehlgeschlagene Dateien:</translation>
+    </message>
+    <message>
+        <location filename="src/ui/Main.qml" line="216"/>
+        <source>Details were also written to the error log:
+%1</source>
+        <translation>Details wurden auch in das Fehlerprotokoll geschrieben:
+%1</translation>
+    </message>
+    <message>
+        <location filename="src/ui/Main.qml" line="232"/>
         <source>%1 file(s) imported</source>
         <oldsource>%1 Datei(en) importiert</oldsource>
         <translation>%1 Datei(en) importiert</translation>
     </message>
     <message>
-        <location filename="src/ui/Main.qml" line="175"/>
+        <location filename="src/ui/Main.qml" line="234"/>
         <source>%1 skipped (duplicate or already present)</source>
         <oldsource>%1 übersprungen (Duplikat oder bereits vorhanden)</oldsource>
         <translation>%1 übersprungen (Duplikat oder bereits vorhanden)</translation>
     </message>
     <message>
-        <location filename="src/ui/Main.qml" line="177"/>
+        <location filename="src/ui/Main.qml" line="236"/>
         <source>%1 failed</source>
         <translation>%1 fehlgeschlagen</translation>
     </message>
     <message>
-        <location filename="src/ui/Main.qml" line="179"/>
+        <location filename="src/ui/Main.qml" line="238"/>
         <source>No files imported.</source>
         <translation>Keine Dateien importiert.</translation>
     </message>

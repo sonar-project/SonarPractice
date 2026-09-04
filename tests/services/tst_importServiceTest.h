@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "AppSettings.h"
+#include "ApplicationErrorLog.h"
 #include "ImportService.h"
 #include "SettingsConfigProvider.h"
 #include "SqliteArtistRepository.h"
@@ -42,6 +43,8 @@ class TestImportService : public QObject {
     void testImportPathsReturnsWhileBusy();
     void testCollectSupportedFilesHonorsCancel();
     void testImportPathsReportsScanProgress();
+    void testImportFailureDetailsExposeReason();
+    void testImportFailuresAreWrittenToErrorLog();
 
   private:
     void createImportService();
@@ -57,8 +60,10 @@ class TestImportService : public QObject {
     std::unique_ptr<QTemporaryDir> m_dbDir;
     QString m_dbPath;
     QString m_settingsPath;
+    QString m_errorLogPath;
     std::unique_ptr<AppSettings> m_appSettings;
     std::unique_ptr<SettingsConfigProvider> m_config;
+    std::unique_ptr<ApplicationErrorLog> m_errorLog;
     std::unique_ptr<ImportService> m_importService;
 
     QString m_testGp3Path;

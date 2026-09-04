@@ -39,6 +39,10 @@ int StubImportService::lastSkippedCount() const { return 0; }
 
 int StubImportService::lastFailedCount() const { return 0; }
 
+QStringList StubImportService::lastFailureDetails() const { return {}; }
+
+QStringList StubImportService::lastFailureReasonSummary() const { return {}; }
+
 void StubImportService::importPaths(const QStringList &paths) { Q_UNUSED(paths); }
 
 StubPracticeTracker::StubPracticeTracker(QObject *parent)

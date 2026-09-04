@@ -12,9 +12,12 @@
 #include "interfaces/iConfigProvider.h"
 
 #include <QObject>
+#include <QStringList>
 #include <atomic>
 
 #include <QtQml/qqmlregistration.h>
+
+class ApplicationErrorLog;
 
 class ImportService : public QObject, public IImportService {
     Q_OBJECT
@@ -27,6 +30,9 @@ class ImportService : public QObject, public IImportService {
     Q_PROPERTY(int lastImportedCount READ lastImportedCount NOTIFY lastSummaryChanged)
     Q_PROPERTY(int lastSkippedCount READ lastSkippedCount NOTIFY lastSummaryChanged)
     Q_PROPERTY(int lastFailedCount READ lastFailedCount NOTIFY lastSummaryChanged)
+    Q_PROPERTY(QStringList lastFailureDetails READ lastFailureDetails NOTIFY lastSummaryChanged)
+    Q_PROPERTY(QStringList lastFailureReasonSummary READ lastFailureReasonSummary NOTIFY
+                   lastSummaryChanged)
 
   public:
     struct Dependencies {
@@ -38,6 +44,7 @@ class ImportService : public QObject, public IImportService {
         const IConfigProvider &config;
         const AppSettings &appSettings;
         QString databasePath;
+        ApplicationErrorLog *errorLog = nullptr;
     };
 
     explicit ImportService(Dependencies dependencies, QObject *parent = nullptr);
@@ -57,6 +64,8 @@ class ImportService : public QObject, public IImportService {
     [[nodiscard]] int lastImportedCount() const;
     [[nodiscard]] int lastSkippedCount() const;
     [[nodiscard]] int lastFailedCount() const;
+    [[nodiscard]] const QStringList &lastFailureDetails() const;
+    [[nodiscard]] const QStringList &lastFailureReasonSummary() const;
 
   public slots:
     void cancelImport() override;
@@ -83,6 +92,8 @@ class ImportService : public QObject, public IImportService {
     void setStatusMessage(const QString &message);
     void setProgress(int current, int total, const QString &fileName);
     void emitImportFinished(const ImportSummary &summary);
+    void storeFailureDetails(const QList<ImportFailureDetail> &failures);
+    void logImportFailures(const QList<ImportFailureDetail> &failures);
 
     Dependencies m_dependencies;
     std::atomic_bool m_busy{false};
@@ -94,6 +105,8 @@ class ImportService : public QObject, public IImportService {
     int m_lastImportedCount{};
     int m_lastSkippedCount{};
     int m_lastFailedCount{};
+    QStringList m_lastFailureDetails{};
+    QStringList m_lastFailureReasonSummary{};
 };
 
 #endif // IMPORTSERVICE_H
