@@ -62,7 +62,7 @@ else()
         fetchcontent_declare(
             libgp_parser
             GIT_REPOSITORY https://github.com/sonar-project/libgp_parser.git
-            GIT_TAG v0.2.2-r2
+            GIT_TAG v0.2.2-r3
         )
         fetchcontent_makeavailable(libgp_parser)
     endif()
