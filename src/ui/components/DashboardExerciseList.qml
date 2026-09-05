@@ -32,7 +32,7 @@ ColumnLayout {
                  && songModel.count === 0
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
-        text: qsTr("No exercises match the search.")
+        text: qsTr("No exercises match the filters.")
         font.pixelSize: 13
         color: Theme.textMuted
     }
@@ -69,6 +69,7 @@ ColumnLayout {
             required property int hubSongId
             required property int mediaId
             required property var assetSummary
+            required property bool isFavorite
 
             width: exerciseGrid.cellWidth - 12
             height: 150
@@ -84,12 +85,15 @@ ColumnLayout {
                 linkedMediaCount: cardHost.linkedMediaCount
                 isContainerMember: cardHost.isContainerMember
                 assetSummary: cardHost.assetSummary
+                isFavorite: cardHost.isFavorite
 
                 onActivated: root.songActivated(
                     cardHost.hubSongId > 0 ? cardHost.hubSongId : cardHost.songId,
                     cardHost.displayTitle.length > 0 ? cardHost.displayTitle : cardHost.title,
                     cardHost.baseBpm,
                     cardHost.mediaId)
+
+                onFavoriteToggled: favorite => songModel.setFavorite(cardHost.songId, favorite)
             }
         }
     }

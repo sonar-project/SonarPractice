@@ -13,6 +13,7 @@ struct Song {
     qlonglong artistId{};
     qlonglong tuningId{};
     QString tuningName{};
+    bool isFavorite{false};
 };
 
 #endif // SONG_H

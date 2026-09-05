@@ -19,10 +19,11 @@ This file summarizes licenses and linking for dependencies bundled with or requi
 
 ## libgp_parser
 
-- **Upstream:** [sonar-project/libgp_parser](https://github.com/sonar-project/libgp_parser) (`find_package` when installed; otherwise FetchContent, release tag pinned in `cmake/Dependencies.cmake`).
+- **Upstream:** [sonar-project/libgp_parser](https://github.com/sonar-project/libgp_parser).
+- **Resolution order** (see `cmake/Dependencies.cmake`): local `LIBGP_PARSER_SOURCE_DIR` or sibling `../libgp_parser` → `find_package` (system/emerge) → FetchContent (pinned release tag).
 - **Use:** Guitar Pro file import.
 - **License:** **GNU Affero General Public License (AGPL) v3** (see upstream `LICENSE`).
-- **Linking:** System shared library via `find_package`, or static via FetchContent when no system package is available.
+- **Linking:** Local/embedded static via `add_subdirectory` or FetchContent; system shared library via `find_package` when no local override.
 
 ## FFmpeg
 

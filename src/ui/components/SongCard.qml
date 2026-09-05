@@ -49,20 +49,28 @@ Pane {
     }
 
     signal activated()
+    signal favoriteToggled(bool favorite)
 
     padding: 0
 
     background: Rectangle {
         radius: 12
-        color: cardTap.pressed ? Theme.cardBackgroundPressed : Theme.cardBackground
+        color: cardMouse.pressed ? Theme.cardBackgroundPressed : Theme.cardBackground
         border.color: root.isContainerMember ? Theme.borderAccentMuted : Theme.borderSubtle
         border.width: root.isContainerMember ? 2 : 1
+    }
+
+    MouseArea {
+        id: cardMouse
+        anchors.fill: parent
+        onClicked: root.activated()
     }
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
         spacing: 8
+        // Sit above the fill MouseArea so the favorite control receives clicks.
 
         RowLayout {
             Layout.fillWidth: true
@@ -102,11 +110,17 @@ Pane {
                 color: Theme.textSecondary
             }
 
-            Label {
-                visible: root.isFavorite
-                text: "\u2605"
-                color: Theme.warning
-                font.pixelSize: 14
+            ToolButton {
+                id: favoriteButton
+                text: root.isFavorite ? "\u2605" : "\u2606"
+                font.pixelSize: 16
+                padding: 2
+                implicitWidth: 28
+                implicitHeight: 28
+                palette.buttonText: root.isFavorite ? Theme.warning : Theme.textMuted
+                ToolTip.visible: hovered
+                ToolTip.text: root.isFavorite ? qsTr("Remove favorite") : qsTr("Mark as favorite")
+                onClicked: root.favoriteToggled(!root.isFavorite)
             }
         }
 
@@ -161,11 +175,5 @@ Pane {
 
             Item { Layout.fillWidth: true }
         }
-    }
-
-    TapHandler {
-        id: cardTap
-        target: root
-        onTapped: root.activated()
     }
 }

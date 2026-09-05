@@ -5,6 +5,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 import "../components"
+import "../js/MediaKind.js" as MediaKind
 
 Page {
     id: root
@@ -12,6 +13,14 @@ Page {
     readonly property bool useWideLayout: width > 900
 
     required property bool sessionLocked
+
+    readonly property var mediaKindOptions: [
+        { kind: MediaKind.GuitarPro, label: qsTr("GP") },
+        { kind: MediaKind.Audio, label: qsTr("Audio") },
+        { kind: MediaKind.Video, label: qsTr("Video") },
+        { kind: MediaKind.Document, label: qsTr("Document") },
+        { kind: MediaKind.Image, label: qsTr("Image") }
+    ]
 
     signal songSelected(int songId, string title, int baseBpm, int practiceAssetId, int mediaId, int sourceReminderId)
     signal reminderEditRequested(int songId, string title, int baseBpm, int reminderId, int practiceAssetId)
@@ -57,7 +66,7 @@ Page {
             DarkTextField {
                 id: searchField
                 Layout.fillWidth: true
-                placeholderText: qsTr("Search by title, artist, or mood…")
+                placeholderText: qsTr("Search by title, artist, or tuning…")
                 text: songModel.searchText
                 onTextEdited: songModel.searchText = text
 
@@ -65,6 +74,109 @@ Page {
                     text = ""
                     songModel.searchText = ""
                 }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Repeater {
+                model: root.mediaKindOptions
+
+                delegate: Button {
+                    id: kindChip
+                    required property var modelData
+
+                    readonly property bool selected: songModel.mediaKindFilter === modelData.kind
+
+                    text: modelData.label
+                    flat: true
+                    padding: 6
+                    leftPadding: 10
+                    rightPadding: 10
+                    font.pixelSize: 11
+                    font.weight: Font.Medium
+                    palette.buttonText: selected ? Theme.textOnAccent : Theme.textSecondary
+
+                    background: Rectangle {
+                        radius: 4
+                        color: kindChip.selected
+                               ? Theme.highlight
+                               : (kindChip.down ? Theme.cardBackgroundPressed : Theme.panelBackgroundNested)
+                        border.color: kindChip.selected ? Theme.highlight : Theme.border
+                        border.width: 1
+                    }
+
+                    onClicked: {
+                        songModel.mediaKindFilter =
+                                songModel.mediaKindFilter === modelData.kind ? "" : modelData.kind
+                    }
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+
+            ComboBox {
+                id: bpmFilterCombo
+                Layout.preferredWidth: 140
+                model: {
+                    const options = [{ value: 0, label: qsTr("All tempos") }]
+                    const known = songModel.knownBpms
+                    for (let i = 0; i < known.length; ++i)
+                        options.push({ value: known[i], label: qsTr("%1 BPM").arg(known[i]) })
+                    return options
+                }
+                textRole: "label"
+                currentIndex: {
+                    const known = songModel.knownBpms
+                    if (songModel.bpmFilter <= 0)
+                        return 0
+                    for (let i = 0; i < known.length; ++i) {
+                        if (known[i] === songModel.bpmFilter)
+                            return i + 1
+                    }
+                    return 0
+                }
+                onActivated: index => {
+                    songModel.bpmFilter = index <= 0 ? 0 : Number(songModel.knownBpms[index - 1])
+                }
+            }
+
+            ComboBox {
+                id: tuningFilterCombo
+                Layout.preferredWidth: 180
+                model: {
+                    const options = [{ id: 0, name: qsTr("All tunings") }]
+                    const known = songModel.knownTunings
+                    for (let i = 0; i < known.length; ++i)
+                        options.push(known[i])
+                    return options
+                }
+                textRole: "name"
+                currentIndex: {
+                    const known = songModel.knownTunings
+                    if (songModel.tuningIdFilter <= 0)
+                        return 0
+                    for (let i = 0; i < known.length; ++i) {
+                        if (Number(known[i].id) === songModel.tuningIdFilter)
+                            return i + 1
+                    }
+                    return 0
+                }
+                onActivated: index => {
+                    if (index <= 0) {
+                        songModel.tuningIdFilter = 0
+                        return
+                    }
+                    songModel.tuningIdFilter = Number(songModel.knownTunings[index - 1].id)
+                }
+            }
+
+            CheckBox {
+                text: qsTr("Favorites")
+                checked: songModel.favoritesOnly
+                onToggled: songModel.favoritesOnly = checked
             }
         }
 
@@ -83,13 +195,6 @@ Page {
                 checked: songModel.containersOnly
                 onToggled: songModel.containersOnly = checked
             }
-
-            // CheckBox {
-            //     text: qsTr("Show all files")
-            //     checked: songModel.expandAllGroups
-            //     enabled: !songModel.hideContainers && !songModel.containersOnly
-            //     onToggled: songModel.expandAllGroups = checked
-            // }
         }
 
         Loader {
@@ -176,4 +281,3 @@ Page {
         }
     }
 }
-

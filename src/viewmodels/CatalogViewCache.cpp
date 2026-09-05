@@ -90,6 +90,7 @@ namespace {
         }
         row.tuningId = song.tuningId;
         row.tuningName = song.tuningName;
+        row.isFavorite = song.isFavorite;
 
         const std::optional<LinkGroup> linkGroup = snapshot.groupByPrimarySong(song.id);
         if (!linkGroup.has_value()) {

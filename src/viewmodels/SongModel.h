@@ -3,6 +3,7 @@
 
 #include <QAbstractListModel>
 #include <QTimer>
+#include <QVariantList>
 #include <QtQml/qqmlregistration.h>
 
 #include <memory>
@@ -41,6 +42,20 @@ class SongModel : public QAbstractListModel {
                    expandAllGroupsChanged)
     /** True after the first catalog snapshot or view cache was applied. */
     Q_PROPERTY(bool catalogReady READ catalogReady NOTIFY catalogReadyChanged)
+    /** Empty string = all kinds. Values match MediaKind strings (guitarpro, audio, …). */
+    Q_PROPERTY(QString mediaKindFilter READ mediaKindFilter WRITE setMediaKindFilter NOTIFY
+                   mediaKindFilterChanged)
+    /** 0 = all tempos; otherwise exact match on baseBpm. */
+    Q_PROPERTY(int bpmFilter READ bpmFilter WRITE setBpmFilter NOTIFY bpmFilterChanged)
+    /** 0 = all tunings; otherwise exact match on tuningId. */
+    Q_PROPERTY(int tuningIdFilter READ tuningIdFilter WRITE setTuningIdFilter NOTIFY
+                   tuningIdFilterChanged)
+    Q_PROPERTY(bool favoritesOnly READ favoritesOnly WRITE setFavoritesOnly NOTIFY
+                   favoritesOnlyChanged)
+    /** Distinct positive baseBpm values from the catalog, sorted ascending. */
+    Q_PROPERTY(QVariantList knownBpms READ knownBpms NOTIFY knownFiltersChanged)
+    /** Maps {id, name} for tunings present in the catalog, sorted by name. */
+    Q_PROPERTY(QVariantList knownTunings READ knownTunings NOTIFY knownFiltersChanged)
 
   public:
     enum Roles : uint16_t {
@@ -59,7 +74,8 @@ class SongModel : public QAbstractListModel {
         LinkGroupIdRole,
         IsContainerMemberRole,
         HubSongIdRole,
-        MediaIdRole
+        MediaIdRole,
+        IsFavoriteRole
     };
     Q_ENUM(Roles)
 
@@ -81,12 +97,24 @@ class SongModel : public QAbstractListModel {
     [[nodiscard]] bool expandAllGroups() const;
     void setExpandAllGroups(bool expand);
     [[nodiscard]] bool catalogReady() const;
+    [[nodiscard]] const QString &mediaKindFilter() const;
+    void setMediaKindFilter(const QString &kind);
+    [[nodiscard]] int bpmFilter() const;
+    void setBpmFilter(int bpm);
+    [[nodiscard]] int tuningIdFilter() const;
+    void setTuningIdFilter(int tuningId);
+    [[nodiscard]] bool favoritesOnly() const;
+    void setFavoritesOnly(bool only);
+    [[nodiscard]] const QVariantList &knownBpms() const;
+    [[nodiscard]] const QVariantList &knownTunings() const;
 
   public slots:
     void reload();
     /** Applies rows built on a worker thread from @p snapshot. */
     void applySnapshot(const CatalogSnapshot &snapshot);
     void applyViewCache(const CatalogViewCache &cache);
+    /** Persists favorite flag and updates in-memory catalog rows. */
+    bool setFavorite(qlonglong songId, bool favorite);
 
   signals:
     void searchTextChanged();
@@ -95,6 +123,11 @@ class SongModel : public QAbstractListModel {
     void containersOnlyChanged();
     void expandAllGroupsChanged();
     void catalogReadyChanged();
+    void mediaKindFilterChanged();
+    void bpmFilterChanged();
+    void tuningIdFilterChanged();
+    void favoritesOnlyChanged();
+    void knownFiltersChanged();
 
   private:
     using SongRow = SongListRowData;
@@ -103,10 +136,13 @@ class SongModel : public QAbstractListModel {
     static QString buildSearchHaystack(const SongRow &row);
 
     void applyPrebuiltRows(QList<SongRow> allRows, QList<SongRow> secondaryRows);
+    void rebuildKnownFilters();
     void applyFilter();
     void applyPendingSearchFilter();
     void ensureFilterCurrent();
-    [[nodiscard]] bool matchesSearch(const SongRow &row) const;
+    [[nodiscard]] bool matchesFilters(const SongRow &row) const;
+    [[nodiscard]] bool rowHasMediaKind(const SongRow &row, const QString &kind) const;
+    void updateFavoriteInRows(qlonglong songId, bool favorite);
     /** Link-group header row (not a member song inside a group). */
     [[nodiscard]] static bool isContainerHub(const SongRow &row);
 
@@ -120,10 +156,16 @@ class SongModel : public QAbstractListModel {
     QList<SongRow> m_secondaryRows;
     QList<SongRow> m_rows;
     QString m_searchText;
+    QString m_mediaKindFilter;
+    int m_bpmFilter{0};
+    int m_tuningIdFilter{0};
+    bool m_favoritesOnly{false};
     bool m_hideContainers{false};
     bool m_containersOnly{false};
     bool m_expandAllGroups{false};
     bool m_catalogReady{false};
+    QVariantList m_knownBpms;
+    QVariantList m_knownTunings;
     QTimer m_searchDebounce;
 };
 

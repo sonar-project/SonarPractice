@@ -20,6 +20,7 @@ class ISongRepository {
     virtual std::optional<Song> getSong(qlonglong id) = 0;
     virtual QList<Song> getAllSongs() = 0;
     virtual bool updateSong(const Song &song) = 0;
+    virtual bool setFavorite(qlonglong id, bool favorite) = 0;
     virtual bool deleteSong(qlonglong id) = 0;
 
   protected:

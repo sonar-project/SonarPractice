@@ -26,6 +26,7 @@ namespace SqlQueryColumns {
         constexpr int ArtistId = 3;
         constexpr int TuningId = 4;
         constexpr int TuningName = 5;
+        constexpr int IsFavorite = 6;
     } // namespace Song
 
     namespace MediaFile {

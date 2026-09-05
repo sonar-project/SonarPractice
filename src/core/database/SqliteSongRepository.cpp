@@ -20,12 +20,13 @@ std::optional<qlonglong> SqliteSongRepository::createSong(const Song &song) {
     }
 
     QSqlQuery query(RepositoryUtils::database(m_connection));
-    query.prepare("INSERT INTO songs (title, artist_id, tuning_id, base_bpm) "
-                  "VALUES (:title, :artist_id, :tuning_id, :base_bpm)");
+    query.prepare("INSERT INTO songs (title, artist_id, tuning_id, base_bpm, is_favorite) "
+                  "VALUES (:title, :artist_id, :tuning_id, :base_bpm, :is_favorite)");
     query.bindValue(":title", song.title);
     query.bindValue(":artist_id", song.artistId > 0 ? QVariant(song.artistId) : QVariant());
     query.bindValue(":tuning_id", song.tuningId > 0 ? QVariant(song.tuningId) : QVariant());
     query.bindValue(":base_bpm", song.baseBpm);
+    query.bindValue(":is_favorite", song.isFavorite ? 1 : 0);
 
     if (!query.exec()) {
         qCritical() << "[SqliteSongRepository] createSong failed:" << query.lastError().text();
@@ -47,7 +48,8 @@ std::optional<Song> SqliteSongRepository::getSong(qlonglong id) {
 
     QSqlQuery query(RepositoryUtils::database(m_connection));
 
-    QString sql = "SELECT s.id, s.title, s.base_bpm, s.artist_id, s.tuning_id, t.name "
+    QString sql = "SELECT s.id, s.title, s.base_bpm, s.artist_id, s.tuning_id, t.name, "
+                  "s.is_favorite "
                   "FROM songs s "
                   "LEFT JOIN tunings t ON s.tuning_id = t.id "
                   "WHERE s.id = :id";
@@ -65,6 +67,7 @@ std::optional<Song> SqliteSongRepository::getSong(qlonglong id) {
     loadedSong.artistId = query.value(SqlQueryColumns::Song::ArtistId).toLongLong();
     loadedSong.tuningId = query.value(SqlQueryColumns::Song::TuningId).toLongLong();
     loadedSong.tuningName = query.value(SqlQueryColumns::Song::TuningName).toString();
+    loadedSong.isFavorite = query.value(SqlQueryColumns::Song::IsFavorite).toInt() != 0;
     return loadedSong;
 }
 
@@ -76,7 +79,8 @@ QList<Song> SqliteSongRepository::getAllSongs() {
     }
 
     QSqlQuery query(RepositoryUtils::database(m_connection));
-    QString sql = "SELECT s.id, s.title, s.base_bpm, s.artist_id, s.tuning_id, t.name "
+    QString sql = "SELECT s.id, s.title, s.base_bpm, s.artist_id, s.tuning_id, t.name, "
+                  "s.is_favorite "
                   "FROM songs s "
                   "LEFT JOIN tunings t ON s.tuning_id = t.id "
                   "ORDER BY s.id";
@@ -94,6 +98,7 @@ QList<Song> SqliteSongRepository::getAllSongs() {
         song.artistId = query.value(SqlQueryColumns::Song::ArtistId).toLongLong();
         song.tuningId = query.value(SqlQueryColumns::Song::TuningId).toLongLong();
         song.tuningName = query.value(SqlQueryColumns::Song::TuningName).toString();
+        song.isFavorite = query.value(SqlQueryColumns::Song::IsFavorite).toInt() != 0;
         songs.append(song);
     }
 
@@ -111,15 +116,39 @@ bool SqliteSongRepository::updateSong(const Song &song) {
 
     QSqlQuery query(RepositoryUtils::database(m_connection));
     query.prepare("UPDATE songs SET title = :title, artist_id = :artist_id, "
-                  "tuning_id = :tuning_id, base_bpm = :base_bpm WHERE id = :id");
+                  "tuning_id = :tuning_id, base_bpm = :base_bpm, is_favorite = :is_favorite "
+                  "WHERE id = :id");
     query.bindValue(":title", song.title);
     query.bindValue(":artist_id", song.artistId > 0 ? QVariant(song.artistId) : QVariant());
     query.bindValue(":tuning_id", song.tuningId > 0 ? QVariant(song.tuningId) : QVariant());
     query.bindValue(":base_bpm", song.baseBpm);
+    query.bindValue(":is_favorite", song.isFavorite ? 1 : 0);
     query.bindValue(":id", song.id);
 
     if (!query.exec()) {
         qCritical() << "[SqliteSongRepository] updateSong failed:" << query.lastError().text();
+        return false;
+    }
+
+    return query.numRowsAffected() > 0;
+}
+
+bool SqliteSongRepository::setFavorite(qlonglong id, bool favorite) {
+    if (id <= 0) {
+        return false;
+    }
+
+    if (!RepositoryUtils::ensureOpen(m_connection)) {
+        return false;
+    }
+
+    QSqlQuery query(RepositoryUtils::database(m_connection));
+    query.prepare("UPDATE songs SET is_favorite = :is_favorite WHERE id = :id");
+    query.bindValue(":is_favorite", favorite ? 1 : 0);
+    query.bindValue(":id", id);
+
+    if (!query.exec()) {
+        qCritical() << "[SqliteSongRepository] setFavorite failed:" << query.lastError().text();
         return false;
     }
 

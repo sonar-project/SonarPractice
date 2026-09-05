@@ -12,6 +12,7 @@ class SqliteSongRepository : public ISongRepository {
     [[nodiscard]] std::optional<Song> getSong(qlonglong id) override;
     [[nodiscard]] QList<Song> getAllSongs() override;
     [[nodiscard]] bool updateSong(const Song &song) override;
+    [[nodiscard]] bool setFavorite(qlonglong id, bool favorite) override;
     [[nodiscard]] bool deleteSong(qlonglong id) override;
 
   private:
