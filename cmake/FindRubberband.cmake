@@ -48,6 +48,10 @@ if(NOT TARGET SonarPractice::Rubberband)
                 CXX_STANDARD_REQUIRED ON
                 POSITION_INDEPENDENT_CODE ON
             )
+            # MSVC/MinGW: ship as SonarPractice_Rubberband.dll (no lib- prefix).
+            if(WIN32)
+                set_target_properties(SonarPractice_Rubberband PROPERTIES PREFIX "")
+            endif()
             if(MSVC)
                 target_compile_options(SonarPractice_Rubberband PRIVATE /bigobj)
             endif()

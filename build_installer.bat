@@ -1,5 +1,5 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 
 cd /d "%~dp0"
 set "PROJECT_DIR=%CD%"
@@ -26,12 +26,30 @@ if not exist "%WINDEPLOYQT%" set "WINDEPLOYQT=%QT_BIN%\windeployqt.exe"
 if exist "%DEPLOY_DIR%" rd /s /q "%DEPLOY_DIR%"
 mkdir "%DEPLOY_DIR%"
 
-:: 2. RubberBand und EXE kopieren
-copy "%BUILD_DIR%\libSonarPractice_Rubberband.dll" "%DEPLOY_DIR%\"
-copy "%BUILD_DIR%\SonarPractice.exe" "%DEPLOY_DIR%\"
+:: 2. RubberBand, OpenSSL und EXE kopieren
+set "RUBBERBAND_DLL="
+for %%F in (
+    "%BUILD_DIR%\SonarPractice_Rubberband.dll"
+    "%BUILD_DIR%\libSonarPractice_Rubberband.dll"
+) do (
+    if not defined RUBBERBAND_DLL if exist %%~F set "RUBBERBAND_DLL=%%~F"
+)
+if not defined RUBBERBAND_DLL (
+    echo FEHLER: SonarPractice_Rubberband.dll wurde in "%BUILD_DIR%" nicht gefunden.
+    exit /b 1
+)
+copy /Y "%RUBBERBAND_DLL%" "%DEPLOY_DIR%\SonarPractice_Rubberband.dll" >nul
+if errorlevel 1 exit /b 1
+
+copy /Y "%BUILD_DIR%\SonarPractice.exe" "%DEPLOY_DIR%\" >nul
+if errorlevel 1 exit /b 1
+
+call :CopyOpenSslDlls
+if errorlevel 1 exit /b 1
 
 :: 3. Qt-Abhaengigkeiten hinzufuegen
 "%WINDEPLOYQT%" --qmldir "%PROJECT_DIR%\src\ui" --dir "%DEPLOY_DIR%" "%DEPLOY_DIR%\SonarPractice.exe"
+if errorlevel 1 exit /b 1
 
 :: 4. qt.conf erstellen
 (
@@ -64,3 +82,30 @@ if defined APP_VERSION (
 )
 
 endlocal
+exit /b 0
+
+:CopyOpenSslDlls
+set "OPENSSL_BIN="
+if defined OPENSSL_ROOT_DIR if exist "%OPENSSL_ROOT_DIR%\bin" set "OPENSSL_BIN=%OPENSSL_ROOT_DIR%\bin"
+if not defined OPENSSL_BIN if defined OPENSSL_ROOT if exist "%OPENSSL_ROOT%\bin" set "OPENSSL_BIN=%OPENSSL_ROOT%\bin"
+if not defined OPENSSL_BIN if exist "%ProgramFiles%\OpenSSL-Win64\bin" set "OPENSSL_BIN=%ProgramFiles%\OpenSSL-Win64\bin"
+if not defined OPENSSL_BIN if exist "%ProgramFiles(x86)%\OpenSSL-Win64\bin" set "OPENSSL_BIN=%ProgramFiles(x86)%\OpenSSL-Win64\bin"
+
+if not defined OPENSSL_BIN (
+    echo FEHLER: OpenSSL bin-Verzeichnis nicht gefunden. OPENSSL_ROOT_DIR setzen oder OpenSSL installieren.
+    exit /b 1
+)
+
+set "MISSING_OPENSSL="
+for %%D in (libcrypto-3-x64.dll libssl-3-x64.dll) do (
+    if exist "%OPENSSL_BIN%\%%D" (
+        copy /Y "%OPENSSL_BIN%\%%D" "%DEPLOY_DIR%\" >nul
+        if errorlevel 1 exit /b 1
+        echo Kopiert %%D aus "%OPENSSL_BIN%"
+    ) else (
+        set "MISSING_OPENSSL=1"
+        echo FEHLER: %%D nicht gefunden in "%OPENSSL_BIN%"
+    )
+)
+if defined MISSING_OPENSSL exit /b 1
+exit /b 0

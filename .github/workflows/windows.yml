@@ -63,12 +63,18 @@ jobs:
         with:
           arch: x64
 
+      - name: Install OpenSSL
+        run: choco install openssl -y --no-progress
+
       - name: Configure
         shell: bash
+        env:
+          OPENSSL_ROOT_DIR: C:/Program Files/OpenSSL-Win64
         run: |
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}" \
+            -DOPENSSL_ROOT_DIR="${OPENSSL_ROOT_DIR}" \
             -DBUILD_TESTING=OFF \
             -DCMAKE_CXX_CPPCHECK="" \
             -DCMAKE_C_CPPCHECK=""
@@ -86,6 +92,7 @@ jobs:
           BUILD_DIR: ${{ github.workspace }}\build
           QTDIR: ${{ env.QT_ROOT_DIR }}
           APP_VERSION: ${{ steps.appver.outputs.value }}
+          OPENSSL_ROOT_DIR: C:\Program Files\OpenSSL-Win64
         run: build_installer.bat
 
       - name: Upload installer

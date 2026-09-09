@@ -15,7 +15,7 @@ This file summarizes licenses and linking for dependencies bundled with or requi
 - **License:** **GNU General Public License (GPL)** (see upstream `COPYING` and file headers). Not LGPL. Commercial/proprietary use requires a [separate licence from Breakfast Quay](https://breakfastquay.com/technology/license.html).
 - **Linking:**
   - **Linux / Gentoo:** dynamic (`librubberband.so` via pkg-config / `media-libs/rubberband`).
-  - **Windows / when pkg-config is missing:** shared library built via CMake FetchContent (`single/RubberBandSingle.cpp`, tag `v4.0.0`).
+  - **Windows / when pkg-config is missing:** shared library `SonarPractice_Rubberband.dll` via CMake FetchContent (`single/RubberBandSingle.cpp`, tag `v4.0.0`).
 
 ## libgp_parser
 
@@ -23,6 +23,14 @@ This file summarizes licenses and linking for dependencies bundled with or requi
 - **Use:** Guitar Pro file import.
 - **License:** **GNU Affero General Public License (AGPL) v3** (see upstream `LICENSE`).
 - **Linking:** System shared library via `find_package`, or static via FetchContent when no system package is available.
+- **Runtime (Windows):** Needs OpenSSL 3 (`libcrypto-3-x64.dll` / `libssl-3-x64.dll`); the Windows installer copies these next to the app.
+
+## OpenSSL
+
+- **Upstream:** [OpenSSL](https://www.openssl.org/).
+- **Use:** Transitive dependency of `libgp_parser` (`OpenSSL::Crypto`) for GP7/GP8 score decryption.
+- **License:** Apache License 2.0 (OpenSSL 3.x).
+- **Linking:** Dynamic on Windows (DLLs bundled with the installer); system shared library on Linux.
 
 ## FFmpeg
 
