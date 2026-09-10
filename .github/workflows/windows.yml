@@ -11,7 +11,8 @@ env:
   # Requires aqtinstall from git (PyPI 3.3.0 cannot resolve Windows 6.11+ repo layout).
   QT_VERSION: "6.11.2"
   QT_ARCH: win64_msvc2022_64
-  QT_MODULES: qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning
+  # qtwebengine (extension) needs qtwebchannel + qtpositioning; qtpdf often co-ships.
+  QT_MODULES: qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning qtpdf
   AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
 
 jobs:
@@ -60,18 +61,45 @@ jobs:
           # or resolve qtwebengine under the extensions layout.
           setup-python: false
           cache: true
-          cache-key-prefix: qt-6.11.2-webengine
+          # Bump when module set changes so a stale cache cannot drop WebEngine.
+          cache-key-prefix: qt-6.11.2-webengine-v2
 
       - name: Verify Qt WebEngine
         shell: pwsh
         run: |
-          $cfg = Join-Path $env:QT_ROOT_DIR "lib\cmake\Qt6WebEngineQuick\Qt6WebEngineQuickConfig.cmake"
-          if (-not (Test-Path $cfg)) {
-            Write-Host "QT_ROOT_DIR=$env:QT_ROOT_DIR"
-            Get-ChildItem (Join-Path $env:QT_ROOT_DIR "lib\cmake") -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
-            throw "Qt6WebEngineQuickConfig.cmake missing — qtwebengine module was not installed"
+          $root = $env:QT_ROOT_DIR
+          if (-not $root) { throw "QT_ROOT_DIR is not set after install-qt-action" }
+          Write-Host "QT_ROOT_DIR=$root"
+          $required = @(
+            "lib\cmake\Qt6WebEngineQuick\Qt6WebEngineQuickConfig.cmake",
+            "lib\cmake\Qt6WebEngineCore\Qt6WebEngineCoreConfig.cmake",
+            "lib\cmake\Qt6WebChannel\Qt6WebChannelConfig.cmake",
+            "lib\cmake\Qt6WebChannelQuick\Qt6WebChannelQuickConfig.cmake",
+            "lib\cmake\Qt6Positioning\Qt6PositioningConfig.cmake"
+          )
+          $missing = @()
+          foreach ($rel in $required) {
+            $path = Join-Path $root $rel
+            if (Test-Path $path) {
+              Write-Host "OK $rel"
+            } else {
+              Write-Host "MISSING $rel"
+              $missing += $rel
+            }
           }
-          Write-Host "Found $cfg"
+          $dll = Get-ChildItem (Join-Path $root "bin") -Filter "Qt6WebEngineCore*.dll" -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $dll) {
+            $missing += "bin\Qt6WebEngineCore*.dll"
+            Write-Host "MISSING bin\Qt6WebEngineCore*.dll"
+          } else {
+            Write-Host "OK $($dll.Name)"
+          }
+          if ($missing.Count -gt 0) {
+            Get-ChildItem (Join-Path $root "lib\cmake") -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty Name
+            throw "Qt WebEngine install incomplete: $($missing -join ', ')"
+          }
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -137,9 +165,21 @@ jobs:
             -DOPENSSL_INCLUDE_DIR="${OPENSSL_INCLUDE_DIR}" \
             -DOPENSSL_CRYPTO_LIBRARY="${OPENSSL_CRYPTO_LIBRARY}" \
             -DOPENSSL_SSL_LIBRARY="${OPENSSL_SSL_LIBRARY}" \
+            -DSONARPRACTICE_REQUIRE_WEBENGINE=ON \
             -DBUILD_TESTING=OFF \
             -DCMAKE_CXX_CPPCHECK="" \
             -DCMAKE_C_CPPCHECK=""
+
+      - name: Confirm AlphaTab WebEngine enabled
+        shell: pwsh
+        run: |
+          $line = Select-String -Path "build\CMakeCache.txt" -Pattern "^SONARPRACTICE_HAS_WEBENGINE:BOOL=(.+)$"
+          if (-not $line) { throw "SONARPRACTICE_HAS_WEBENGINE missing from CMakeCache.txt" }
+          $val = $line.Matches[0].Groups[1].Value
+          Write-Host "SONARPRACTICE_HAS_WEBENGINE=$val"
+          if ($val -ne "ON") {
+            throw "Windows installer must build with Qt WebEngine (AlphaTab player)"
+          }
 
       - name: Build
         shell: bash

@@ -27,18 +27,42 @@ find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
 
 # Optional: AlphaTab player via Qt WebEngine (ASCII preview remains the fallback).
 # Note: Official Qt Windows builds ship WebEngine only for MSVC — not MinGW/llvm-mingw.
+# WebEngineQuick pulls WebChannelQuick; WebEngineCore needs WebChannel + Positioning.
+option(SONARPRACTICE_REQUIRE_WEBENGINE
+    "Fail configure if Qt WebEngine is missing (enabled in Windows CI)" OFF)
 set(SONARPRACTICE_HAS_WEBENGINE OFF)
-find_package(Qt6 QUIET COMPONENTS WebEngineCore WebEngineQuick)
+find_package(Qt6 QUIET COMPONENTS
+    WebChannel
+    WebChannelQuick
+    Positioning
+    WebEngineCore
+    WebEngineQuick
+)
 if(TARGET Qt6::WebEngineQuick AND TARGET Qt6::WebEngineCore)
     set(SONARPRACTICE_HAS_WEBENGINE ON)
     message(STATUS "Qt WebEngineQuick found — Guitar Pro AlphaTab player enabled")
 else()
+    set(SONARPRACTICE_HAS_WEBENGINE OFF)
     message(STATUS "Qt WebEngineQuick not found — Guitar Pro ASCII preview only")
+    foreach(_sonarp_qt_comp IN ITEMS
+            WebChannel WebChannelQuick Positioning WebEngineCore WebEngineQuick)
+        if(NOT TARGET "Qt6::${_sonarp_qt_comp}")
+            message(STATUS "  missing Qt6::${_sonarp_qt_comp}")
+        endif()
+    endforeach()
     if(WIN32 AND NOT MSVC)
         message(STATUS
             "  On Windows, Qt WebEngine is only provided for MSVC kits. "
             "MinGW/LLVM kits cannot enable the AlphaTab player (Chromium is not built for them).")
     endif()
+endif()
+set(SONARPRACTICE_HAS_WEBENGINE "${SONARPRACTICE_HAS_WEBENGINE}" CACHE BOOL
+    "AlphaTab player via Qt WebEngine" FORCE)
+if(SONARPRACTICE_REQUIRE_WEBENGINE AND NOT SONARPRACTICE_HAS_WEBENGINE)
+    message(FATAL_ERROR
+        "SONARPRACTICE_REQUIRE_WEBENGINE=ON but Qt WebEngine was not found.\n"
+        "  Install qtwebengine + qtwebchannel + qtpositioning (MSVC kit on Windows),\n"
+        "  and ensure CMAKE_PREFIX_PATH points at that Qt prefix.")
 endif()
 
 # OpenSSL for libgp_parser (MinGW/LLVM: auto-generate .dll.a from Chocolatey DLLs)
