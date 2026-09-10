@@ -51,6 +51,24 @@ if errorlevel 1 exit /b 1
 "%WINDEPLOYQT%" --qmldir "%PROJECT_DIR%\src\ui" --dir "%DEPLOY_DIR%" "%DEPLOY_DIR%\SonarPractice.exe"
 if errorlevel 1 exit /b 1
 
+:: 3b. WebEngine runtime must be present for the AlphaTab player (CI + local MSVC kits).
+set "WE_OK=1"
+if not exist "%DEPLOY_DIR%\Qt6WebEngineCore.dll" set "WE_OK=0"
+if not exist "%DEPLOY_DIR%\Qt6WebEngineQuick.dll" set "WE_OK=0"
+if not exist "%DEPLOY_DIR%\QtWebEngineProcess.exe" set "WE_OK=0"
+if not exist "%DEPLOY_DIR%\qml\QtWebEngine" set "WE_OK=0"
+if not exist "%DEPLOY_DIR%\resources\qtwebengine_resources.pak" (
+  if not exist "%DEPLOY_DIR%\qtwebengine_resources.pak" set "WE_OK=0"
+)
+if "%WE_OK%"=="0" (
+  echo FEHLER: Qt WebEngine wurde von windeployqt nicht vollstaendig deployed.
+  echo Erwartet u.a.: Qt6WebEngineCore.dll, QtWebEngineProcess.exe, qml\QtWebEngine
+  echo Inhalt von "%DEPLOY_DIR%":
+  dir /b "%DEPLOY_DIR%"
+  exit /b 1
+)
+echo Qt WebEngine deploy OK.
+
 :: 4. qt.conf erstellen
 (
     echo [Paths]

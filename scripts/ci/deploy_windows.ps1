@@ -78,6 +78,30 @@ if (-not (Test-Path $WinDeployQt)) {
 }
 
 & $WinDeployQt --qmldir (Join-Path $Root "src\ui") --dir $DeployDir (Join-Path $DeployDir "SonarPractice.exe")
+if ($LASTEXITCODE -ne 0) {
+    throw "windeployqt failed with exit code $LASTEXITCODE"
+}
+
+$requiredWebEngine = @(
+    "Qt6WebEngineCore.dll"
+    "Qt6WebEngineQuick.dll"
+    "QtWebEngineProcess.exe"
+    "qml\QtWebEngine"
+)
+$missing = @()
+foreach ($rel in $requiredWebEngine) {
+    if (-not (Test-Path (Join-Path $DeployDir $rel))) { $missing += $rel }
+}
+$pak = @(
+    (Join-Path $DeployDir "resources\qtwebengine_resources.pak")
+    (Join-Path $DeployDir "qtwebengine_resources.pak")
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $pak) { $missing += "resources\qtwebengine_resources.pak" }
+if ($missing.Count -gt 0) {
+    Get-ChildItem $DeployDir | Select-Object -ExpandProperty Name
+    throw "Qt WebEngine deploy incomplete (windeployqt): $($missing -join ', ')"
+}
+Write-Host "Qt WebEngine deploy OK"
 
 @"
 [Paths]
