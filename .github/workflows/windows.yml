@@ -9,7 +9,7 @@ on:
 env:
   QT_VERSION: "6.8.3"
   QT_ARCH: win64_msvc2022_64
-  QT_MODULES: qtmultimedia qtshadertools
+  QT_MODULES: qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning
   AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
 
 jobs:
@@ -54,7 +54,8 @@ jobs:
           modules: ${{ env.QT_MODULES }}
           tools: tools_ninja tools_cmake
           aqtsource: ${{ env.AQT_SOURCE }}
-          aqtversion: '==3.1.19'
+          # Prefer aqtsource (git master): 3.1.19 cannot resolve Qt 6.8+ extension modules
+          # such as qtwebengine. Leave aqtversion unset when aqtsource is set.
           setup-python: false
           cache: true
 
@@ -64,17 +65,64 @@ jobs:
           arch: x64
 
       - name: Install OpenSSL
-        run: choco install openssl -y --no-progress
+        shell: pwsh
+        run: |
+          choco install openssl -y --no-progress
+          $roots = @(
+            "${env:ProgramFiles}\OpenSSL-Win64",
+            "${env:ProgramFiles}\OpenSSL",
+            "C:\Program Files\OpenSSL-Win64",
+            "C:\Program Files\OpenSSL"
+          )
+          $root = $roots | Where-Object { Test-Path (Join-Path $_ "include\openssl\ssl.h") } | Select-Object -First 1
+          if (-not $root) {
+            throw "OpenSSL headers not found after choco install. Checked: $($roots -join ', ')"
+          }
+
+          # Shining Light OpenSSL ships MSVC import libs under lib/VC/x64/MD.
+          # CMake 3.30 FindOpenSSL often misses that layout unless libs are also in lib/.
+          $mdDir = Join-Path $root "lib\VC\x64\MD"
+          $libDir = Join-Path $root "lib"
+          foreach ($name in @("libcrypto.lib", "libssl.lib")) {
+            $src = Join-Path $mdDir $name
+            $dst = Join-Path $libDir $name
+            if ((Test-Path $src) -and -not (Test-Path $dst)) {
+              Copy-Item $src $dst -Force
+              Write-Host "Copied $name -> $dst"
+            }
+          }
+
+          $crypto = @(
+            (Join-Path $libDir "libcrypto.lib"),
+            (Join-Path $mdDir "libcrypto.lib")
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $ssl = @(
+            (Join-Path $libDir "libssl.lib"),
+            (Join-Path $mdDir "libssl.lib")
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $crypto -or -not $ssl) {
+            Get-ChildItem (Join-Path $root "lib") -Recurse -Filter "*.lib" | Select-Object -ExpandProperty FullName
+            throw "OpenSSL import libraries not found under $root"
+          }
+
+          "OPENSSL_ROOT_DIR=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "OPENSSL_INCLUDE_DIR=$(Join-Path $root 'include')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "OPENSSL_CRYPTO_LIBRARY=$crypto" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "OPENSSL_SSL_LIBRARY=$ssl" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "OPENSSL_ROOT_DIR=$root"
+          Write-Host "OPENSSL_CRYPTO_LIBRARY=$crypto"
+          Write-Host "OPENSSL_SSL_LIBRARY=$ssl"
 
       - name: Configure
         shell: bash
-        env:
-          OPENSSL_ROOT_DIR: C:/Program Files/OpenSSL-Win64
         run: |
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}" \
             -DOPENSSL_ROOT_DIR="${OPENSSL_ROOT_DIR}" \
+            -DOPENSSL_INCLUDE_DIR="${OPENSSL_INCLUDE_DIR}" \
+            -DOPENSSL_CRYPTO_LIBRARY="${OPENSSL_CRYPTO_LIBRARY}" \
+            -DOPENSSL_SSL_LIBRARY="${OPENSSL_SSL_LIBRARY}" \
             -DBUILD_TESTING=OFF \
             -DCMAKE_CXX_CPPCHECK="" \
             -DCMAKE_C_CPPCHECK=""
@@ -92,7 +140,6 @@ jobs:
           BUILD_DIR: ${{ github.workspace }}\build
           QTDIR: ${{ env.QT_ROOT_DIR }}
           APP_VERSION: ${{ steps.appver.outputs.value }}
-          OPENSSL_ROOT_DIR: C:\Program Files\OpenSSL-Win64
         run: build_installer.bat
 
       - name: Upload installer

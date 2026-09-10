@@ -48,6 +48,7 @@ function Get-OpenSslBinDir {
     if ($env:OPENSSL_ROOT) { $roots += $env:OPENSSL_ROOT }
     $roots += @(
         "${env:ProgramFiles}\OpenSSL-Win64"
+        "${env:ProgramFiles}\OpenSSL"
         "${env:ProgramFiles(x86)}\OpenSSL-Win64"
     )
     foreach ($root in $roots) {
@@ -62,13 +63,13 @@ $OpenSslBin = Get-OpenSslBinDir
 if (-not $OpenSslBin) {
     throw "OpenSSL bin directory not found. Set OPENSSL_ROOT_DIR or install OpenSSL-Win64."
 }
-foreach ($dll in @("libcrypto-3-x64.dll", "libssl-3-x64.dll")) {
-    $src = Join-Path $OpenSslBin $dll
-    if (-not (Test-Path $src)) {
-        throw "OpenSSL DLL was not found: $src"
-    }
-    Copy-Item $src $DeployDir -Force
-    Write-Host "Copied $dll from $OpenSslBin"
+$cryptoDlls = Get-ChildItem -Path $OpenSslBin -Filter "libcrypto-*.dll" -ErrorAction SilentlyContinue
+$sslDlls = Get-ChildItem -Path $OpenSslBin -Filter "libssl-*.dll" -ErrorAction SilentlyContinue
+if (-not $cryptoDlls) { throw "OpenSSL DLL was not found: $OpenSslBin\libcrypto-*.dll" }
+if (-not $sslDlls) { throw "OpenSSL DLL was not found: $OpenSslBin\libssl-*.dll" }
+foreach ($dll in @($cryptoDlls + $sslDlls)) {
+    Copy-Item $dll.FullName $DeployDir -Force
+    Write-Host "Copied $($dll.Name) from $OpenSslBin"
 }
 
 $WinDeployQt = Join-Path $QtBinDir "windeployqt6.exe"

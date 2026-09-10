@@ -89,6 +89,7 @@ set "OPENSSL_BIN="
 if defined OPENSSL_ROOT_DIR if exist "%OPENSSL_ROOT_DIR%\bin" set "OPENSSL_BIN=%OPENSSL_ROOT_DIR%\bin"
 if not defined OPENSSL_BIN if defined OPENSSL_ROOT if exist "%OPENSSL_ROOT%\bin" set "OPENSSL_BIN=%OPENSSL_ROOT%\bin"
 if not defined OPENSSL_BIN if exist "%ProgramFiles%\OpenSSL-Win64\bin" set "OPENSSL_BIN=%ProgramFiles%\OpenSSL-Win64\bin"
+if not defined OPENSSL_BIN if exist "%ProgramFiles%\OpenSSL\bin" set "OPENSSL_BIN=%ProgramFiles%\OpenSSL\bin"
 if not defined OPENSSL_BIN if exist "%ProgramFiles(x86)%\OpenSSL-Win64\bin" set "OPENSSL_BIN=%ProgramFiles(x86)%\OpenSSL-Win64\bin"
 
 if not defined OPENSSL_BIN (
@@ -96,16 +97,26 @@ if not defined OPENSSL_BIN (
     exit /b 1
 )
 
-set "MISSING_OPENSSL="
-for %%D in (libcrypto-3-x64.dll libssl-3-x64.dll) do (
-    if exist "%OPENSSL_BIN%\%%D" (
-        copy /Y "%OPENSSL_BIN%\%%D" "%DEPLOY_DIR%\" >nul
-        if errorlevel 1 exit /b 1
-        echo Kopiert %%D aus "%OPENSSL_BIN%"
-    ) else (
-        set "MISSING_OPENSSL=1"
-        echo FEHLER: %%D nicht gefunden in "%OPENSSL_BIN%"
-    )
+set "COPIED_CRYPTO="
+set "COPIED_SSL="
+for %%D in ("%OPENSSL_BIN%\libcrypto-*.dll") do (
+    copy /Y "%%~D" "%DEPLOY_DIR%\" >nul
+    if errorlevel 1 exit /b 1
+    echo Kopiert %%~nxD aus "%OPENSSL_BIN%"
+    set "COPIED_CRYPTO=1"
 )
-if defined MISSING_OPENSSL exit /b 1
+for %%D in ("%OPENSSL_BIN%\libssl-*.dll") do (
+    copy /Y "%%~D" "%DEPLOY_DIR%\" >nul
+    if errorlevel 1 exit /b 1
+    echo Kopiert %%~nxD aus "%OPENSSL_BIN%"
+    set "COPIED_SSL=1"
+)
+if not defined COPIED_CRYPTO (
+    echo FEHLER: libcrypto-*.dll nicht gefunden in "%OPENSSL_BIN%"
+    exit /b 1
+)
+if not defined COPIED_SSL (
+    echo FEHLER: libssl-*.dll nicht gefunden in "%OPENSSL_BIN%"
+    exit /b 1
+)
 exit /b 0

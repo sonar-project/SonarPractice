@@ -13,8 +13,9 @@ env:
   QT_ARCH: linux_gcc_64
   # icu is a separate Linux-only archive in aqt; required for qmlimportscanner / Qt Core.
   QT_ARCHIVES: icu qtbase qtdeclarative qtsvg qttools qttranslations
-  QT_MODULES: qtmultimedia qtshadertools
-  # Stock aqt 3.3.0 cannot read Qt 6.8+ metadata paths; use current aqtinstall from git.
+  QT_MODULES: qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning
+  # Stock aqt 3.3.0 cannot read Qt 6.8+ metadata paths; use current aqtinstall from git
+  # (needed for qtwebengine, which lives under "extensions" since Qt 6.8).
   AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
 
 jobs:
