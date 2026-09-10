@@ -27,8 +27,10 @@ SonarPractice is designed to be platform-independent and is built on a modern C+
 
 - **Qt 6.8 or newer** (Core, Gui, Widgets, Quick). Recommended for local development: latest Qt from the [online installer](https://www.qt.io/download-qt-installer) (e.g. 6.11.x / 6.12.x). **CI (Windows installer + Linux AppImage) uses Qt 6.11.2** via aqtinstall from git (PyPI aqt 3.3.0 cannot install Windows Qt 6.11+). The distro Qt on Linux Mint/Ubuntu (often 6.4.x) is too old to build this project.
 - **Qt WebEngine** (optional): enables the interactive Guitar Pro player (score + tab + playback via alphaTab). Requires the matching **Qt WebChannel** and **Qt Positioning** packages from the Qt installer as well. Without WebEngine, SonarPractice still builds and shows the ASCII tablature preview.
+- **OpenSSL 3+** (required by `libgp_parser` for GP7/GP8): Windows — `choco install openssl` (MinGW/LLVM kits: CMake auto-generates `.dll.a` import libs via `gendef`/`dlltool`); Linux — `libssl-dev`; macOS — `brew install openssl@3`.
+- **libgp_parser**: system package, FetchContent, or local sibling checkout at `../libgp_parser` / `-DLIBGP_PARSER_SOURCE_DIR=...`.
 - **RubberBand 4.0.0** (for precise time-stretching)
-- **FFmpeg** (libavformat, libavutil for stream probing)
+- **FFmpeg** (optional; libavformat/libavutil for stream probing — falls back to file-extension defaults when missing)
 
 > So far, the project has been tested on Linux and Windows; macOS support is currently planned.
 

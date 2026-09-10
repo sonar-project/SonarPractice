@@ -16,7 +16,8 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-set(BUILD_TESTING OFF CACHE BOOL "Disable Catch2 tests globally" FORCE)
+# Keep nested FetchContent projects from enabling their own test suites by default.
+set(BUILD_TESTING OFF CACHE BOOL "Build project tests" FORCE)
 set(CATCH_BUILD_TESTING OFF CACHE BOOL "Disable Catch2 internal tests" FORCE)
 set(CATCH_INSTALL_DOCS OFF CACHE BOOL "Disable Catch2 docs" FORCE)
 
@@ -28,9 +29,6 @@ add_compile_definitions(BUILD_DATE="${BUILD_DATE}")
 enable_testing()
 
 add_subdirectory(src)
-
-find_package(Qt6 REQUIRED COMPONENTS Quick Core Multimedia Sql Widgets Svg)
-find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
 
 file(GLOB SONARPRACTICE_TS_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/SonarPractice_*.ts")
 
@@ -57,7 +55,6 @@ qt_add_executable(SonarPractice
 
 qt_add_translations(SonarPractice TS_FILES ${SONARPRACTICE_TS_FILES})
 
-target_sources(SonarPractice PRIVATE ${SonarPractice})
 target_include_directories(SonarPractice PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 if(WIN32)
@@ -66,7 +63,7 @@ if(WIN32)
         "${CMAKE_CURRENT_BINARY_DIR}/app.rc"
         @ONLY
     )
-target_sources(SonarPractice PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/app.rc")
+    target_sources(SonarPractice PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/app.rc")
 endif()
 
 include(src/viewmodels/ViewModelQmlSources.cmake)
