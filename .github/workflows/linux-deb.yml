@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
 
 env:
-  # Prefer release assets for this tag; source fallback uses main until packaging is tagged.
-  LIBGP_PARSER_TAG: v0.2.1
-  LIBGP_PARSER_GIT_REF: main
+  # Prefer release assets for this tag; source fallback uses the same ref.
+  LIBGP_PARSER_TAG: v0.2.2-r3
+  LIBGP_PARSER_GIT_REF: v0.2.2-r3
   LIBGP_PARSER_REPO: sonar-project/libgp_parser
 
 jobs:
@@ -50,6 +50,7 @@ jobs:
             pkg-config \
             dpkg-dev \
             file \
+            libssl-dev \
             libpugixml-dev \
             librubberband-dev \
             libavformat-dev \

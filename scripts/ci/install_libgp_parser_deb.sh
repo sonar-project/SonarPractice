@@ -3,9 +3,9 @@
 # or build from source when the release assets are missing).
 set -euo pipefail
 
-LIBGP_PARSER_TAG="${LIBGP_PARSER_TAG:-v0.2.1}"
-# Source fallback ref (packaging lives on main until the next tagged release).
-LIBGP_PARSER_GIT_REF="${LIBGP_PARSER_GIT_REF:-main}"
+LIBGP_PARSER_TAG="${LIBGP_PARSER_TAG:-v0.2.2-r3}"
+# Source fallback ref (same release tag by default).
+LIBGP_PARSER_GIT_REF="${LIBGP_PARSER_GIT_REF:-${LIBGP_PARSER_TAG}}"
 UBUNTU_RELEASE="${UBUNTU_RELEASE:?UBUNTU_RELEASE required (e.g. 25.10)}"
 SUFFIX="ubuntu$(echo "${UBUNTU_RELEASE}" | tr -d '.')"
 REPO="${LIBGP_PARSER_REPO:-sonar-project/libgp_parser}"
