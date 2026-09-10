@@ -7,7 +7,9 @@ on:
   workflow_dispatch:
 
 env:
-  QT_VERSION: "6.8.3"
+  # Keep CI close to local Qt Creator builds (6.11.x / 6.12.x).
+  # Requires aqtinstall from git (PyPI 3.3.0 cannot resolve Windows 6.11+ repo layout).
+  QT_VERSION: "6.11.2"
   QT_ARCH: win64_msvc2022_64
   QT_MODULES: qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning
   AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
@@ -54,10 +56,22 @@ jobs:
           modules: ${{ env.QT_MODULES }}
           tools: tools_ninja tools_cmake
           aqtsource: ${{ env.AQT_SOURCE }}
-          # Prefer aqtsource (git master): 3.1.19 cannot resolve Qt 6.8+ extension modules
-          # such as qtwebengine. Leave aqtversion unset when aqtsource is set.
+          # Prefer aqtsource (git master): PyPI aqt 3.3.0 cannot install Windows Qt 6.11+
+          # or resolve qtwebengine under the extensions layout.
           setup-python: false
           cache: true
+          cache-key-prefix: qt-6.11.2-webengine
+
+      - name: Verify Qt WebEngine
+        shell: pwsh
+        run: |
+          $cfg = Join-Path $env:QT_ROOT_DIR "lib\cmake\Qt6WebEngineQuick\Qt6WebEngineQuickConfig.cmake"
+          if (-not (Test-Path $cfg)) {
+            Write-Host "QT_ROOT_DIR=$env:QT_ROOT_DIR"
+            Get-ChildItem (Join-Path $env:QT_ROOT_DIR "lib\cmake") -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+            throw "Qt6WebEngineQuickConfig.cmake missing — qtwebengine module was not installed"
+          }
+          Write-Host "Found $cfg"
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1

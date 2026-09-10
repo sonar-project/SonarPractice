@@ -7,15 +7,14 @@ on:
   workflow_dispatch:
 
 env:
-  # Pinned: last Qt LTS reliably installable via aqt (not "latest" — aqt 3.3.0 breaks on 6.11+).
-  # Local dev may use a newer Qt from the online installer (e.g. 6.11.1).
-  QT_VERSION: "6.8.3"
+  # Keep CI close to local Qt Creator builds (6.11.x / 6.12.x).
+  # Requires aqtinstall from git (PyPI 3.3.0 breaks on Windows 6.11+; also needed for
+  # qtwebengine under the Qt 6.8+ "extensions" layout on all platforms).
+  QT_VERSION: "6.11.2"
   QT_ARCH: linux_gcc_64
   # icu is a separate Linux-only archive in aqt; required for qmlimportscanner / Qt Core.
   QT_ARCHIVES: icu qtbase qtdeclarative qtsvg qttools qttranslations
   QT_MODULES: qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning
-  # Stock aqt 3.3.0 cannot read Qt 6.8+ metadata paths; use current aqtinstall from git
-  # (needed for qtwebengine, which lives under "extensions" since Qt 6.8).
   AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
 
 jobs:
@@ -59,6 +58,18 @@ jobs:
           modules: ${{ env.QT_MODULES }}
           aqtsource: ${{ env.AQT_SOURCE }}
           cache: true
+          cache-key-prefix: qt-6.11.2-webengine
+
+      - name: Verify Qt WebEngine
+        run: |
+          cfg="${QT_ROOT_DIR}/lib/cmake/Qt6WebEngineQuick/Qt6WebEngineQuickConfig.cmake"
+          if [[ ! -f "${cfg}" ]]; then
+            echo "QT_ROOT_DIR=${QT_ROOT_DIR}"
+            ls -1 "${QT_ROOT_DIR}/lib/cmake" || true
+            echo "Qt6WebEngineQuickConfig.cmake missing — qtwebengine module was not installed" >&2
+            exit 1
+          fi
+          echo "Found ${cfg}"
 
       - name: Download linuxdeploy
         run: |
