@@ -1,0 +1,27 @@
+#include <windows.h>
+
+IDI_ICON1 ICON "@CMAKE_CURRENT_SOURCE_DIR@/assets/logo.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040704b0"
+        BEGIN
+            VALUE "CompanyName", "sonarp"
+            VALUE "FileVersion", "@PROJECT_VERSION@"
+            VALUE "ProductVersion", "@PROJECT_VERSION@"
+            VALUE "FileDescription", "SonarPractice"
+            VALUE "InternalName", "SonarPractice"
+            VALUE "LegalCopyright", "Copyright (c) 2026 sonarp (https://github.com/sonar-project/SonarPractice)"
+            VALUE "OriginalFilename", "SonarPractice.exe"
+            VALUE "ProductName", "SonarPractice"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x407, 1200
+    END
+END

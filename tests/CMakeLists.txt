@@ -1,0 +1,7 @@
+add_subdirectory(filehandle)
+add_subdirectory(libraryManager)
+add_subdirectory(database)
+add_subdirectory(audio)
+add_subdirectory(services)
+add_subdirectory(viewmodels)
+add_subdirectory(qml)

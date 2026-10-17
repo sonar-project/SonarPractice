@@ -1,0 +1,33 @@
+# src/services/audio/CMakeLists.txt
+
+qt_add_library(AudioLib STATIC
+    AudioBufferConverter.h
+    AudioBufferConverter.cpp
+    AudioConstants.h
+    AudioPeakCache.h
+    AudioPeakCache.cpp
+    BiquadFilter.h
+    BiquadFilter.cpp
+    ParametricEq.h
+    ParametricEq.cpp
+    AudioPeakExtractor.h
+    AudioPeakExtractor.cpp
+    RubberBandPipeline.h
+    RubberBandPipeline.cpp
+    PcmPlaybackIODevice.h
+    PcmPlaybackIODevice.cpp
+    AudioPlaybackEngine.h
+    AudioPlaybackEngine.cpp
+    AudioProcessorWorker.h
+    AudioProcessorWorker.cpp
+)
+
+target_link_libraries(AudioLib
+    PUBLIC
+        Qt6::Core
+        Qt6::Concurrent
+        Qt6::Multimedia
+        SonarPractice::Rubberband
+)
+
+target_include_directories(AudioLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

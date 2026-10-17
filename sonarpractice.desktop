@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=SonarPractice
+Comment=Practice session manager for musicians
+Exec=SonarPractice
+Icon=sonarpractice
+Terminal=false
+Categories=AudioVideo;Audio;Education;
+StartupNotify=true

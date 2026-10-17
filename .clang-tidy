@@ -1,0 +1,19 @@
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  performance-*,
+  readability-identifier-naming,
+  readability-simplify-boolean-expr,
+  cppcoreguidelines-avoid-goto,
+  cppcoreguidelines-pro-type-member-init
+WarningsAsErrors: ""
+FormatStyle: file
+CheckOptions:
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: "3"
+  - key: readability-identifier-length.IgnoredVariableNames
+    value: "^(id|db|q|ok|to|op|it|ch)$"
+  - key: cppcoreguidelines-avoid-magic-numbers.IgnoredIntegerValues
+    value: "0;1;2;1024"
+

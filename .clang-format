@@ -1,0 +1,11 @@
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: Latest
+NamespaceIndentation: All
+IndentWidth: 4
+ColumnLimit: 100
+SortIncludes: true
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: All
+PointerAlignment: Right
+ReferenceAlignment: Right

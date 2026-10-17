@@ -1,0 +1,230 @@
+name: Windows Installer
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+
+env:
+  # Keep CI close to local Qt Creator builds (6.11.x / 6.12.x).
+  # Requires aqtinstall from git (PyPI 3.3.0 cannot resolve Windows 6.11+ repo layout).
+  QT_VERSION: "6.11.2"
+  QT_ARCH: win64_msvc2022_64
+  # qtwebengine (extension) needs qtwebchannel + qtpositioning; qtpdf often co-ships.
+  QT_MODULES: qtmultimedia qtshadertools qtwebengine qtwebchannel qtpositioning qtpdf
+  AQT_SOURCE: git+https://github.com/miurahr/aqtinstall.git@master
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        id: version
+        shell: bash
+        run: bash scripts/ci/set_version.sh "${GITHUB_REF_NAME}"
+
+      - name: Resolve app version
+        id: appver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "value=${{ steps.version.outputs.full_version }}" >> "$GITHUB_OUTPUT"
+          else
+            version="$(grep -m1 'project(SonarPractice VERSION' CMakeLists.txt | sed -E 's/.*VERSION ([0-9.]+).*/\1/')"
+            echo "value=${version}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: ${{ env.QT_ARCH }}
+          modules: ${{ env.QT_MODULES }}
+          tools: tools_ninja tools_cmake
+          aqtsource: ${{ env.AQT_SOURCE }}
+          # Prefer aqtsource (git master): PyPI aqt 3.3.0 cannot install Windows Qt 6.11+
+          # or resolve qtwebengine under the extensions layout.
+          setup-python: false
+          cache: true
+          # Bump when module set changes so a stale cache cannot drop WebEngine.
+          cache-key-prefix: qt-6.11.2-webengine-v2
+
+      - name: Verify Qt WebEngine
+        shell: pwsh
+        run: |
+          $root = $env:QT_ROOT_DIR
+          if (-not $root) { throw "QT_ROOT_DIR is not set after install-qt-action" }
+          Write-Host "QT_ROOT_DIR=$root"
+          $required = @(
+            "lib\cmake\Qt6WebEngineQuick\Qt6WebEngineQuickConfig.cmake",
+            "lib\cmake\Qt6WebEngineCore\Qt6WebEngineCoreConfig.cmake",
+            "lib\cmake\Qt6WebChannel\Qt6WebChannelConfig.cmake",
+            "lib\cmake\Qt6WebChannelQuick\Qt6WebChannelQuickConfig.cmake",
+            "lib\cmake\Qt6Positioning\Qt6PositioningConfig.cmake"
+          )
+          $missing = @()
+          foreach ($rel in $required) {
+            $path = Join-Path $root $rel
+            if (Test-Path $path) {
+              Write-Host "OK $rel"
+            } else {
+              Write-Host "MISSING $rel"
+              $missing += $rel
+            }
+          }
+          $dll = Get-ChildItem (Join-Path $root "bin") -Filter "Qt6WebEngineCore*.dll" -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $dll) {
+            $missing += "bin\Qt6WebEngineCore*.dll"
+            Write-Host "MISSING bin\Qt6WebEngineCore*.dll"
+          } else {
+            Write-Host "OK $($dll.Name)"
+          }
+          if ($missing.Count -gt 0) {
+            Get-ChildItem (Join-Path $root "lib\cmake") -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty Name
+            throw "Qt WebEngine install incomplete: $($missing -join ', ')"
+          }
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install OpenSSL
+        shell: pwsh
+        run: |
+          choco install openssl -y --no-progress
+          $roots = @(
+            "${env:ProgramFiles}\OpenSSL-Win64",
+            "${env:ProgramFiles}\OpenSSL",
+            "C:\Program Files\OpenSSL-Win64",
+            "C:\Program Files\OpenSSL"
+          )
+          $root = $roots | Where-Object { Test-Path (Join-Path $_ "include\openssl\ssl.h") } | Select-Object -First 1
+          if (-not $root) {
+            throw "OpenSSL headers not found after choco install. Checked: $($roots -join ', ')"
+          }
+
+          # Shining Light OpenSSL ships MSVC import libs under lib/VC/x64/MD.
+          # CMake 3.30 FindOpenSSL often misses that layout unless libs are also in lib/.
+          $mdDir = Join-Path $root "lib\VC\x64\MD"
+          $libDir = Join-Path $root "lib"
+          foreach ($name in @("libcrypto.lib", "libssl.lib")) {
+            $src = Join-Path $mdDir $name
+            $dst = Join-Path $libDir $name
+            if ((Test-Path $src) -and -not (Test-Path $dst)) {
+              Copy-Item $src $dst -Force
+              Write-Host "Copied $name -> $dst"
+            }
+          }
+
+          $crypto = @(
+            (Join-Path $libDir "libcrypto.lib"),
+            (Join-Path $mdDir "libcrypto.lib")
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $ssl = @(
+            (Join-Path $libDir "libssl.lib"),
+            (Join-Path $mdDir "libssl.lib")
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $crypto -or -not $ssl) {
+            Get-ChildItem (Join-Path $root "lib") -Recurse -Filter "*.lib" | Select-Object -ExpandProperty FullName
+            throw "OpenSSL import libraries not found under $root"
+          }
+
+          "OPENSSL_ROOT_DIR=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "OPENSSL_INCLUDE_DIR=$(Join-Path $root 'include')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "OPENSSL_CRYPTO_LIBRARY=$crypto" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "OPENSSL_SSL_LIBRARY=$ssl" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "OPENSSL_ROOT_DIR=$root"
+          Write-Host "OPENSSL_CRYPTO_LIBRARY=$crypto"
+          Write-Host "OPENSSL_SSL_LIBRARY=$ssl"
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}" \
+            -DOPENSSL_ROOT_DIR="${OPENSSL_ROOT_DIR}" \
+            -DOPENSSL_INCLUDE_DIR="${OPENSSL_INCLUDE_DIR}" \
+            -DOPENSSL_CRYPTO_LIBRARY="${OPENSSL_CRYPTO_LIBRARY}" \
+            -DOPENSSL_SSL_LIBRARY="${OPENSSL_SSL_LIBRARY}" \
+            -DSONARPRACTICE_REQUIRE_WEBENGINE=ON \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_CXX_CPPCHECK="" \
+            -DCMAKE_C_CPPCHECK=""
+
+      - name: Confirm AlphaTab WebEngine enabled
+        shell: pwsh
+        run: |
+          $line = Select-String -Path "build\CMakeCache.txt" -Pattern "^SONARPRACTICE_HAS_WEBENGINE:BOOL=(.+)$"
+          if (-not $line) { throw "SONARPRACTICE_HAS_WEBENGINE missing from CMakeCache.txt" }
+          $val = $line.Matches[0].Groups[1].Value
+          Write-Host "SONARPRACTICE_HAS_WEBENGINE=$val"
+          if ($val -ne "ON") {
+            throw "Windows installer must build with Qt WebEngine (AlphaTab player)"
+          }
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --target SonarPractice
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Create installer
+        shell: cmd
+        env:
+          BUILD_DIR: ${{ github.workspace }}\build
+          QTDIR: ${{ env.QT_ROOT_DIR }}
+          APP_VERSION: ${{ steps.appver.outputs.value }}
+        run: build_installer.bat
+
+      - name: List WebEngine files in deploy
+        shell: pwsh
+        run: |
+          $deploy = Join-Path $env:GITHUB_WORKSPACE "deploy"
+          Get-ChildItem $deploy -Recurse -Filter "*WebEngine*" |
+            Select-Object -ExpandProperty FullName |
+            ForEach-Object { $_.Substring($deploy.Length + 1) }
+          $setup = Get-ChildItem (Join-Path $env:GITHUB_WORKSPACE "Output") -Filter "SonarPractice_*_Setup.exe" -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $setup) {
+            $setup = Get-ChildItem $env:GITHUB_WORKSPACE -Filter "SonarPractice_*_Setup.exe" -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+          }
+          if ($setup) {
+            Write-Host ("Installer: {0} size={1} mtime_utc={2:u}" -f $setup.Name, $setup.Length, $setup.LastWriteTimeUtc)
+          }
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: SonarPractice-Windows-Installer
+          path: Output/SonarPractice_*_Setup.exe
+          if-no-files-found: error
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Output/SonarPractice_*_Setup.exe
+          prerelease: ${{ steps.version.outputs.is_prerelease == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,996 @@
+/*
+  This component is loaded by the dashboard and contains the exercise data.
+*/
+pragma ComponentBehavior: Bound
+
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+
+import "../js/MediaKind.js" as MediaKind
+
+GroupBox {
+    id: root
+
+    required property int songId
+    required property int songBaseBpm
+
+    signal assetOpenRequested(int mediaId)
+    signal practiceRequested(int mediaId)
+    signal audioConfigRequested(int mediaId)
+    signal mediaSelected(int mediaId)
+    /** Free-play / browse: open GP in the embedded AlphaTab player page. */
+    signal guitarProInternalOpenRequested(int mediaId)
+
+    /** Media confirmed via the active-material radio — required to start the practice timer. */
+    property int activeMediaId: 0
+    /** practice_asset_id for timer/journal — only set when practice material is confirmed via radio. */
+    property int activePracticeAssetId: 0
+    readonly property bool practiceMaterialReady: root.activePracticeAssetId > 0 && root.activeMediaId > 0
+    /**
+     * Guitar Pro file linked on the current practice asset (may differ from activeMediaId).
+     * Plain int (not a nested bind on `_pendingAsset`) so Training always sees updates.
+     */
+    property int guitarProMediaId: 0
+    property int audioMediaId: 0
+    /** Internal reentrance guard for applyMediaSelection(). */
+    property bool _applyingSelection: false
+    /** Media file to pre-select when opening from a reminder or journal restore. */
+    property int requestedActiveMediaId: 0
+    /** practice_asset_id to pre-select when opening from a reminder. */
+    property int requestedActivePracticeAssetId: 0
+
+    // Properties for PracticeHub and SongReminder
+    property string activeLabelGuitarPro: ""
+    property string activeLabelAudio: ""
+    property string activeLabelVideo: ""
+    property string activeLabelImage: ""
+    property string activeLabelDocument: ""
+    /** Song title of the file chosen in a media dropdown. Not the group name. */
+    property string selectedSongTitle: ""
+    /** Song id of that file. 0 until a row is selected. */
+    property int selectedSongId: 0
+    /** Base BPM stored on the selected song. Falls back to the hub song. */
+    property int selectedSongBaseBpm: 0
+    /** True when the selected file's song has its own base BPM in the library. */
+    property bool selectedSongHasOwnBpm: false
+
+    /**
+     * Tempo of the file currently chosen in the dropdown.
+     * Prefers the song record, then the loaded score of that same file.
+     */
+    readonly property int effectiveBaseBpm: {
+        if (root.selectedSongHasOwnBpm && root.selectedSongBaseBpm > 0)
+            return root.selectedSongBaseBpm
+        if (root.guitarProMediaId > 0
+                && guitarProPreviewController.mediaFileId === root.guitarProMediaId
+                && guitarProPreviewController.scoreBpm > 0)
+            return guitarProPreviewController.scoreBpm
+        if (root.selectedSongBaseBpm > 0)
+            return root.selectedSongBaseBpm
+        return root.songBaseBpm
+    }
+
+    /**
+     * Cache that maps MediaKind -> kindRow delegate instance.
+     * Populated by each delegate's Component.onCompleted.
+     */
+    property var _kindRowCache: ({})
+    property bool _clearingPracticeMaterial: false
+    /** Suppress radio commit/clear while restoring selection programmatically. */
+    property bool _syncingPracticeMaterialRadio: false
+    property string activeMediaDisplayName: ""
+
+    function _updateActiveMediaDisplayName() {
+        for (const kind of root.kindOrder) {
+            const files = mediaFileModel.filesForKind(kind);
+            for (let i = 0; i < files.length; ++i) {
+                if (files[i].mediaId === root.activeMediaId) {
+                    root.activeMediaDisplayName = files[i].displayName;
+                    return;
+                }
+            }
+        }
+        root.activeMediaDisplayName = "";
+    }
+
+    readonly property bool mediaSelectionLocked: practiceTracker.timerRunning
+
+    // get index from combobox for Reminder labels
+    function activeLabelForKind(kind) {
+        const kindRow = root._kindRowCache[kind];
+
+        if (!kindRow) {
+            return "";
+        }
+
+        const entry = kindRow.selectedEntry();
+        return entry ? entry.displayName : "";
+    }
+
+    function releaseKeyboardFocus() {
+        for (const kind in root._kindRowCache) {
+            const kindRow = root._kindRowCache[kind];
+            if (!kindRow) {
+                continue;
+            }
+            if (kindRow.kindCombo) {
+                kindRow.kindCombo.popup.close();
+                kindRow.kindCombo.focus = false;
+            }
+            if (kindRow.audioPresetCombo) {
+                kindRow.audioPresetCombo.popup.close();
+                kindRow.audioPresetCombo.focus = false;
+            }
+        }
+    }
+
+    /** Index of mediaId in the file list for a given kind. Returns 0 if not found. */
+    function indexForMediaId(kind, mediaId) {
+        const files = mediaFileModel.filesForKind(kind);
+        for (let i = 0; i < files.length; ++i) {
+            if (files[i].mediaId === mediaId)
+                return i;
+        }
+        return 0;
+    }
+
+    // Legacy helper kept for any GuitarPro-only call-sites.
+    function gpIndexForMediaId(mediaId) {
+        return root.indexForMediaId(MediaKind.GuitarPro, mediaId);
+    }
+
+    property var _pendingAsset: ({
+            guitarProId: 0,
+            audioId: 0,
+            videoId: 0,
+            imageId: 0,
+            documentId: 0
+        })
+
+    function _syncGuitarProMediaIdFromPending() {
+        root.guitarProMediaId = root._pendingAsset.guitarProId ?? 0;
+        root.audioMediaId = root._pendingAsset.audioId ?? 0;
+    }
+
+    function _setPendingKindSlot(kind, mediaId) {
+        const prev = root._pendingAsset;
+        root._pendingAsset = {
+            guitarProId: kind === MediaKind.GuitarPro ? mediaId : (prev.guitarProId ?? 0),
+            audioId: kind === MediaKind.Audio ? mediaId : (prev.audioId ?? 0),
+            videoId: kind === MediaKind.Video ? mediaId : (prev.videoId ?? 0),
+            imageId: kind === MediaKind.Image ? mediaId : (prev.imageId ?? 0),
+            documentId: kind === MediaKind.Document ? mediaId : (prev.documentId ?? 0)
+        };
+        root._syncGuitarProMediaIdFromPending();
+    }
+
+    function _commitPracticeMaterial(confirmedMediaId) {
+        // Keep the active row's selection in the matching pending slot.
+        for (const kind of root.kindOrder) {
+            const kindRow = root._kindRowCache[kind];
+            if (!kindRow || !kindRow.isPracticeMaterialActive())
+                continue;
+            const entry = kindRow.selectedEntry();
+            if (entry && entry.mediaId === confirmedMediaId) {
+                root._setPendingKindSlot(kind, entry.mediaId);
+                break;
+            }
+        }
+
+        const a = root._pendingAsset;
+        const hasAny = a.guitarProId > 0 || a.audioId > 0 || a.videoId > 0 || a.imageId > 0 || a.documentId > 0;
+        if (!hasAny || confirmedMediaId <= 0) {
+            root._clearPracticeMaterial();
+            return;
+        }
+        root.activeMediaId = confirmedMediaId;
+        root.activePracticeAssetId = practiceAssetController.upsertCompositeAsset(
+            root.songId, a.guitarProId, a.audioId, a.videoId, a.imageId, a.documentId);
+        root._syncGuitarProMediaIdFromPending();
+        root._updateActiveMediaDisplayName();
+    }
+
+    function _clearPracticeMaterial() {
+        if (root._clearingPracticeMaterial)
+            return;
+        root._clearingPracticeMaterial = true;
+        root.activeMediaId = 0;
+        root.activePracticeAssetId = 0;
+        root.activeMediaDisplayName = "";
+        for (const kind of root.kindOrder) {
+            const kindRow = root._kindRowCache[kind];
+            if (kindRow)
+                kindRow.clearPracticeMaterialRadio();
+        }
+        root._clearingPracticeMaterial = false;
+    }
+
+    function _activateRadioForMediaId(mediaId) {
+        if (mediaId <= 0)
+            return;
+        for (const kind of root.kindOrder) {
+            const kindRow = root._kindRowCache[kind];
+            if (!kindRow)
+                continue;
+            const entry = kindRow.selectedEntry();
+            if (entry && entry.mediaId === mediaId) {
+                root._syncingPracticeMaterialRadio = true;
+                kindRow.setPracticeMaterialActive(true);
+                root._syncingPracticeMaterialRadio = false;
+                return;
+            }
+        }
+    }
+
+    function applyMediaSelection(entry, kind) {
+        if (root._applyingSelection)
+            return;
+        const newMediaId = entry ? entry.mediaId : 0;
+
+        root._applyingSelection = true;
+        root._setPendingKindSlot(kind, newMediaId);
+        root._applyingSelection = false;
+        root._updateKindLabels();
+
+        const kindRow = root._kindRowCache[kind];
+        if (kindRow && kindRow.isPracticeMaterialActive()) {
+            if (entry)
+                root._commitPracticeMaterial(entry.mediaId);
+            else {
+                kindRow.clearPracticeMaterialRadio();
+                root._clearPracticeMaterial();
+            }
+        }
+    }
+
+    // Called by the ReminderPanel shortly before saving (independent of radio/timer state).
+    function commitPendingAsset() {
+        const a = root._pendingAsset;
+        const hasAny = a.guitarProId > 0 || a.audioId > 0 || a.videoId > 0 || a.imageId > 0 || a.documentId > 0;
+        if (!hasAny)
+            return root.activePracticeAssetId > 0 ? root.activePracticeAssetId : 0;
+        return practiceAssetController.upsertCompositeAsset(
+            root.songId, a.guitarProId, a.audioId, a.videoId, a.imageId, a.documentId);
+    }
+
+    function _songTitleFromEntry(entry) {
+        if (!entry)
+            return "";
+        const titled = (entry.songTitle || "").trim();
+        if (titled.length > 0)
+            return titled;
+        const name = (entry.displayName || "").trim();
+        const dot = name.lastIndexOf(".");
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    function _selectedSongEntry() {
+        const guitarRow = root._kindRowCache[MediaKind.GuitarPro];
+        if (guitarRow) {
+            const guitarEntry = guitarRow.selectedEntry();
+            if (guitarEntry)
+                return guitarEntry;
+        }
+
+        if (root.activeMediaId > 0) {
+            for (const kind of root.kindOrder) {
+                const kindRow = root._kindRowCache[kind];
+                if (!kindRow)
+                    continue;
+                const entry = kindRow.selectedEntry();
+                if (entry && entry.mediaId === root.activeMediaId)
+                    return entry;
+            }
+        }
+
+        for (const kind of root.kindOrder) {
+            const kindRow = root._kindRowCache[kind];
+            if (!kindRow)
+                continue;
+            const entry = kindRow.selectedEntry();
+            if (entry)
+                return entry;
+        }
+        return null;
+    }
+
+    function _updateSelectedSongTitle() {
+        const entry = root._selectedSongEntry();
+        if (!entry) {
+            root.selectedSongTitle = "";
+            root.selectedSongHasOwnBpm = false;
+            root.selectedSongBaseBpm = root.songBaseBpm;
+            root.selectedSongId = 0;
+            return;
+        }
+
+        root.selectedSongTitle = root._songTitleFromEntry(entry);
+        const bpm = Number(entry.baseBpm);
+        const own = Number.isFinite(bpm) && bpm > 0;
+        // Tempo before song id, so listeners see this song's BPM.
+        root.selectedSongHasOwnBpm = own;
+        root.selectedSongBaseBpm = own ? bpm : root.songBaseBpm;
+        root.selectedSongId = Number(entry.songId) || 0;
+    }
+
+    // update reminder labels
+    function _updateKindLabels() {
+        root.activeLabelGuitarPro = activeLabelForKind(MediaKind.GuitarPro);
+        root.activeLabelAudio = activeLabelForKind(MediaKind.Audio);
+        root.activeLabelVideo = activeLabelForKind(MediaKind.Video);
+        root.activeLabelImage = activeLabelForKind(MediaKind.Image);
+        root.activeLabelDocument = activeLabelForKind(MediaKind.Document);
+        root._updateSelectedSongTitle();
+    }
+
+    // Legacy helper kept for call-sites that only deal with GuitarPro.
+    function applyGuitarProSelection(entry) {
+        root.applyMediaSelection(entry, MediaKind.GuitarPro);
+    }
+
+    /**
+     * Sets the combo for a given kind to the correct index for `file`
+     * using the cached kindRow delegate instance.
+     *
+     * NOTE: filesForKind() returns a freshly-allocated QVariantList on every
+     * call (see MediaFileListModel.h), so `file` here is never the same JS
+     * object instance as the entries in kindRow.filteredFiles even when it
+     * represents the same underlying media row. Comparing by reference
+     * (Array.indexOf) would therefore always fail; compare by mediaId.
+     */
+    function _setComboForFile(kind, file) {
+        const kindRow = root._kindRowCache[kind];
+        if (!kindRow || !file)
+            return;
+        kindRow.selectMedia(file.mediaId);
+    }
+
+    property int _restoreGeneration: 0
+
+    /** Forces every kindRow's cached file list to re-read from mediaFileModel. */
+    function _refreshAllKindRowCaches() {
+        for (const kind of root.kindOrder) {
+            const kindRow = root._kindRowCache[kind];
+            if (kindRow)
+                kindRow._refreshKindFiles();
+        }
+        root._updateActiveMediaDisplayName();
+    }
+
+    function _resetKindCombos() {
+        for (const kind of root.kindOrder) {
+            const kindRow = root._kindRowCache[kind];
+            if (!kindRow)
+                continue;
+            kindRow.selectMedia(0);
+            root._setPendingKindSlot(kind, 0);
+        }
+        root._updateSelectedSongTitle();
+    }
+
+    function restoreLastSelection() {
+        const gen = ++root._restoreGeneration;
+        Qt.callLater(function () {
+            if (gen !== root._restoreGeneration)
+                return;
+
+            root._resetKindCombos();
+            root._refreshAllKindRowCaches();
+
+            // Reminder/calendar asset, then dashboard file, then last practiced asset.
+            if (root.requestedActivePracticeAssetId > 0) {
+                const requestedAsset = practiceAssetController.assetById(
+                    root.requestedActivePracticeAssetId);
+                if (requestedAsset && Object.keys(requestedAsset).length > 0) {
+                    root._applyAssetSelection(requestedAsset, root.requestedActivePracticeAssetId);
+                    return;
+                }
+            }
+
+            if (root.requestedActiveMediaId > 0) {
+                if (root._applyMediaFileSelection(root.requestedActiveMediaId))
+                    return;
+                if (root._firstAvailableMediaId() <= 0)
+                    return;
+            }
+
+            const journalAssetId = practiceAssetController.lastPracticeAssetIdForSong(root.songId);
+            if (journalAssetId > 0) {
+                const asset = practiceAssetController.assetById(journalAssetId);
+                if (asset && Object.keys(asset).length > 0) {
+                    root._applyAssetSelection(asset, journalAssetId);
+                    return;
+                }
+            }
+
+            // No asset yet: preselect a media file (last practiced primary, else first available).
+            let mediaId = practiceAssetController.lastMediaFileIdForSong(root.songId);
+            if (mediaId <= 0)
+                mediaId = root._firstAvailableMediaId();
+            if (mediaId > 0) {
+                if (root._applyMediaFileSelection(mediaId))
+                    return;
+            }
+
+            root._clearPracticeMaterial();
+            root._updateKindLabels();
+        });
+    }
+
+    function _applyAssetSelection(asset, assetId) {
+        root._pendingAsset = {
+            guitarProId: asset.guitarProId ?? 0,
+            audioId: asset.audioId ?? 0,
+            videoId: asset.videoId ?? 0,
+            imageId: asset.imageId ?? 0,
+            documentId: asset.documentId ?? 0
+        };
+        root._syncGuitarProMediaIdFromPending();
+        _restoreComboForMediaId(MediaKind.GuitarPro, asset.guitarProId ?? 0);
+        _restoreComboForMediaId(MediaKind.Audio, asset.audioId ?? 0);
+        _restoreComboForMediaId(MediaKind.Video, asset.videoId ?? 0);
+        _restoreComboForMediaId(MediaKind.Image, asset.imageId ?? 0);
+        _restoreComboForMediaId(MediaKind.Document, asset.documentId ?? 0);
+        const primaryMediaId = practiceAssetController.mediaFileIdForAsset(assetId);
+        // Set active IDs directly — RadioButton.onToggled only fires on user interaction,
+        // so a programmatic checked=true would leave practiceMaterialReady false.
+        if (primaryMediaId > 0 && assetId > 0) {
+            root.activeMediaId = primaryMediaId;
+            root.activePracticeAssetId = assetId;
+            root._updateActiveMediaDisplayName();
+            Qt.callLater(function () {
+                root._activateRadioForMediaId(primaryMediaId);
+            });
+        }
+        root._updateKindLabels();
+    }
+
+    /** Preselect a single media file in its kind combo and mark it active. */
+    function _applyMediaFileSelection(mediaId) {
+        if (mediaId <= 0)
+            return false;
+        for (const kind of root.kindOrder) {
+            const kindRow = root._kindRowCache[kind];
+            if (!kindRow)
+                continue;
+            const idx = kindRow.filteredFiles.findIndex(f => f.mediaId === mediaId);
+            if (idx < 0)
+                continue;
+            kindRow.selectMedia(mediaId);
+            root._setPendingKindSlot(kind, mediaId);
+            Qt.callLater(function () {
+                root._activateRadioForMediaId(mediaId);
+                root._commitPracticeMaterial(mediaId);
+            });
+            root._updateKindLabels();
+            return true;
+        }
+        return false;
+    }
+
+    function _firstAvailableMediaId() {
+        for (const kind of root.kindOrder) {
+            const files = mediaFileModel.filesForKind(kind);
+            if (files && files.length > 0)
+                return files[0].mediaId;
+        }
+        return 0;
+    }
+
+    function _restoreComboForMediaId(kind, mediaId) {
+        if (mediaId <= 0)
+            return;
+        const kindRow = root._kindRowCache[kind];
+        if (!kindRow)
+            return;
+        kindRow.selectMedia(mediaId);
+    }
+
+    onActiveMediaIdChanged: {
+        if (root.activeMediaId <= 0) {
+            root.activeMediaDisplayName = "";
+        }
+    }
+
+    onRequestedActiveMediaIdChanged: {
+        if (root.requestedActiveMediaId > 0)
+            root.restoreLastSelection();
+    }
+    onRequestedActivePracticeAssetIdChanged: {
+        if (root.requestedActivePracticeAssetId > 0)
+            root.restoreLastSelection();
+    }
+
+    onSongIdChanged: {
+        root.selectedSongId = 0;
+        root.selectedSongHasOwnBpm = false;
+        root.selectedSongBaseBpm = root.songBaseBpm;
+        root.restoreLastSelection();
+    }
+
+    readonly property var kindOrder: [MediaKind.GuitarPro, MediaKind.Video, MediaKind.Audio, MediaKind.Document, MediaKind.Image]
+
+    background: Rectangle {
+        radius: 10
+        color: Theme.panelBackground
+        border.color: Theme.border
+    }
+
+    label: Label {
+        text: root.title
+        font.pixelSize: 14
+        font.weight: Font.DemiBold
+        color: Theme.textPrimary
+        padding: 1
+    }
+
+    ColumnLayout {
+        width: parent.width
+        spacing: 12
+
+        Label {
+            text: root.effectiveBaseBpm > 0
+                  ? qsTr("Base tempo: %1 BPM").arg(root.effectiveBaseBpm)
+                  : qsTr("No tempo set")
+            font.pixelSize: 13
+            color: Theme.textTertiary
+        }
+
+        Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: mediaFileModel.count > 0 ? qsTr("%1 media — select a file and open it with the button.").arg(mediaFileModel.count) : qsTr("No media found for this exercise.")
+            font.pixelSize: 12
+            color: Theme.textSecondary
+        }
+
+        Label {
+            text: qsTr("Select a file and mark it as active material.")
+            color: Theme.textSecondary
+        }
+
+        TextField {
+            id: searchField
+            Layout.fillWidth: true
+            placeholderText: qsTr("Search media...")
+            background: Rectangle {
+                radius: 4
+                border.color: Theme.border
+                color: Theme.inputBackground
+            }
+        }
+
+        Column {
+            Layout.fillWidth: true
+            spacing: 8
+
+            ButtonGroup {
+                id: practiceMaterialGroup
+            }
+
+            Repeater {
+                model: root.kindOrder
+
+                delegate: Item {
+                    id: kindRow
+                    required property string modelData
+
+                    /**
+                     * NOT readonly: filesForKind() is a plain Q_INVOKABLE, so a
+                     * `readonly property var: mediaFileModel.filesForKind(modelData)`
+                     * binding would never re-evaluate automatically (QML only tracks
+                     * NOTIFY-backed property reads, not invokable calls). We therefore
+                     * populate it once below and explicitly refresh it via _refreshKindFiles()
+                     * whenever mediaFileModel reports a relevant change.
+                     */
+                    property var kindFiles: mediaFileModel.filesForKind(modelData)
+
+                    function _refreshKindFiles() {
+                        const previous = kindRow.selectedEntry();
+                        const previousId = kindRow.selectedMediaId > 0
+                                ? kindRow.selectedMediaId
+                                : (previous ? previous.mediaId : 0);
+                        kindRow.kindFiles = mediaFileModel.filesForKind(kindRow.modelData);
+                        kindRow.selectMedia(previousId);
+                        if (previousId > 0 && kindRow.selectedMediaId <= 0)
+                            root.applyMediaSelection(null, kindRow.modelData);
+                    }
+
+                    property int _comboSelectionRetries: 0
+
+                    function applyComboSelection() {
+                        const entry = kindRow.selectedEntry();
+                        if (!entry) {
+                            if (kindRow.selectedMediaId > 0 && kindRow._comboSelectionRetries < 5) {
+                                kindRow._comboSelectionRetries++;
+                                Qt.callLater(kindRow.applyComboSelection);
+                                return;
+                            }
+                            kindRow._comboSelectionRetries = 0;
+                            root.applyMediaSelection(null, kindRow.modelData);
+                            return;
+                        }
+                        kindRow._comboSelectionRetries = 0;
+                        root.applyMediaSelection(entry, kindRow.modelData);
+                        kindRow.markSelectionChanged();
+                        if (kindRow.isAudio)
+                            kindRow.syncAudioPresetContext();
+                    }
+
+                    Connections {
+                        target: mediaFileModel
+                        function onFilesForKindChanged(kind) {
+                            if (kind === kindRow.modelData)
+                                kindRow._refreshKindFiles();
+                        }
+                        function onSongIdChanged() {
+                            kindRow._refreshKindFiles();
+                        }
+                    }
+
+                    /**
+                     * filteredFiles lives here on kindRow (not on kindCombo) so that
+                     * restoreLastSelection() can reach it via _kindRowCache.
+                     */
+                    readonly property var filteredFiles: kindFiles.filter(f => f.displayName.toLowerCase().includes(searchField.text.toLowerCase()))
+
+                    readonly property bool isGuitarPro: modelData === MediaKind.GuitarPro
+                    readonly property bool isAudio: modelData === MediaKind.Audio
+                    readonly property bool isInternalAudio: modelData === MediaKind.Audio || modelData === MediaKind.Video
+                    readonly property bool isInternalVideo: modelData === MediaKind.Video
+
+                    // Expose kindCombo so root._setComboForFile() can set currentIndex.
+                    property alias kindCombo: kindCombo
+                    property alias audioPresetCombo: audioPresetCombo
+                    /** Media id of the row the user activated. Survives model rebuilds that reset currentIndex to 0. */
+                    property int selectedMediaId: 0
+
+                    function selectMedia(mediaId) {
+                        const id = mediaId > 0 ? mediaId : 0;
+                        if (id <= 0) {
+                            kindRow.selectedMediaId = 0;
+                            if (kindCombo.currentIndex !== 0)
+                                kindCombo.currentIndex = 0;
+                            return;
+                        }
+                        const idx = kindRow.filteredFiles.findIndex(f => f.mediaId === id);
+                        kindRow.selectedMediaId = idx >= 0 ? id : 0;
+                        const nextIndex = idx >= 0 ? idx + 1 : 0;
+                        if (kindCombo.currentIndex !== nextIndex)
+                            kindCombo.currentIndex = nextIndex;
+                    }
+
+                    function isPracticeMaterialActive() {
+                        return timerRadioButton.checked;
+                    }
+
+                    function setPracticeMaterialActive(active) {
+                        timerRadioButton.checked = active;
+                    }
+
+                    function clearPracticeMaterialRadio() {
+                        timerRadioButton.checked = false;
+                    }
+
+                    function selectedEntry() {
+                        if (kindRow.selectedMediaId > 0) {
+                            const match = kindRow.filteredFiles.find(f => f.mediaId === kindRow.selectedMediaId);
+                            if (match)
+                                return match;
+                        }
+                        if (kindCombo.currentIndex <= 0)
+                            return null; // "--" placeholder
+                        const idx = kindCombo.currentIndex - 1;
+                        if (idx >= filteredFiles.length)
+                            return null;
+                        return filteredFiles[idx];
+                    }
+
+                    width: parent.width
+                    height: kindRowColumn.implicitHeight
+                    visible: kindFiles.length > 0
+
+                    // Register / unregister this delegate in the root cache.
+                    Component.onCompleted: root._kindRowCache[modelData] = kindRow
+                    Component.onDestruction: delete root._kindRowCache[modelData]
+
+                    function openSelectedEntry() {
+                        const entry = selectedEntry();
+                        if (!entry)
+                            return;
+                        if (entry.canBePracticed)
+                            root.practiceRequested(entry.mediaId);
+                        else
+                            root.assetOpenRequested(entry.mediaId);
+                    }
+
+                    function playAudioEntry(entry) {
+                        if (!entry)
+                            return;
+                        audioConfigController.playMediaFile(entry.mediaId);
+                    }
+
+                    function isAudioEntryPlaying(entry) {
+                        return entry && audioConfigController.mediaFileId === entry.mediaId && audioConfigController.playing;
+                    }
+
+                    function syncAudioPresetContext() {
+                        if (!kindRow.isAudio)
+                            return;
+                        const entry = kindRow.selectedEntry();
+                        if (entry)
+                            audioConfigController.preparePresetsForMedia(entry.mediaId);
+                    }
+
+                    function loadAudioPreset() {
+                        const entry = kindRow.selectedEntry();
+                        if (!entry)
+                            return;
+                        audioConfigController.loadPresetForMedia(entry.mediaId, audioPresetCombo.currentIndex);
+                    }
+
+                    function markSelectionChanged() {
+                        selectionGuard.restart();
+                    }
+
+                    Timer {
+                        id: selectionGuard
+                        interval: 200
+                    }
+
+                    ColumnLayout {
+                        id: kindRowColumn
+                        width: parent.width
+                        spacing: 6
+
+                        RowLayout {
+                            id: kindRowLayout
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            MediaKindIcon {
+                                kind: kindRow.modelData
+                                size: 18
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            ComboBox {
+                                id: kindCombo
+                                Layout.minimumWidth: 700
+                                enabled: !root.mediaSelectionLocked && kindRow.kindFiles.length > 0
+
+                                // Model is built from kindRow.filteredFiles (defined above).
+                                model: ["--"].concat(kindRow.filteredFiles.map(f => f.displayName))
+
+                                // onActivated is the index the user clicked. currentIndex often
+                                // stays on the first row when the JS model is rebuilt.
+                                onActivated: index => {
+                                    if (index <= 0) {
+                                        kindRow.selectedMediaId = 0;
+                                    } else {
+                                        const entry = kindRow.filteredFiles[index - 1];
+                                        kindRow.selectedMediaId = entry ? entry.mediaId : 0;
+                                    }
+                                    kindRow.applyComboSelection();
+                                }
+
+                                popup.onClosed: kindRow.markSelectionChanged()
+
+                                Keys.onReturnPressed: event => event.accepted = true
+                                Keys.onEnterPressed: event => event.accepted = true
+                            }
+
+                            RadioButton {
+                                id: timerRadioButton
+                                text: qsTr("active material")
+                                enabled: !root.mediaSelectionLocked && kindRow.selectedEntry() !== null
+                                ButtonGroup.group: practiceMaterialGroup
+                                // Use checkedChanged (not toggled): toggled only fires on user
+                                // interaction, so restoreLastSelection's programmatic checked=true
+                                // would never commit and leave the Start-timer button disabled.
+                                onCheckedChanged: {
+                                    if (root._syncingPracticeMaterialRadio
+                                            || root._clearingPracticeMaterial)
+                                        return;
+                                    if (checked) {
+                                        const entry = kindRow.selectedEntry();
+                                        if (entry)
+                                            root._commitPracticeMaterial(entry.mediaId);
+                                    } else {
+                                        const entry = kindRow.selectedEntry();
+                                        if (entry && entry.mediaId === root.activeMediaId)
+                                            root._clearPracticeMaterial();
+                                    }
+                                }
+                            }
+
+                            Button {
+                                text: qsTr("Open")
+                                enabled: !root.mediaSelectionLocked && kindRow.selectedEntry() !== null
+                                focusPolicy: Qt.TabFocus
+                                // Internal AlphaTab for GP when available; docs/images via OS; audio/video hidden.
+                                visible: {
+                                    if (kindRow.modelData === MediaKind.Audio
+                                            || kindRow.modelData === MediaKind.Video)
+                                        return false
+                                    if (kindRow.isGuitarPro)
+                                        return guitarProPreviewController.playerAvailable
+                                    return true
+                                }
+
+                                Keys.onReturnPressed: event => event.accepted = true
+                                Keys.onEnterPressed: event => event.accepted = true
+
+                                onClicked: {
+                                    if (selectionGuard.running) {
+                                        return;
+                                    }
+                                    const entry = kindRow.selectedEntry();
+                                    if (!entry)
+                                        return;
+                                    if (kindRow.isGuitarPro) {
+                                        root.guitarProInternalOpenRequested(entry.mediaId);
+                                        return;
+                                    }
+                                    kindRow.openSelectedEntry();
+                                }
+                            }
+
+                            Button {
+                                text: qsTr("Open externally")
+                                enabled: !root.mediaSelectionLocked && kindRow.selectedEntry() !== null
+                                        && !(kindRow.isInternalAudio
+                                             && kindRow.isAudioEntryPlaying(kindRow.selectedEntry()))
+                                focusPolicy: Qt.TabFocus
+                                visible: kindRow.isGuitarPro || kindRow.isInternalAudio
+
+                                onClicked: {
+                                    if (selectionGuard.running) {
+                                        return;
+                                    }
+                                    const entry = kindRow.selectedEntry();
+                                    if (!entry)
+                                        return;
+                                    root.assetOpenRequested(entry.mediaId);
+                                }
+                            }
+
+                            Button {
+                                text: kindRow.isAudioEntryPlaying(kindRow.selectedEntry()) ? qsTr("Pause") : qsTr("Play")
+                                enabled: kindRow.selectedEntry() !== null && !kindRow.isInternalVideo
+                                        && !audioConfigController.loading
+                                visible: kindRow.isInternalAudio && !kindRow.isInternalVideo
+                                focusPolicy: Qt.TabFocus
+
+                                onClicked: {
+                                    if (selectionGuard.running) {
+                                        return;
+                                    }
+                                    kindRow.playAudioEntry(kindRow.selectedEntry());
+                                }
+                            }
+
+                            Button {
+                                text: qsTr("Configure")
+                                enabled: kindRow.selectedEntry() !== null && !kindRow.isInternalVideo
+                                visible: kindRow.isInternalAudio && !kindRow.isInternalVideo
+                                focusPolicy: Qt.TabFocus
+
+                                onClicked: {
+                                    if (selectionGuard.running) {
+                                        return;
+                                    }
+                                    const entry = kindRow.selectedEntry();
+                                    if (entry) {
+                                        root.audioConfigRequested(entry.mediaId);
+                                    }
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            visible: kindRow.isInternalAudio
+
+                            AudioPresetIcon {
+                                size: 18
+                                Layout.alignment: Qt.AlignVCenter
+                                visible: kindRow.isAudio && !kindRow.isInternalVideo
+                            }
+
+                            ComboBox {
+                                id: audioPresetCombo
+                                Layout.preferredWidth: kindCombo.width
+                                Layout.fillWidth: false
+                                enabled: count > 0 && kindRow.selectedEntry() !== null
+                                model: audioConfigController.presetNames
+                                currentIndex: audioConfigController.selectedPresetIndex
+                                visible: kindRow.isAudio && !kindRow.isInternalVideo
+
+                                onActivated: audioConfigController.selectedPresetIndex = currentIndex
+
+                                Connections {
+                                    target: audioConfigController
+                                    function onSelectedPresetIndexChanged() {
+                                        if (audioPresetCombo.currentIndex !== audioConfigController.selectedPresetIndex)
+                                            audioPresetCombo.currentIndex = audioConfigController.selectedPresetIndex;
+                                    }
+                                    function onPresetNamesChanged() {
+                                        if (audioPresetCombo.count === 0) {
+                                            audioPresetCombo.currentIndex = -1;
+                                            return;
+                                        }
+                                        const index = audioConfigController.selectedPresetIndex;
+                                        audioPresetCombo.currentIndex = (index >= 0 && index < audioPresetCombo.count) ? index : 0;
+                                    }
+                                    function onMediaFileIdChanged() {
+                                        if (!kindRow.isAudio)
+                                            return;
+                                        const entry = kindRow.selectedEntry();
+                                        if (entry && entry.mediaId === audioConfigController.mediaFileId)
+                                            kindRow.syncAudioPresetContext();
+                                    }
+                                }
+                            }
+
+                            Button {
+                                text: qsTr("Load preset")
+                                enabled: audioPresetCombo.count > 0 && kindRow.selectedEntry() !== null && !audioConfigController.loading
+                                focusPolicy: Qt.TabFocus
+                                visible: kindRow.isAudio && !kindRow.isInternalVideo
+
+                                onClicked: {
+                                    if (selectionGuard.running)
+                                        return;
+                                    kindRow.loadAudioPreset();
+                                }
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            visible: kindRow.isInternalAudio && audioConfigController.loading
+                            text: audioConfigController.processingStage.length > 0
+                                  ? audioConfigController.processingStage
+                                  : qsTr("Processing audio…")
+                            font.pixelSize: 12
+                            color: Theme.textHint
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Connections {
+        target: linkGroupService
+        function onGroupsChanged() {
+            mediaFileModel.reload();
+        }
+    }
+
+    Connections {
+        target: mediaFileModel
+        function onSongIdChanged() {
+            root._resetKindCombos();
+            root.restoreLastSelection();
+        }
+        function onFilesForKindChanged(kind) {
+            const kindRow = root._kindRowCache[kind];
+            if (kindRow)
+                kindRow._refreshKindFiles();
+            root.restoreLastSelection();
+        }
+        function onMediaCountChanged() {
+            root._refreshAllKindRowCaches();
+            root.restoreLastSelection();
+        }
+    }
+
+    Component.onCompleted: root.restoreLastSelection()
+}
