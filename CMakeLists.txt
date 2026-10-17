@@ -13,7 +13,8 @@ else()
     set(VERSION_STRING "0.0.0")
 endif()
 
-string(REGEX REPLACE "^([0-9]+\\.[0-9]+\\.[0-9]+).*$" "\\1" PROJECT_BASE_VERSION "${VERSION_STRING}")
+string(REGEX REPLACE "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\1.\\2.\\3" PROJECT_BASE_VERSION "${VERSION_STRING}")
+
 project(SonarPractice VERSION ${PROJECT_BASE_VERSION} LANGUAGES CXX)
 message(STATUS "Building SonarPractice Version: ${VERSION_STRING}")
 
