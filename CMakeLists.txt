@@ -1,7 +1,21 @@
 cmake_minimum_required(VERSION 3.20)
 
-# 0.0.0 = local/dev build. CI patches this from the git tag (without "v") before release builds.
-project(SonarPractice VERSION 0.0.0 LANGUAGES CXX)
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_TAG_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    string(REGEX REPLACE "^v" "" VERSION_STRING "${GIT_TAG_VERSION}")
+else()
+    set(VERSION_STRING "0.0.0")
+endif()
+
+string(REGEX REPLACE "^([0-9]+\\.[0-9]+\\.[0-9]+).*$" "\\1" PROJECT_BASE_VERSION "${VERSION_STRING}")
+project(SonarPractice VERSION ${PROJECT_BASE_VERSION} LANGUAGES CXX)
+message(STATUS "Building SonarPractice Version: ${VERSION_STRING}")
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
