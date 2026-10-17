@@ -14,10 +14,7 @@ else()
 endif()
 
 string(REGEX REPLACE "^v" "" PROJECT_FULL_VERSION "${VERSION_STRING}")
-
-if("${PROJECT_BASE_VERSION}" STREQUAL "${VERSION_STRING}")
-    string(REGEX REPLACE "^v?([0-9]+\\.[0-9]+\\.[0-9]+).*$" "\\1" PROJECT_BASE_VERSION "${VERSION_STRING}")
-endif()
+string(REGEX REPLACE "^v?([0-9]+\\.[0-9]+\\.[0-9]+).*$" "\\1" PROJECT_BASE_VERSION "${VERSION_STRING}")
 
 project(SonarPractice VERSION ${PROJECT_BASE_VERSION} LANGUAGES CXX)
 
