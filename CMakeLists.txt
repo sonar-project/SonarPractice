@@ -18,8 +18,6 @@ string(REGEX REPLACE "^v?([0-9]+\\.[0-9]+\\.[0-9]+).*$" "\\1" PROJECT_BASE_VERSI
 
 project(SonarPractice VERSION ${PROJECT_BASE_VERSION} LANGUAGES CXX)
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE VERSION_STRING="${PROJECT_FULL_VERSION}")
-
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -69,6 +67,8 @@ qt_add_executable(SonarPractice
     src/app/TranslationManager.cpp src/app/TranslationManager.h
     src/app/RepositoryFactory.h
 )
+
+target_compile_definitions(SonarPractice PRIVATE VERSION_STRING="${PROJECT_FULL_VERSION}")
 
 qt_add_translations(SonarPractice TS_FILES ${SONARPRACTICE_TS_FILES})
 
