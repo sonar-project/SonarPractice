@@ -13,10 +13,12 @@ else()
     set(VERSION_STRING "0.0.0")
 endif()
 
+string(REGEX REPLACE "^v" "" PROJECT_FULL_VERSION "${VERSION_STRING}")
 string(REGEX REPLACE "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\1.\\2.\\3" PROJECT_BASE_VERSION "${VERSION_STRING}")
 
 project(SonarPractice VERSION ${PROJECT_BASE_VERSION} LANGUAGES CXX)
-message(STATUS "Building SonarPractice Version: ${VERSION_STRING}")
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE VERSION_STRING="${PROJECT_FULL_VERSION}")
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
